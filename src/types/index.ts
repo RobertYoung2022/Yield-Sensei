@@ -73,6 +73,7 @@ export interface ProtocolConfig {
   maxMessageSize: number;
   heartbeatInterval: number;
   timeout: number;
+  encryptionKey?: string;
 }
 
 // State Management Types

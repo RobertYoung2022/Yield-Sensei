@@ -268,19 +268,56 @@ export class MessageSerializer {
   }
 
   /**
-   * Encrypt data (placeholder - implement with crypto)
+   * Encrypt data using AES-256-GCM
    */
   private encrypt(data: Buffer): Buffer {
-    // TODO: Implement encryption
-    return data;
+    const crypto = require('crypto');
+    const { config } = require('@/config/environment');
+    
+    if (!config.encryptionKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required for message encryption');
+    }
+    
+    const algorithm = 'aes-256-gcm';
+    const key = Buffer.from(config.encryptionKey, 'hex');
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipher(algorithm, key);
+    
+    let encrypted = cipher.update(data, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    const authTag = cipher.getAuthTag();
+    
+    // Return IV + AuthTag + EncryptedData
+    return Buffer.concat([iv, authTag, Buffer.from(encrypted, 'hex')]);
   }
 
   /**
-   * Decrypt data (placeholder - implement with crypto)
+   * Decrypt data using AES-256-GCM
    */
   private decrypt(data: Buffer): Buffer {
-    // TODO: Implement decryption
-    return data;
+    const crypto = require('crypto');
+    const { config } = require('@/config/environment');
+    
+    if (!config.encryptionKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required for message decryption');
+    }
+    
+    const algorithm = 'aes-256-gcm';
+    const key = Buffer.from(config.encryptionKey, 'hex');
+    
+    // Extract IV, AuthTag, and EncryptedData
+    const iv = data.slice(0, 16);
+    const authTag = data.slice(16, 32);
+    const encryptedData = data.slice(32);
+    
+    const decipher = crypto.createDecipher(algorithm, key);
+    decipher.setAuthTag(authTag);
+    
+    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return Buffer.from(decrypted, 'utf8');
   }
 }
 

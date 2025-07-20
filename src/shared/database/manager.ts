@@ -119,7 +119,9 @@ export class DatabaseManager extends EventEmitter {
         port: parseInt(process.env['POSTGRES_PORT'] || '5432'),
         database: process.env['POSTGRES_DB'] || 'yieldsensei',
         username: process.env['POSTGRES_USER'] || 'yieldsensei_app',
-        password: process.env['POSTGRES_PASSWORD'] || 'changeme_in_production',
+        password: process.env['POSTGRES_PASSWORD'] || (() => {
+          throw new Error('POSTGRES_PASSWORD environment variable is required for security');
+        })(),
         ssl: process.env['POSTGRES_SSL'] === 'true',
         max: parseInt(process.env['POSTGRES_MAX_CONNECTIONS'] || '20'),
       },
@@ -130,11 +132,13 @@ export class DatabaseManager extends EventEmitter {
         db: parseInt(process.env['REDIS_DB'] || '0'),
       },
       clickhouse: {
-        host: process.env.CLICKHOUSE_HOST || 'localhost',
-        port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
-        database: process.env.CLICKHOUSE_DATABASE || 'yieldsensei',
-        username: process.env.CLICKHOUSE_USER || 'yieldsensei',
-        password: process.env.CLICKHOUSE_PASSWORD || 'changeme_in_production',
+        host: process.env['CLICKHOUSE_HOST'] || 'localhost',
+        port: parseInt(process.env['CLICKHOUSE_PORT'] || '8123'),
+        database: process.env['CLICKHOUSE_DATABASE'] || 'yieldsensei',
+        username: process.env['CLICKHOUSE_USER'] || 'yieldsensei',
+        password: process.env['CLICKHOUSE_PASSWORD'] || (() => {
+          throw new Error('CLICKHOUSE_PASSWORD environment variable is required for security');
+        })(),
       },
               vector: {
           host: config.vectorDbHost,

@@ -87,8 +87,12 @@ export const config: Config = {
   optimismRpcUrl: process.env['OPTIMISM_RPC_URL'],
   
   // Security
-  jwtSecret: process.env['JWT_SECRET'] || 'default-jwt-secret-change-in-production',
-  encryptionKey: process.env['ENCRYPTION_KEY'] || 'default-encryption-key-change-in-production',
+  jwtSecret: process.env['JWT_SECRET'] || (() => {
+    throw new Error('JWT_SECRET environment variable is required for security');
+  })(),
+  encryptionKey: process.env['ENCRYPTION_KEY'] || (() => {
+    throw new Error('ENCRYPTION_KEY environment variable is required for security');
+  })(),
   
   // Performance
   rateLimitWindowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '60000', 10),
