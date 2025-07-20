@@ -1,0 +1,16 @@
+[package]
+name = "state"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "lib.rs"
+
+[dependencies]
+crdts = "7.2.0"
+serde = { version = "1.0", features = ["derive"] }
+wasm-bindgen = { version = "0.2.84", features = ["serde-serialize"] }
+tokio = { version = "1", features = ["rt", "sync"] }
+num-traits = "0.2"
+getrandom = { version = "0.2", features = ["js"] } 

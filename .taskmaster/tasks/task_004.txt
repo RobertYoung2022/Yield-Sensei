@@ -1,0 +1,120 @@
+# Task ID: 4
+# Title: Aegis Satellite Implementation (Risk Management)
+# Status: pending
+# Dependencies: 1, 2
+# Priority: high
+# Description: Develop the Aegis satellite for real-time risk management and liquidation protection using a custom monitoring system in Rust.
+# Details:
+Implement the Aegis risk management satellite with these components:
+
+1. Real-time liquidation risk monitoring
+   - Develop position health calculators for lending protocols
+   - Implement price impact simulators for large positions
+   - Create automated position management with safety thresholds
+   - Design alert system with escalating urgency levels
+
+2. Smart contract vulnerability detection
+   - Implement proprietary scoring system for contract risk
+   - Create monitoring for unusual transaction patterns
+   - Develop integration with security audit databases
+
+3. MEV protection monitoring
+   - Implement sandwich attack detection algorithms
+   - Create transaction simulation to identify MEV exposure
+   - Develop transaction shielding mechanisms
+
+4. Portfolio correlation analysis
+   - Create asset correlation matrix calculator
+   - Implement diversification optimization algorithms
+   - Develop risk concentration alerts
+
+5. Perplexity API integration for risk intelligence
+   - Implement regulatory incident monitoring
+   - Create security breach intelligence gathering
+   - Develop compliance alert system
+
+Rust implementation for liquidation monitoring:
+```rust
+pub struct LiquidationMonitor {
+    positions: HashMap<PositionId, Position>,
+    price_feeds: Arc<PriceFeeds>,
+    risk_parameters: RiskParameters,
+    alert_system: Arc<AlertSystem>,
+}
+
+impl LiquidationMonitor {
+    pub fn new(price_feeds: Arc<PriceFeeds>, alert_system: Arc<AlertSystem>) -> Self { ... }
+    
+    pub fn add_position(&mut self, position: Position) -> Result<PositionId, PositionError> { ... }
+    
+    pub fn update_position(&mut self, id: PositionId, position: Position) -> Result<(), PositionError> { ... }
+    
+    pub fn calculate_health(&self, id: PositionId) -> Result<HealthFactor, CalculationError> { ... }
+    
+    pub fn monitor_positions(&self) -> Vec<RiskAlert> {
+        self.positions.iter()
+            .filter_map(|(id, position)| {
+                let health = self.calculate_health(*id).ok()?;
+                if health.is_at_risk(&self.risk_parameters) {
+                    Some(RiskAlert::new(*id, health, position.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+```
+
+# Test Strategy:
+1. Unit tests for risk calculation algorithms
+2. Simulation testing with historical market crashes
+3. Performance testing to ensure <100ms response time for risk calculations
+4. Integration testing with price feed systems
+5. Stress testing with extreme market volatility scenarios
+6. Validation of MEV protection against known attack vectors
+7. Accuracy testing for liquidation prediction
+
+# Subtasks:
+## 1. Implement Liquidation Risk Monitoring System [pending]
+### Dependencies: None
+### Description: Develop a real-time system to monitor liquidation risks across DeFi positions
+### Details:
+Create position health calculators for major lending protocols (Aave, Compound, MakerDAO). Implement price impact simulators for large positions. Design alert system with escalating urgency levels (warning, critical, emergency). Develop automated position management with configurable safety thresholds. Ensure <100ms response time for risk calculations.
+
+## 2. Build Smart Contract Vulnerability Detection [pending]
+### Dependencies: None
+### Description: Create a system to detect and score smart contract vulnerabilities in real-time
+### Details:
+Implement proprietary scoring system for contract risk assessment. Develop monitoring for unusual transaction patterns. Create integration with major audit databases. Implement automated scanning for common vulnerability patterns. Design real-time alerting for newly discovered exploits in similar contracts.
+
+## 3. Develop MEV Protection Mechanisms [pending]
+### Dependencies: None
+### Description: Implement protection against Miner/Maximal Extractable Value attacks
+### Details:
+Create sandwich attack detection algorithms. Implement private transaction routing options. Develop gas optimization strategies to minimize MEV exposure. Design transaction timing mechanisms to avoid high MEV periods. Integrate with MEV-resistant relayers and protocols.
+
+## 4. Create Portfolio Correlation Analysis Tools [pending]
+### Dependencies: None
+### Description: Build advanced correlation analysis for portfolio risk assessment
+### Details:
+Implement cross-asset correlation matrices. Develop stress testing based on historical correlation breakdowns. Create visualization tools for correlation insights. Design automatic portfolio rebalancing suggestions based on correlation risks. Implement tail-risk analysis for extreme market conditions.
+
+## 5. Integrate Perplexity API for Risk Intelligence [pending]
+### Dependencies: None
+### Description: Leverage Perplexity API to enhance risk assessment with external intelligence
+### Details:
+Develop custom prompts for extracting risk-relevant information. Create data pipelines for processing Perplexity responses. Implement sentiment analysis on Perplexity-sourced news and reports. Design credibility scoring for information sources. Build automated risk factor extraction from unstructured data.
+
+## 6. Implement Price Feed and Audit Database Integration [pending]
+### Dependencies: None
+### Description: Create robust connections to price oracles and security audit databases
+### Details:
+Integrate with multiple price oracles (Chainlink, Pyth, Band). Implement fallback mechanisms for oracle failures. Create audit database connectors for major security firms. Develop data validation and cleaning pipelines. Design caching mechanisms for performance optimization. Implement anomaly detection for price feed inconsistencies.
+
+## 7. Build Simulation and Stress Testing Framework [pending]
+### Dependencies: None
+### Description: Develop comprehensive simulation capabilities for risk scenario analysis
+### Details:
+Create historical market crash simulation models. Implement Monte Carlo simulations for risk assessment. Develop custom stress scenarios based on protocol-specific risks. Design backtesting framework for risk mitigation strategies. Build reporting and visualization tools for simulation results. Implement automated recommendations based on simulation outcomes.
+
