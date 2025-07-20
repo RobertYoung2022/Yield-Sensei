@@ -9,6 +9,7 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import Logger from '@/shared/logging/logger';
 import { config } from '@/config/environment';
 import { EventEmitter } from 'events';
+import { PostgreSQLSchemaManager } from './schema-manager';
 
 const logger = Logger.getLogger('database');
 
@@ -62,6 +63,7 @@ export interface DatabaseConfig {
 export class DatabaseManager extends EventEmitter {
   private static instance: DatabaseManager;
   private config: DatabaseConfig;
+  private schemaManager: PostgreSQLSchemaManager;
   
   // Connection instances
   private postgresPool: Pool | null = null;
@@ -80,6 +82,7 @@ export class DatabaseManager extends EventEmitter {
   private constructor() {
     super();
     this.config = this.parseConfig();
+    this.schemaManager = new PostgreSQLSchemaManager();
   }
 
   /**
@@ -93,7 +96,7 @@ export class DatabaseManager extends EventEmitter {
   }
 
   /**
-   * Initialize all database connections
+   * Initialize all database connections and schema
    */
   async initialize(): Promise<void> {
     try {
@@ -107,10 +110,40 @@ export class DatabaseManager extends EventEmitter {
         this.initializeVector(),
       ]);
 
-      logger.info('All database connections initialized successfully');
+      // Initialize PostgreSQL schema after connection is established
+      await this.initializeSchema();
+
+      logger.info('All database connections and schema initialized successfully');
       this.emit('initialized');
     } catch (error: unknown) {
       logger.error('Failed to initialize databases:', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initialize PostgreSQL schema with migrations and partitions
+   */
+  async initializeSchema(): Promise<void> {
+    try {
+      logger.info('Initializing PostgreSQL schema...');
+      
+      // Run schema initialization (migrations, partitions, etc.)
+      await this.schemaManager.initializeSchema();
+      
+      // Validate schema integrity
+      const validation = await this.schemaManager.validateSchema();
+      if (!validation.valid) {
+        logger.warn('Schema validation issues found:', validation.issues);
+      }
+      
+      // Log schema statistics
+      const stats = await this.schemaManager.getSchemaStats();
+      logger.info('Schema statistics:', stats);
+      
+      logger.info('PostgreSQL schema initialization completed');
+    } catch (error) {
+      logger.error('Schema initialization failed:', error);
       throw error;
     }
   }
@@ -508,6 +541,34 @@ export class DatabaseManager extends EventEmitter {
         timeout: 30000,
       },
     };
+  }
+
+  /**
+   * Get schema manager for advanced operations
+   */
+  getSchemaManager(): PostgreSQLSchemaManager {
+    return this.schemaManager;
+  }
+
+  /**
+   * Get partition information
+   */
+  async getPartitionInfo() {
+    return this.schemaManager.getPartitionInfo();
+  }
+
+  /**
+   * Validate schema integrity
+   */
+  async validateSchema() {
+    return this.schemaManager.validateSchema();
+  }
+
+  /**
+   * Get schema statistics
+   */
+  async getSchemaStats() {
+    return this.schemaManager.getSchemaStats();
   }
 }
 
