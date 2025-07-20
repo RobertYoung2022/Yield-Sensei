@@ -17,6 +17,12 @@ export interface Config {
   databaseUrl: string;
   clickhouseUrl: string;
   redisUrl: string;
+  vectorDbUrl: string;
+  
+  // Vector Database
+  vectorDbHost: string;
+  vectorDbPort: number;
+  vectorDbApiKey?: string | undefined;
   
   // API Keys
   anthropicApiKey?: string | undefined;
@@ -61,6 +67,12 @@ export const config: Config = {
   databaseUrl: process.env['DATABASE_URL'] || 'postgresql://yieldsensei:password@localhost:5432/yieldsensei',
   clickhouseUrl: process.env['CLICKHOUSE_URL'] || 'http://localhost:8123',
   redisUrl: process.env['REDIS_URL'] || 'redis://localhost:6379',
+  vectorDbUrl: process.env['VECTOR_DB_URL'] || 'http://localhost:8000',
+  
+  // Vector Database
+  vectorDbHost: process.env['VECTOR_DB_HOST'] || 'localhost',
+  vectorDbPort: parseInt(process.env['VECTOR_DB_PORT'] || '8000', 10),
+  vectorDbApiKey: process.env['VECTOR_DB_API_KEY'],
   
   // API Keys
   anthropicApiKey: process.env['ANTHROPIC_API_KEY'],

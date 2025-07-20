@@ -1,0 +1,12 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install Redis client
+RUN npm install ioredis
+
+# Copy cache warmer script
+COPY cache-warmer.js .
+
+# Run cache warmer
+CMD ["node", "cache-warmer.js"] 

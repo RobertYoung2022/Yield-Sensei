@@ -1,0 +1,105 @@
+# Qdrant Configuration for YieldSensei DeFi Platform
+# Optimized for semantic search, ML embeddings, and high-performance vector operations
+
+log_level: INFO
+
+service:
+  # HTTP API configuration
+  host: 0.0.0.0
+  http_port: 6333
+  grpc_port: 6334
+  
+  # Enable CORS for web UI and API access
+  enable_cors: true
+  cors_origins: ["*"]
+  
+  # Request limits optimized for DeFi data
+  max_request_size_mb: 32
+  max_workers: 0  # Use all available cores
+  
+  # JWT authentication (optional)
+  # jwt_rbac: path/to/jwt_rbac.yaml
+
+storage:
+  # Storage paths
+  storage_path: ./storage
+  snapshots_path: ./snapshots
+  temp_path: ./temp
+  
+  # Performance optimizations
+  # Write-ahead log configuration
+  wal:
+    wal_capacity_mb: 32
+    wal_segments_ahead: 0
+  
+  # Optimizations for DeFi workloads
+  performance:
+    max_search_threads: 0  # Use all cores
+    max_optimization_threads: 1
+    
+  # Memory mapping for better performance
+  mmap_threshold_kb: 1048576  # 1GB
+  
+  # Snapshot configuration
+  snapshots:
+    # Create snapshots for backup/recovery
+    snapshots_config:
+      snapshots_path: ./snapshots
+
+# Cluster configuration (disabled for single-node setup)
+cluster:
+  enabled: false
+  # For multi-node setup:
+  # p2p:
+  #   port: 6335
+  # consensus:
+  #   tick_period_ms: 100
+
+# Telemetry and monitoring
+telemetry_disabled: false
+
+# TLS configuration (for production)
+# tls:
+#   cert: path/to/cert.pem
+#   key: path/to/key.pem
+#   ca_cert: path/to/ca.pem
+
+# Collection-specific optimizations
+collections:
+  # Default collection configuration
+  default_write_consistency_factor: 1
+  default_read_consistency_factor: 1
+  
+  # Optimizer configuration
+  optimizer:
+    # Automatic optimization settings
+    deleted_threshold: 0.2
+    vacuum_min_vector_number: 1000
+    default_segment_number: 0
+    max_segment_size_kb: 5242880  # 5GB segments
+    memmap_threshold_kb: 1048576  # 1GB mmap threshold
+    indexing_threshold_kb: 2097152  # 2GB indexing threshold
+    flush_interval_sec: 5
+    max_optimization_threads: 1
+
+# API configuration
+api:
+  # Rate limiting
+  enable_app_info: true
+  app_info:
+    name: "YieldSensei Vector DB"
+    version: "1.0.0"
+    description: "Vector database for DeFi semantic search and ML embeddings"
+
+# Development/Debug settings
+debug: false
+
+# Resource limits
+limits:
+  # Memory limits for operations
+  max_concurrent_searches: 100
+  search_timeout_sec: 30
+  
+  # Collection limits
+  max_collections: 100
+  max_points_per_collection: 10000000  # 10M points per collection 

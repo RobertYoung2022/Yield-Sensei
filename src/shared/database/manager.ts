@@ -4,28 +4,16 @@
  */
 
 import { Pool, PoolClient } from 'pg';
-import { createClient, RedisClientType } from 'redis';
-import { QdrantClient } from '@qdrant/js-client-rest';
 import Logger from '@/shared/logging/logger';
 import { config } from '@/config/environment';
 import { EventEmitter } from 'events';
 import { PostgreSQLSchemaManager } from './schema-manager';
+import { ClickHouseManager } from './clickhouse-manager';
+import { RedisManager, RedisConfig } from './redis-manager-simple';
+import { VectorManager, VectorConfig } from './vector-manager';
 
 const logger = Logger.getLogger('database');
 
-/**
- * Database connection status
- */
-export interface DatabaseStatus {
-  postgres: 'connected' | 'disconnected' | 'error';
-  redis: 'connected' | 'disconnected' | 'error';
-  clickhouse: 'connected' | 'disconnected' | 'error';
-  vector: 'connected' | 'disconnected' | 'error';
-}
-
-/**
- * Database configuration
- */
 export interface DatabaseConfig {
   postgres: {
     host: string;
@@ -34,42 +22,42 @@ export interface DatabaseConfig {
     username: string;
     password: string;
     ssl?: boolean;
-    max: number;
-    idleTimeoutMillis: number;
-    connectionTimeoutMillis: number;
+    max?: number;
   };
   redis: {
-    url: string;
-    maxRetriesPerRequest: number;
-    retryDelayOnFailover: number;
+    host: string;
+    port: number;
+    password?: string;
+    db?: number;
   };
   clickhouse: {
-    url: string;
-    username?: string;
-    password?: string;
+    host: string;
+    port: number;
     database: string;
-    requestTimeout: number;
+    username: string;
+    password: string;
   };
-  vector: {
-    url: string;
-    apiKey?: string;
-    timeout: number;
-  };
+  vector: VectorConfig;
 }
 
-/**
- * Database connection pools and clients
- */
+export interface DatabaseStatus {
+  postgres: 'connected' | 'disconnected' | 'error';
+  redis: 'connected' | 'disconnected' | 'error';
+  clickhouse: 'connected' | 'disconnected' | 'error';
+  vector: 'connected' | 'disconnected' | 'error';
+}
+
 export class DatabaseManager extends EventEmitter {
   private static instance: DatabaseManager;
   private config: DatabaseConfig;
   private schemaManager: PostgreSQLSchemaManager;
+  private clickhouseManager: ClickHouseManager;
+  private redisManager: RedisManager;
   
   // Connection instances
   private postgresPool: Pool | null = null;
-  private redisClient: RedisClientType | null = null;
   private clickhouseClient: any | null = null; // ClickHouse client
-  private vectorClient: any | null = null;
+  private vectorManager: VectorManager | null = null;
   
   // Connection status
   private status: DatabaseStatus = {
@@ -83,16 +71,64 @@ export class DatabaseManager extends EventEmitter {
     super();
     this.config = this.parseConfig();
     this.schemaManager = new PostgreSQLSchemaManager();
+    this.clickhouseManager = ClickHouseManager.getInstance();
+    
+    // Initialize Redis manager with config
+    const redisConfig: RedisConfig = {
+      host: this.config.redis.host,
+      port: this.config.redis.port,
+      db: this.config.redis.db,
+      keyPrefix: 'yieldsensei:',
+    };
+    
+    // Add password if it exists
+    if (this.config.redis.password) {
+      redisConfig.password = this.config.redis.password;
+    }
+    
+    this.redisManager = RedisManager.getInstance(redisConfig);
   }
 
-  /**
-   * Get singleton instance
-   */
-  static getInstance(): DatabaseManager {
+  public static getInstance(): DatabaseManager {
     if (!DatabaseManager.instance) {
       DatabaseManager.instance = new DatabaseManager();
     }
     return DatabaseManager.instance;
+  }
+
+  /**
+   * Parse database configuration from environment variables
+   */
+  private parseConfig(): DatabaseConfig {
+    return {
+      postgres: {
+        host: process.env['POSTGRES_HOST'] || 'localhost',
+        port: parseInt(process.env['POSTGRES_PORT'] || '5432'),
+        database: process.env['POSTGRES_DB'] || 'yieldsensei',
+        username: process.env['POSTGRES_USER'] || 'yieldsensei_app',
+        password: process.env['POSTGRES_PASSWORD'] || 'changeme_in_production',
+        ssl: process.env['POSTGRES_SSL'] === 'true',
+        max: parseInt(process.env['POSTGRES_MAX_CONNECTIONS'] || '20'),
+      },
+      redis: {
+        host: process.env['REDIS_HOST'] || 'localhost',
+        port: parseInt(process.env['REDIS_PORT'] || '6379'),
+        password: process.env['REDIS_PASSWORD'] || undefined,
+        db: parseInt(process.env['REDIS_DB'] || '0'),
+      },
+      clickhouse: {
+        host: process.env.CLICKHOUSE_HOST || 'localhost',
+        port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
+        database: process.env.CLICKHOUSE_DATABASE || 'yieldsensei',
+        username: process.env.CLICKHOUSE_USER || 'yieldsensei',
+        password: process.env.CLICKHOUSE_PASSWORD || 'changeme_in_production',
+      },
+              vector: {
+          host: config.vectorDbHost,
+          port: config.vectorDbPort,
+          apiKey: config.vectorDbApiKey,
+        },
+    };
   }
 
   /**
@@ -122,33 +158,6 @@ export class DatabaseManager extends EventEmitter {
   }
 
   /**
-   * Initialize PostgreSQL schema with migrations and partitions
-   */
-  async initializeSchema(): Promise<void> {
-    try {
-      logger.info('Initializing PostgreSQL schema...');
-      
-      // Run schema initialization (migrations, partitions, etc.)
-      await this.schemaManager.initializeSchema();
-      
-      // Validate schema integrity
-      const validation = await this.schemaManager.validateSchema();
-      if (!validation.valid) {
-        logger.warn('Schema validation issues found:', validation.issues);
-      }
-      
-      // Log schema statistics
-      const stats = await this.schemaManager.getSchemaStats();
-      logger.info('Schema statistics:', stats);
-      
-      logger.info('PostgreSQL schema initialization completed');
-    } catch (error) {
-      logger.error('Schema initialization failed:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Initialize PostgreSQL connection
    */
   private async initializePostgres(): Promise<void> {
@@ -161,10 +170,10 @@ export class DatabaseManager extends EventEmitter {
         database: this.config.postgres.database,
         user: this.config.postgres.username,
         password: this.config.postgres.password,
-        ssl: this.config.postgres.ssl,
+        ssl: this.config.postgres.ssl ? { rejectUnauthorized: false } : false,
         max: this.config.postgres.max,
-        idleTimeoutMillis: this.config.postgres.idleTimeoutMillis,
-        connectionTimeoutMillis: this.config.postgres.connectionTimeoutMillis,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
       });
 
       // Test connection
@@ -174,71 +183,49 @@ export class DatabaseManager extends EventEmitter {
 
       this.status.postgres = 'connected';
       logger.info('PostgreSQL connected successfully');
-      
-      // Set up connection event handlers
-      this.postgresPool.on('error', (error) => {
-        logger.error('PostgreSQL connection error:', error);
-        this.status.postgres = 'error';
-        this.emit('postgres_error', error);
-      });
-
-      this.postgresPool.on('connect', () => {
-        logger.debug('New PostgreSQL client connected');
-      });
-
-    } catch (error: unknown) {
+    } catch (error) {
       this.status.postgres = 'error';
-      logger.error('Failed to connect to PostgreSQL:', error as Error);
+      logger.error('Failed to connect to PostgreSQL:', error);
       throw error;
     }
   }
 
   /**
-   * Initialize Redis connection
+   * Initialize Redis connection using RedisManager
    */
   private async initializeRedis(): Promise<void> {
     try {
       logger.info('Connecting to Redis...');
       
-      this.redisClient = createClient({
-        url: this.config.redis.url,
-        socket: {
-          reconnectStrategy: (retries) => Math.min(retries * 50, 500),
-        },
-      });
-
-      // Set up event handlers
-      this.redisClient.on('error', (error) => {
-        logger.error('Redis connection error:', error);
+      // Set up Redis manager event listeners
+      this.redisManager.on('error', (err) => {
+        logger.error('Redis Manager Error:', err);
         this.status.redis = 'error';
-        this.emit('redis_error', error);
       });
 
-      this.redisClient.on('connect', () => {
-        logger.debug('Redis client connected');
+      this.redisManager.on('connected', () => {
         this.status.redis = 'connected';
+        logger.info('Redis connected successfully via RedisManager');
       });
 
-      this.redisClient.on('ready', () => {
-        logger.info('Redis client ready');
-      });
-
-      this.redisClient.on('end', () => {
-        logger.warn('Redis connection ended');
+      this.redisManager.on('disconnected', () => {
         this.status.redis = 'disconnected';
+        logger.warn('Redis disconnected');
       });
 
-      // Connect
-      await this.redisClient.connect();
-
-      // Test connection
-      await this.redisClient.ping();
+      // Connect to Redis
+      await this.redisManager.connect();
       
-      this.status.redis = 'connected';
-      logger.info('Redis connected successfully');
-    } catch (error: unknown) {
+      // Test connection
+      const healthCheck = await this.redisManager.healthCheck();
+      if (healthCheck.status !== 'healthy') {
+        throw new Error(`Redis health check failed: ${healthCheck.status}`);
+      }
+
+      logger.info(`Redis connected successfully (latency: ${healthCheck.latency}ms)`);
+    } catch (error) {
       this.status.redis = 'error';
-      logger.error('Failed to connect to Redis:', error as Error);
+      logger.error('Failed to connect to Redis:', error);
       throw error;
     }
   }
@@ -250,297 +237,99 @@ export class DatabaseManager extends EventEmitter {
     try {
       logger.info('Connecting to ClickHouse...');
       
-      // For now, we'll use a simple HTTP client approach
-      // In production, you'd use the official ClickHouse client
-      this.clickhouseClient = {
-        url: this.config.clickhouse.url,
-        username: this.config.clickhouse.username,
-        password: this.config.clickhouse.password,
-        database: this.config.clickhouse.database,
-      };
-
-      // Test connection with a simple query
-      await this.executeClickHouseQuery('SELECT 1');
+      await this.clickhouseManager.initialize();
       
       this.status.clickhouse = 'connected';
       logger.info('ClickHouse connected successfully');
-    } catch (error: unknown) {
+    } catch (error) {
       this.status.clickhouse = 'error';
-      logger.error('Failed to connect to ClickHouse:', error as Error);
+      logger.error('Failed to connect to ClickHouse:', error);
       throw error;
     }
   }
 
-  /**
-   * Initialize Vector Database (Qdrant) connection
+    /**
+   * Initialize Vector DB connection
    */
   private async initializeVector(): Promise<void> {
     try {
-      logger.info('Connecting to Vector Database (Qdrant)...');
+      logger.info('Connecting to Vector DB...');
       
-      this.vectorClient = new QdrantClient({
-        url: this.config.vector.url,
-        apiKey: this.config.vector.apiKey,
-      });
-
-      // Test connection
-      await this.vectorClient.getCollections();
+      this.vectorManager = VectorManager.getInstance(this.config.vector);
+      await this.vectorManager.connect();
       
       this.status.vector = 'connected';
-      logger.info('Vector Database connected successfully');
-    } catch (error: unknown) {
+      logger.info('Vector DB connected successfully');
+    } catch (error) {
       this.status.vector = 'error';
-      logger.error('Failed to connect to Vector Database:', error as Error);
+      logger.error('Failed to connect to Vector DB:', error);
       throw error;
     }
   }
 
   /**
-   * Get PostgreSQL connection from pool
+   * Initialize PostgreSQL schema with migrations and partitions
    */
-  async getPostgresConnection(): Promise<PoolClient> {
-    if (!this.postgresPool) {
-      throw new Error('PostgreSQL not initialized');
+  private async initializeSchema(): Promise<void> {
+    try {
+      logger.info('Initializing PostgreSQL schema...');
+      
+      if (!this.postgresPool) {
+        throw new Error('PostgreSQL connection not available');
+      }
+
+      await this.schemaManager.runMigrations(this.postgresPool);
+      await this.schemaManager.createPartitions(this.postgresPool);
+      
+      logger.info('PostgreSQL schema initialization completed');
+    } catch (error) {
+      logger.error('Schema initialization failed:', error);
+      throw error;
     }
-    return this.postgresPool.connect();
   }
 
+  // =============================================================================
+  // CONNECTION GETTERS
+  // =============================================================================
+
   /**
-   * Execute PostgreSQL query
+   * Get PostgreSQL connection pool
    */
-  async executePostgresQuery(query: string, params: any[] = []): Promise<any> {
-    const client = await this.getPostgresConnection();
-    try {
-      const result = await client.query(query, params);
-      return result.rows;
-    } finally {
-      client.release();
+  getPostgres(): Pool {
+    if (!this.postgresPool) {
+      throw new Error('PostgreSQL connection not initialized');
     }
+    return this.postgresPool;
   }
 
   /**
    * Get Redis client
    */
-  getRedisClient(): RedisClientType {
+  getRedis(): RedisClientType {
     if (!this.redisClient) {
-      throw new Error('Redis not initialized');
+      throw new Error('Redis connection not initialized');
     }
     return this.redisClient;
   }
 
   /**
-   * Execute Redis command
+   * Get ClickHouse manager
    */
-  async executeRedisCommand(command: string, ...args: any[]): Promise<any> {
-    const client = this.getRedisClient();
-    return (client as any)[command](...args);
+  getClickHouse(): ClickHouseManager {
+    if (!this.clickhouseManager.isConnected()) {
+      throw new Error('ClickHouse connection not initialized');
+    }
+    return this.clickhouseManager;
   }
 
   /**
-   * Execute ClickHouse query
+   * Get Vector DB manager
    */
-  async executeClickHouseQuery(query: string, params: any = {}): Promise<any> {
-    if (!this.clickhouseClient) {
-      throw new Error('ClickHouse not initialized');
+  getVector(): VectorManager {
+    if (!this.vectorManager) {
+      throw new Error('Vector DB connection not initialized');
     }
-
-    try {
-      // Simple HTTP-based query execution
-      const url = new URL('/?' + new URLSearchParams({
-        query,
-        database: this.config.clickhouse.database,
-        ...params,
-      }), this.config.clickhouse.url);
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`ClickHouse query failed: ${response.statusText}`);
-      }
-
-      const text = await response.text();
-      return text.trim().split('\n').map(line => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          return line;
-        }
-      });
-    } catch (error: unknown) {
-      logger.error('ClickHouse query failed:', error as Error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get Vector Database client
-   */
-  getVectorClient(): any {
-    if (!this.vectorClient) {
-      throw new Error('Vector Database not initialized');
-    }
-    return this.vectorClient;
-  }
-
-  /**
-   * Get connection status for all databases
-   */
-  getStatus(): DatabaseStatus {
-    return { ...this.status };
-  }
-
-  /**
-   * Health check for all databases
-   */
-  async healthCheck(): Promise<{ healthy: boolean; details: DatabaseStatus & { errors?: string[] | undefined } }> {
-    const errors: string[] = [];
-    const details = { ...this.status };
-
-    try {
-      // Check PostgreSQL
-      if (this.postgresPool) {
-        const client = await this.postgresPool.connect();
-        await client.query('SELECT 1');
-        client.release();
-        details.postgres = 'connected';
-      } else {
-        errors.push('PostgreSQL not initialized');
-        details.postgres = 'error';
-      }
-    } catch (error: unknown) {
-      errors.push(`PostgreSQL: ${(error as Error).message}`);
-      details.postgres = 'error';
-    }
-
-    try {
-      // Check Redis
-      if (this.redisClient) {
-        await this.redisClient.ping();
-        details.redis = 'connected';
-      } else {
-        errors.push('Redis not initialized');
-        details.redis = 'error';
-      }
-    } catch (error: unknown) {
-      errors.push(`Redis: ${(error as Error).message}`);
-      details.redis = 'error';
-    }
-
-    try {
-      // Check ClickHouse
-      if (this.clickhouseClient) {
-        await this.executeClickHouseQuery('SELECT 1');
-        details.clickhouse = 'connected';
-      } else {
-        errors.push('ClickHouse not initialized');
-        details.clickhouse = 'error';
-      }
-    } catch (error: unknown) {
-      errors.push(`ClickHouse: ${(error as Error).message}`);
-      details.clickhouse = 'error';
-    }
-
-    try {
-      // Check Vector Database
-      if (this.vectorClient) {
-        await this.vectorClient.getCollections();
-        details.vector = 'connected';
-      } else {
-        errors.push('Vector Database not initialized');
-        details.vector = 'error';
-      }
-    } catch (error: unknown) {
-      errors.push(`Vector Database: ${(error as Error).message}`);
-      details.vector = 'error';
-    }
-
-    const healthy = errors.length === 0;
-    return { healthy, details: { ...details, errors: errors.length > 0 ? errors : undefined } };
-  }
-
-  /**
-   * Disconnect from all databases
-   */
-  async disconnect(): Promise<void> {
-    logger.info('Disconnecting from all databases...');
-
-    const disconnectPromises = [];
-
-    // Disconnect PostgreSQL
-    if (this.postgresPool) {
-      disconnectPromises.push(
-        this.postgresPool.end().then(() => {
-          this.status.postgres = 'disconnected';
-          logger.info('PostgreSQL disconnected');
-        }).catch(error => {
-          logger.error('Error disconnecting PostgreSQL:', error);
-        })
-      );
-    }
-
-    // Disconnect Redis
-    if (this.redisClient) {
-      disconnectPromises.push(
-        this.redisClient.disconnect().then(() => {
-          this.status.redis = 'disconnected';
-          logger.info('Redis disconnected');
-        }).catch(error => {
-          logger.error('Error disconnecting Redis:', error);
-        })
-      );
-    }
-
-    // ClickHouse doesn't need explicit disconnect for HTTP client
-    this.status.clickhouse = 'disconnected';
-
-    // Vector Database doesn't need explicit disconnect
-    this.status.vector = 'disconnected';
-
-    await Promise.all(disconnectPromises);
-    
-    logger.info('All databases disconnected');
-    this.emit('disconnected');
-  }
-
-  /**
-   * Parse configuration from environment
-   */
-  private parseConfig(): DatabaseConfig {
-    // Parse PostgreSQL URL
-    const pgUrl = new URL(config.databaseUrl);
-    
-    return {
-      postgres: {
-        host: pgUrl.hostname,
-        port: parseInt(pgUrl.port) || 5432,
-        database: pgUrl.pathname.slice(1),
-        username: pgUrl.username,
-        password: pgUrl.password,
-        ssl: config.nodeEnv === 'production',
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
-      },
-      redis: {
-        url: config.redisUrl,
-        maxRetriesPerRequest: 3,
-        retryDelayOnFailover: 100,
-      },
-      clickhouse: {
-        url: config.clickhouseUrl,
-        database: 'yieldsensei_analytics',
-        requestTimeout: 30000,
-      },
-      vector: {
-        url: 'http://localhost:6333',
-        timeout: 30000,
-      },
-    };
+    return this.vectorManager;
   }
 
   /**
@@ -569,6 +358,112 @@ export class DatabaseManager extends EventEmitter {
    */
   async getSchemaStats() {
     return this.schemaManager.getSchemaStats();
+  }
+
+  /**
+   * Get overall database status
+   */
+  getStatus(): DatabaseStatus {
+    return { ...this.status };
+  }
+
+  /**
+   * Check if all databases are connected
+   */
+  isHealthy(): boolean {
+    return Object.values(this.status).every(status => status === 'connected');
+  }
+
+  /**
+   * Get database health metrics
+   */
+  async getHealthMetrics(): Promise<any> {
+    const metrics: any = {
+      status: this.getStatus(),
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      // PostgreSQL metrics
+      if (this.status.postgres === 'connected' && this.postgresPool) {
+        const client = await this.postgresPool.connect();
+        const pgStats = await client.query(`
+          SELECT 
+            numbackends as active_connections,
+            xact_commit as transactions_committed,
+            xact_rollback as transactions_rolled_back,
+            blks_read as blocks_read,
+            blks_hit as blocks_hit,
+            tup_returned as tuples_returned,
+            tup_fetched as tuples_fetched
+          FROM pg_stat_database 
+          WHERE datname = current_database()
+        `);
+        client.release();
+        metrics.postgres = pgStats.rows[0];
+      }
+
+      // Redis metrics
+      if (this.status.redis === 'connected' && this.redisClient) {
+        const redisInfo = await this.redisClient.info();
+        metrics.redis = {
+          connected_clients: redisInfo.match(/connected_clients:(\d+)/)?.[1] || '0',
+          used_memory: redisInfo.match(/used_memory:(\d+)/)?.[1] || '0',
+          keyspace_hits: redisInfo.match(/keyspace_hits:(\d+)/)?.[1] || '0',
+          keyspace_misses: redisInfo.match(/keyspace_misses:(\d+)/)?.[1] || '0',
+        };
+      }
+
+      // ClickHouse metrics
+      if (this.status.clickhouse === 'connected') {
+        metrics.clickhouse = await this.clickhouseManager.getDatabaseStats();
+      }
+
+    } catch (error) {
+      logger.error('Error collecting health metrics:', error);
+      metrics.error = 'Failed to collect some metrics';
+    }
+
+    return metrics;
+  }
+
+  /**
+   * Close all database connections
+   */
+  async close(): Promise<void> {
+    logger.info('Closing all database connections...');
+
+    const closePromises = [];
+
+    if (this.postgresPool) {
+      closePromises.push(this.postgresPool.end());
+    }
+
+    if (this.redisClient) {
+      closePromises.push(this.redisClient.disconnect());
+    }
+
+    if (this.clickhouseManager.isConnected()) {
+      closePromises.push(this.clickhouseManager.close());
+    }
+
+    try {
+      await Promise.all(closePromises);
+      
+      // Reset status
+      this.status = {
+        postgres: 'disconnected',
+        redis: 'disconnected',
+        clickhouse: 'disconnected',
+        vector: 'disconnected',
+      };
+
+      logger.info('All database connections closed successfully');
+      this.emit('closed');
+    } catch (error) {
+      logger.error('Error closing database connections:', error);
+      throw error;
+    }
   }
 }
 

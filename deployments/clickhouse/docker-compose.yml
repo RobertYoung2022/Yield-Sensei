@@ -1,0 +1,246 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # CLICKHOUSE CLUSTER - High-Performance Analytics Database
+  # =============================================================================
+  clickhouse-server:
+    image: clickhouse/clickhouse-server:23.12-alpine
+    container_name: yieldsensei-clickhouse
+    restart: unless-stopped
+    networks:
+      - clickhouse
+    ports:
+      - "8123:8123"     # HTTP interface
+      - "9000:9000"     # TCP interface
+      - "9009:9009"     # HTTP metrics
+    environment:
+      CLICKHOUSE_DB: yieldsensei
+      CLICKHOUSE_USER: yieldsensei
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-changeme_in_production}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+      - ./config/clickhouse-config.xml:/etc/clickhouse-server/config.xml
+      - ./config/clickhouse-users.xml:/etc/clickhouse-server/users.xml
+      - ./schemas:/docker-entrypoint-initdb.d
+      - ./config/custom-settings.xml:/etc/clickhouse-server/config.d/custom-settings.xml
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    mem_limit: 4g
+    cpus: '2.0'
+
+  # =============================================================================
+  # CLICKHOUSE PROXY - Load Balancing and Connection Management
+  # =============================================================================
+  clickhouse-proxy:
+    image: yandex/clickhouse-server:latest
+    container_name: yieldsensei-clickhouse-proxy
+    restart: unless-stopped
+    networks:
+      - clickhouse
+    ports:
+      - "8124:8123"     # Proxy HTTP interface
+    environment:
+      CLICKHOUSE_CONFIG: |
+        <yandex>
+          <remote_servers>
+            <cluster>
+              <shard>
+                <replica>
+                  <host>clickhouse-server</host>
+                  <port>9000</port>
+                </replica>
+              </shard>
+            </cluster>
+          </remote_servers>
+          <clickhouse_remote_servers>
+            <cluster>
+              <shard>
+                <replica>
+                  <host>clickhouse-server</host>
+                  <port>9000</port>
+                </replica>
+              </shard>
+            </cluster>
+          </clickhouse_remote_servers>
+        </yandex>
+    depends_on:
+      clickhouse-server:
+        condition: service_healthy
+
+  # =============================================================================
+  # ZOOKEEPER - Coordination for ClickHouse Cluster (if scaling)
+  # =============================================================================
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: yieldsensei-zookeeper
+    restart: unless-stopped
+    networks:
+      - clickhouse
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=0.0.0.0:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: mntr,conf,ruok
+    volumes:
+      - zookeeper_data:/data
+      - zookeeper_datalog:/datalog
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # CLICKHOUSE EXPORTER - Prometheus Metrics
+  # =============================================================================
+  clickhouse-exporter:
+    image: f1yegor/clickhouse-exporter:latest
+    container_name: yieldsensei-clickhouse-exporter
+    restart: unless-stopped
+    networks:
+      - clickhouse
+    ports:
+      - "9116:9116"     # Metrics endpoint
+    environment:
+      CLICKHOUSE_URL: http://clickhouse-server:8123
+      CLICKHOUSE_USER: yieldsensei
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-changeme_in_production}
+      CLICKHOUSE_DATABASE: yieldsensei
+    command:
+      - --clickhouse.url=http://clickhouse-server:8123
+      - --clickhouse.username=yieldsensei
+      - --clickhouse.password=${CLICKHOUSE_PASSWORD:-changeme_in_production}
+      - --log.level=info
+    depends_on:
+      clickhouse-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9116/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # DATA LOADER - ETL Service for Market Data Ingestion
+  # =============================================================================
+  data-loader:
+    build:
+      context: ./data-loader
+      dockerfile: Dockerfile
+    container_name: yieldsensei-data-loader
+    restart: unless-stopped
+    networks:
+      - clickhouse
+    environment:
+      CLICKHOUSE_HOST: clickhouse-server
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: yieldsensei
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-changeme_in_production}
+      CLICKHOUSE_DATABASE: yieldsensei
+      BATCH_SIZE: 10000
+      FLUSH_INTERVAL: 10
+      LOG_LEVEL: info
+    volumes:
+      - ./config/data-loader-config.yaml:/app/config.yaml
+      - ./scripts:/app/scripts
+    depends_on:
+      clickhouse-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # BACKUP SERVICE - Automated ClickHouse Backups
+  # =============================================================================
+  clickhouse-backup:
+    image: altinity/clickhouse-backup:latest
+    container_name: yieldsensei-clickhouse-backup
+    restart: unless-stopped
+    networks:
+      - clickhouse
+    environment:
+      CLICKHOUSE_URL: tcp://clickhouse-server:9000
+      CLICKHOUSE_USERNAME: yieldsensei
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-changeme_in_production}
+      BACKUP_SCHEDULE: "0 2 * * *"        # Daily at 2 AM
+      BACKUP_KEEP_LOCAL: 7                # Keep 7 days locally
+      BACKUP_COMPRESSION_LEVEL: 3         # Balanced compression
+      S3_BUCKET: ${S3_BACKUP_BUCKET:-}    # Optional S3 backup
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      LOG_LEVEL: info
+    volumes:
+      - clickhouse_backups:/backups
+      - ./config/backup-config.yaml:/etc/clickhouse-backup/config.yaml
+    depends_on:
+      clickhouse-server:
+        condition: service_healthy
+
+  # =============================================================================
+  # QUERY OPTIMIZER - Performance Analysis and Optimization
+  # =============================================================================
+  query-optimizer:
+    build:
+      context: ./query-optimizer
+      dockerfile: Dockerfile
+    container_name: yieldsensei-query-optimizer
+    restart: unless-stopped
+    networks:
+      - clickhouse
+    environment:
+      CLICKHOUSE_HOST: clickhouse-server
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: yieldsensei
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-changeme_in_production}
+      CLICKHOUSE_DATABASE: yieldsensei
+      ANALYSIS_INTERVAL: 300              # Analyze every 5 minutes
+      SLOW_QUERY_THRESHOLD: 1000          # Queries > 1 second
+      OPTIMIZATION_ENABLED: true
+    volumes:
+      - ./config/optimizer-config.yaml:/app/config.yaml
+      - ./optimization-reports:/app/reports
+    depends_on:
+      clickhouse-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+networks:
+  clickhouse:
+    driver: bridge
+    name: yieldsensei-clickhouse
+
+volumes:
+  # ClickHouse data and logs
+  clickhouse_data:
+    name: yieldsensei-clickhouse-data
+  clickhouse_logs:
+    name: yieldsensei-clickhouse-logs
+  
+  # ZooKeeper data
+  zookeeper_data:
+    name: yieldsensei-zookeeper-data
+  zookeeper_datalog:
+    name: yieldsensei-zookeeper-datalog
+  
+  # Backup storage
+  clickhouse_backups:
+    name: yieldsensei-clickhouse-backups 

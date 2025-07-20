@@ -1,0 +1,216 @@
+version: '3.8'
+
+services:
+  # Redis Master Instance
+  redis-master:
+    image: redis:7.2-alpine
+    container_name: redis-master
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-master-data:/data
+      - ./logs:/var/log/redis
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - redis-network
+    restart: unless-stopped
+    environment:
+      - REDIS_REPLICATION_MODE=master
+
+  # Redis Replica Instance 1
+  redis-replica-1:
+    image: redis:7.2-alpine
+    container_name: redis-replica-1
+    ports:
+      - "6380:6379"
+    volumes:
+      - ./config/redis-replica.conf:/usr/local/etc/redis/redis.conf
+      - redis-replica-1-data:/data
+      - ./logs:/var/log/redis
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    depends_on:
+      - redis-master
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - redis-network
+    restart: unless-stopped
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PORT=6379
+
+  # Redis Replica Instance 2
+  redis-replica-2:
+    image: redis:7.2-alpine
+    container_name: redis-replica-2
+    ports:
+      - "6381:6379"
+    volumes:
+      - ./config/redis-replica.conf:/usr/local/etc/redis/redis.conf
+      - redis-replica-2-data:/data
+      - ./logs:/var/log/redis
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    depends_on:
+      - redis-master
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - redis-network
+    restart: unless-stopped
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PORT=6379
+
+  # Redis Sentinel Instance 1
+  redis-sentinel-1:
+    image: redis:7.2-alpine
+    container_name: redis-sentinel-1
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./config/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+      - sentinel-1-data:/data
+    command: ["redis-sentinel", "/usr/local/etc/redis/sentinel.conf"]
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    networks:
+      - redis-network
+    restart: unless-stopped
+
+  # Redis Sentinel Instance 2
+  redis-sentinel-2:
+    image: redis:7.2-alpine
+    container_name: redis-sentinel-2
+    ports:
+      - "26380:26379"
+    volumes:
+      - ./config/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+      - sentinel-2-data:/data
+    command: ["redis-sentinel", "/usr/local/etc/redis/sentinel.conf"]
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    networks:
+      - redis-network
+    restart: unless-stopped
+
+  # Redis Sentinel Instance 3
+  redis-sentinel-3:
+    image: redis:7.2-alpine
+    container_name: redis-sentinel-3
+    ports:
+      - "26381:26379"
+    volumes:
+      - ./config/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+      - sentinel-3-data:/data
+    command: ["redis-sentinel", "/usr/local/etc/redis/sentinel.conf"]
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    networks:
+      - redis-network
+    restart: unless-stopped
+
+  # Redis Exporter for Prometheus Monitoring
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis-master:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    depends_on:
+      - redis-master
+    networks:
+      - redis-network
+    restart: unless-stopped
+
+  # Redis Insight for GUI Management
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: redis-insight
+    ports:
+      - "8001:8001"
+    volumes:
+      - redis-insight-data:/db
+    depends_on:
+      - redis-master
+    networks:
+      - redis-network
+    restart: unless-stopped
+
+  # Redis Commander for Web-based Management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=master:redis-master:6379,replica1:redis-replica-1:6379,replica2:redis-replica-2:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    networks:
+      - redis-network
+    restart: unless-stopped
+
+  # Redis Cache Warmer Service
+  cache-warmer:
+    build:
+      context: .
+      dockerfile: Dockerfile.cache-warmer
+    container_name: redis-cache-warmer
+    environment:
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - CACHE_WARM_INTERVAL=300  # 5 minutes
+    depends_on:
+      - redis-master
+    networks:
+      - redis-network
+    restart: unless-stopped
+
+volumes:
+  redis-master-data:
+    driver: local
+  redis-replica-1-data:
+    driver: local
+  redis-replica-2-data:
+    driver: local
+  sentinel-1-data:
+    driver: local
+  sentinel-2-data:
+    driver: local
+  sentinel-3-data:
+    driver: local
+  redis-insight-data:
+    driver: local
+
+networks:
+  redis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 

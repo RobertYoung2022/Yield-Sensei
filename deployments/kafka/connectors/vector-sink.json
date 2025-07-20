@@ -1,0 +1,33 @@
+{
+  "name": "yieldsensei-vector-sink",
+  "config": {
+    "connector.class": "com.yieldsensei.kafka.connect.VectorSinkConnector",
+    "tasks.max": "2",
+    "topics": "defi.protocols,defi.tokens,users.portfolios,market.sentiment",
+    "vector.db.url": "http://qdrant:6333",
+    "vector.db.api.key": "",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8081",
+    "vector.collection.mapping": "defi.protocols:protocols,defi.tokens:tokens,users.portfolios:user_behavior,market.sentiment:documents",
+    "vector.embedding.field": "embedding",
+    "vector.id.field": "id",
+    "vector.payload.fields": "name,description,category,tvl,apy,risk_score,created_at",
+    "vector.upsert.mode": "true",
+    "vector.batch.size": 100,
+    "vector.timeout.ms": 30000,
+    "vector.retry.attempts": 3,
+    "vector.retry.backoff.ms": 1000,
+    "transforms": "addTimestamp,extractEmbedding",
+    "transforms.addTimestamp.type": "org.apache.kafka.connect.transforms.InsertField$Value",
+    "transforms.addTimestamp.timestamp.field": "indexed_at",
+    "transforms.extractEmbedding.type": "com.yieldsensei.kafka.transforms.EmbeddingExtractor",
+    "transforms.extractEmbedding.text.fields": "name,description",
+    "transforms.extractEmbedding.embedding.service": "sentence-transformers",
+    "transforms.extractEmbedding.model": "all-MiniLM-L6-v2",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "errors.deadletterqueue.topic.name": "dlq-vector-sink"
+  }
+} 
