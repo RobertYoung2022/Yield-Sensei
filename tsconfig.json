@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "esnext",
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -40,7 +40,12 @@
   },
   "include": [
     "src/**/*",
-    "tests/**/*"
+    "tests/**/*",
+    "src/core/orchestration/state/pkg"
+  ],
+  "files": [
+    "src/core/orchestration/state/pkg/state.d.ts",
+    "src/types/qdrant.d.ts"
   ],
   "exclude": [
     "node_modules",
