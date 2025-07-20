@@ -11,6 +11,9 @@ import { PostgreSQLSchemaManager } from './schema-manager';
 import { ClickHouseManager } from './clickhouse-manager';
 import { RedisManager, RedisConfig } from './redis-manager-simple';
 import { VectorManager, VectorConfig } from './vector-manager';
+import { DatabaseIntegrationManager } from './integration-manager';
+import { CDCManager } from './cdc-manager';
+import { UnifiedQueryManager } from './unified-query';
 
 const logger = Logger.getLogger('database');
 
@@ -54,6 +57,11 @@ export class DatabaseManager extends EventEmitter {
   private clickhouseManager: ClickHouseManager;
   private redisManager: RedisManager;
   
+  // Integration components
+  private integrationManager: DatabaseIntegrationManager;
+  private cdcManager: CDCManager;
+  private unifiedQueryManager: UnifiedQueryManager;
+  
   // Connection instances
   private postgresPool: Pool | null = null;
   private clickhouseClient: any | null = null; // ClickHouse client
@@ -72,6 +80,11 @@ export class DatabaseManager extends EventEmitter {
     this.config = this.parseConfig();
     this.schemaManager = new PostgreSQLSchemaManager();
     this.clickhouseManager = ClickHouseManager.getInstance();
+    
+    // Initialize integration components
+    this.integrationManager = DatabaseIntegrationManager.getInstance();
+    this.cdcManager = CDCManager.getInstance();
+    this.unifiedQueryManager = UnifiedQueryManager.getInstance();
     
     // Initialize Redis manager with config
     const redisConfig: RedisConfig = {
@@ -330,6 +343,27 @@ export class DatabaseManager extends EventEmitter {
       throw new Error('Vector DB connection not initialized');
     }
     return this.vectorManager;
+  }
+
+  /**
+   * Get integration manager
+   */
+  getIntegrationManager(): DatabaseIntegrationManager {
+    return this.integrationManager;
+  }
+
+  /**
+   * Get CDC manager
+   */
+  getCDCManager(): CDCManager {
+    return this.cdcManager;
+  }
+
+  /**
+   * Get unified query manager
+   */
+  getUnifiedQueryManager(): UnifiedQueryManager {
+    return this.unifiedQueryManager;
   }
 
   /**
