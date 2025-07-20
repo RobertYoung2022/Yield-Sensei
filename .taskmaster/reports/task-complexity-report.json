@@ -1,0 +1,109 @@
+{
+	"meta": {
+		"generatedAt": "2025-07-20T05:41:42.039Z",
+		"tasksAnalyzed": 12,
+		"totalTasks": 12,
+		"analysisCount": 12,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": true
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Multi-Agent Orchestration System Architecture",
+			"complexityScore": 10,
+			"recommendedSubtasks": 12,
+			"expansionPrompt": "Expand the architecture task by decomposing each major system concern (communication, lifecycle, message bus, state management, fault tolerance, logging/monitoring, Rust core, TypeScript integration, testing, and performance) into at least two granular engineering subtasks each. Include subtasks for protocol specification, interface definition, concurrency control, distributed consensus, and security hardening.",
+			"reasoning": "This task involves designing and implementing a highly modular, distributed, and performance-critical multi-agent system, integrating Rust and TypeScript, with requirements for robust communication, lifecycle management, distributed state, fault tolerance, and observability. The coordination and dependency complexity is extremely high, as validated by graph-based metrics for multi-agent systems[1][2]. Industry best practices recommend further decomposition for each architectural concern, especially for distributed systems, to ensure maintainability, testability, and scalability[3][4]."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Sage Satellite Implementation (Market & Protocol Research)",
+			"complexityScore": 8,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Expand the Sage satellite task by breaking down each component (fundamental analysis, RWA scoring, compliance monitoring, protocol evaluation, API integration, ML model training, and system integration) into subtasks for data ingestion, feature engineering, model selection, validation, compliance rules, and integration testing. Include subtasks for dataset acquisition, regulatory mapping, and explainability of ML outputs.",
+			"reasoning": "This task requires integrating real-time data pipelines, custom ML models, compliance logic, and external APIs, each with domain-specific complexity. The need for both research and production-grade engineering, plus regulatory and ML explainability requirements, increases the coordination and technical depth. Industry standards for ML-driven financial systems recommend fine-grained subtasks for data, modeling, compliance, and integration to manage risk and ensure reliability."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Aegis Satellite Implementation (Risk Management)",
+			"complexityScore": 9,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Expand the Aegis satellite task by decomposing each risk management area (liquidation monitoring, vulnerability detection, MEV protection, correlation analysis, API integration, price feed/audit integration, simulation/testing) into subtasks for algorithm design, data source integration, alerting, simulation scenarios, and security validation. Include subtasks for protocol-specific adapters, stress testing, and incident response automation.",
+			"reasoning": "Real-time risk management in DeFi requires advanced monitoring, simulation, and integration with multiple external systems, all with strict performance and reliability constraints. The breadth of risk vectors (liquidation, smart contract, MEV, correlation) and the need for robust simulation and alerting frameworks make this a highly complex, multi-disciplinary engineering effort. Industry best practices for financial risk systems call for detailed decomposition to ensure coverage and resilience."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Core API Framework and Authentication System",
+			"complexityScore": 8,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Expand the API framework task by breaking down each major area (REST, GraphQL, authentication, rate limiting, WebSocket, documentation, testing) into subtasks for endpoint design, schema validation, security hardening, scalability, monitoring, and compliance. Include subtasks for API gateway integration, automated security testing, and developer experience improvements.",
+			"reasoning": "Building a secure, scalable API framework with both REST and GraphQL, advanced authentication, rate limiting, and real-time data delivery is a complex, cross-cutting engineering challenge. Security, compliance, and performance requirements further increase complexity. Industry standards recommend decomposing by interface, security, scalability, and developer tooling to ensure robustness and maintainability."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Echo Satellite Implementation (Sentiment Analysis)",
+			"complexityScore": 7,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Expand the Echo satellite task by decomposing each area (social integration, NLP modeling, entity recognition, trend detection, API integration, analytics/validation) into subtasks for data pipeline setup, model training, cross-platform normalization, bias correction, and real-time alerting. Include subtasks for dataset curation, model explainability, and continuous improvement loops.",
+			"reasoning": "This task involves integrating multiple social platforms, developing domain-specific NLP models, and building analytics pipelines. While less complex than distributed orchestration or risk management, the need for robust data engineering, model training, and cross-platform analytics still requires detailed decomposition for reliability and accuracy."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Forge Satellite Implementation (Tool & Strategy Engineering)",
+			"complexityScore": 9,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Expand the Forge satellite task by breaking down each component (contract optimization, MEV protection, bridge optimization, trading algorithms, benchmarking, network integration, testing) into subtasks for algorithm development, simulation, protocol adapters, performance profiling, and security validation. Include subtasks for cross-chain abstraction, transaction batching, and automated regression testing.",
+			"reasoning": "This task requires high-performance engineering for smart contract interaction, MEV defense, cross-chain routing, and trading, all with microsecond precision. The technical depth, need for protocol-specific logic, and performance/security requirements make this a highly complex engineering challenge, warranting further decomposition."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Pulse Satellite Implementation (Yield Optimization)",
+			"complexityScore": 8,
+			"recommendedSubtasks": 9,
+			"expansionPrompt": "Expand the Pulse satellite task by decomposing each area (yield optimization, liquid staking, protocol discovery, sustainability detection, API integration, backtesting) into subtasks for data ingestion, model development, protocol adapters, risk scoring, and simulation. Include subtasks for continuous monitoring, strategy explainability, and integration with DeFi plugins.",
+			"reasoning": "Yield optimization in DeFi requires advanced modeling, protocol integration, risk assessment, and sustainability analysis. The breadth of protocols and need for robust backtesting and explainability increase complexity, justifying further breakdown for maintainability and extensibility."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Bridge Satellite Implementation (Cross-Chain Operations)",
+			"complexityScore": 9,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Expand the Bridge satellite task by breaking down each area (arbitrage detection, opportunity evaluation, execution optimization, bridge risk, liquidity optimization, portfolio coordination, network integration, testing) into subtasks for data collection, ML modeling, pathfinding, risk scoring, and simulation. Include subtasks for protocol adapters, capital allocation, and incident response.",
+			"reasoning": "Cross-chain arbitrage and liquidity management require real-time data collection, ML-based evaluation, execution optimization, and robust risk management across multiple networks. The high coordination and technical complexity, plus the need for reliability and security, require detailed decomposition."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Oracle Satellite Implementation (Data Integrity & RWA Validation)",
+			"complexityScore": 8,
+			"recommendedSubtasks": 9,
+			"expansionPrompt": "Expand the Oracle satellite task by decomposing each area (oracle validation, RWA assessment, off-chain verification, data source management, API integration, reporting) into subtasks for data validation, cryptographic proof handling, compliance mapping, anomaly detection, and integration testing. Include subtasks for data quality scoring, fallback mechanisms, and audit trail generation.",
+			"reasoning": "Ensuring data integrity and RWA validation involves complex data validation, cryptographic proof handling, compliance checks, and integration with multiple data sources. The need for reliability, auditability, and regulatory compliance increases the complexity, warranting further breakdown."
+		},
+		{
+			"taskId": 11,
+			"taskTitle": "Regulatory Compliance Framework Implementation",
+			"complexityScore": 9,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Expand the compliance framework task by breaking down each area (real-time monitoring, KYC/AML, legal entity planning, transaction monitoring, API integration, audit/reporting, scenario testing) into subtasks for rule engine development, provider integration, documentation automation, alerting, and compliance scenario simulation. Include subtasks for regulatory mapping, evidence collection, and automated reporting.",
+			"reasoning": "A comprehensive compliance framework requires real-time monitoring, KYC/AML integration, legal structuring, transaction monitoring, and regulatory intelligence, each with high coordination and regulatory complexity. Industry standards demand detailed decomposition to ensure coverage, auditability, and adaptability to regulatory changes."
+		},
+		{
+			"taskId": 12,
+			"taskTitle": "Perplexity API Integration Framework",
+			"complexityScore": 8,
+			"recommendedSubtasks": 9,
+			"expansionPrompt": "Expand the Perplexity API integration task by decomposing each area (API core, financial data, regulatory monitoring, market intelligence, export/reporting, reliability testing) into subtasks for client library development, data normalization, alerting, caching, error handling, and automated testing. Include subtasks for schema validation, quota management, and data visualization.",
+			"reasoning": "Integrating a third-party API for financial, regulatory, and market intelligence requires robust client development, data normalization, alerting, and export capabilities, plus reliability and performance testing. The breadth of integration points and need for resilience and compliance justify further decomposition."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Database Architecture Implementation",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on database architecture implementation.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		}
+	]
+}
