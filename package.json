@@ -22,7 +22,11 @@
     "clean": "rimraf dist coverage",
     "docs:generate": "typedoc src --out docs/api",
     "security:audit": "npm audit",
-    "performance:benchmark": "node scripts/benchmark.js"
+    "performance:benchmark": "node scripts/benchmark.js",
+    "validate-env": "tsx scripts/validate-env.ts",
+    "validate-env:dev": "tsx scripts/validate-env.ts -- --environment=development",
+    "validate-env:staging": "tsx scripts/validate-env.ts -- --environment=staging",
+    "validate-env:prod": "tsx scripts/validate-env.ts -- --environment=production"
   },
   "keywords": [
     "defi",
