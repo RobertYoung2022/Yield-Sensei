@@ -1,0 +1,164 @@
+scope: yieldsensei-cluster
+# name will be set via environment variable PATRONI_NAME
+namespace: /db/
+
+restapi:
+  listen: 0.0.0.0:8008
+  # connect_address will be set via environment variable PATRONI_RESTAPI_CONNECT_ADDRESS
+  certification:
+    certfile: ""
+    keyfile: ""
+  authentication:
+    username: patroni
+    password: patroni-password
+
+etcd3:
+  # hosts will be set via environment variable PATRONI_ETCD3_HOSTS
+
+bootstrap:
+  # this section will be written into Etcd:/<namespace>/<scope>/config after initializing new cluster
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 30
+    maximum_lag_on_failover: 1048576
+    master_start_timeout: 300
+    synchronous_mode: true
+    synchronous_mode_strict: false
+    synchronous_node_count: 1
+    check_timeline: false
+    use_pg_rewind: true
+    use_slots: true
+
+postgresql:
+  # listen and connect_address will be set via environment variables
+  data_dir: /var/lib/postgresql/data
+  bin_dir: /usr/local/bin
+  config_dir: /var/lib/postgresql/data
+  pgpass: /tmp/pgpass
+  
+  authentication:
+    replication:
+      username: replicator
+      # password will be set via environment variable
+    superuser:
+      username: postgres
+      # password will be set via environment variable
+
+  # Replica-specific parameters for read optimization
+  parameters:
+    # Performance optimization for read workloads
+    max_connections: 200
+    shared_buffers: 512MB
+    effective_cache_size: 1536MB
+    maintenance_work_mem: 128MB
+    work_mem: 8MB
+    
+    # Read-only optimizations
+    hot_standby: on
+    hot_standby_feedback: on
+    max_standby_archive_delay: 30s
+    max_standby_streaming_delay: 30s
+    wal_receiver_timeout: 60s
+    wal_retrieve_retry_interval: 5s
+    
+    # Recovery and replication settings
+    recovery_target_timeline: 'latest'
+    standby_mode: on
+    primary_conninfo: 'host=postgres-primary port=5432 user=replicator'
+    
+    # Query optimization for analytics
+    random_page_cost: 1.1
+    effective_io_concurrency: 200
+    checkpoint_completion_target: 0.9
+    wal_buffers: 16MB
+    default_statistics_target: 100
+    
+    # Parallel query settings optimized for read replicas
+    max_worker_processes: 8
+    max_parallel_workers_per_gather: 4  # Higher for read workloads
+    max_parallel_workers: 8
+    max_parallel_maintenance_workers: 2
+    
+    # Logging settings
+    log_destination: 'stderr'
+    logging_collector: on
+    log_checkpoints: on
+    log_connections: off  # Reduced logging on replicas
+    log_disconnections: off
+    log_lock_waits: on
+    log_temp_files: 0
+    log_autovacuum_min_duration: 0
+    log_error_verbosity: default
+    log_line_prefix: '%m [%p] %q%u@%d '
+    log_statement: 'none'  # Minimal statement logging on replicas
+    log_min_duration_statement: 5000  # Higher threshold for replicas
+    
+    # Vacuum settings - less aggressive on replicas
+    autovacuum: on
+    autovacuum_max_workers: 2
+    autovacuum_naptime: 60s
+    autovacuum_vacuum_threshold: 100
+    autovacuum_analyze_threshold: 100
+    autovacuum_vacuum_scale_factor: 0.2
+    autovacuum_analyze_scale_factor: 0.1
+    
+    # Memory settings
+    temp_buffers: 32MB
+    
+    # Statistics collection optimized for monitoring
+    track_activities: on
+    track_counts: on
+    track_io_timing: on
+    track_functions: all
+    
+    # Extension preloading
+    shared_preload_libraries: 'pg_stat_statements'
+    
+    # Time zone
+    timezone: 'UTC'
+
+  # Recovery configuration for replicas
+  recovery_conf:
+    standby_mode: on
+    primary_conninfo: 'host=postgres-primary port=5432 user=replicator application_name={{name}}'
+    recovery_target_timeline: 'latest'
+    primary_slot_name: '{{name}}_slot'
+
+  # Custom callbacks for replica lifecycle events
+  callbacks:
+    on_start: /var/lib/postgresql/scripts/replica_on_start.sh
+    on_stop: /var/lib/postgresql/scripts/replica_on_stop.sh
+    on_restart: /var/lib/postgresql/scripts/replica_on_restart.sh
+    on_role_change: /var/lib/postgresql/scripts/replica_on_role_change.sh
+
+  # Custom replica configuration
+  custom_conf: |
+    # Replica-specific YieldSensei optimizations
+    include_if_exists = '/var/lib/postgresql/conf.d/replica.conf'
+
+# Replica-specific tags
+tags:
+  nofailover: false      # Allow this replica to be promoted
+  noloadbalance: false   # Include in load balancing
+  clonefrom: false       # Don't use as clone source
+  nosync: false          # Include in synchronous replication
+  replica: true          # Mark as replica for monitoring
+  
+# Replica-specific watchdog (if needed)
+watchdog:
+  mode: off  # Disabled for replicas
+
+# Logging configuration for replicas
+log:
+  level: INFO
+  file: /var/log/patroni.log
+  format: '%(asctime)s %(levelname)s: %(message)s'
+  dateformat: '%Y-%m-%d %H:%M:%S %Z'
+  max_queue_size: 1000
+  dir: /var/log/patroni
+  file_num: 10
+  file_size: 25MB
+  loggers:
+    patroni.postmaster: WARNING
+    urllib3: WARNING  # Less verbose logging on replicas 
