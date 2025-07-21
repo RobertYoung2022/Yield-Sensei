@@ -1,136 +1,151 @@
 /**
- * YieldSensei API Server
- * Main API entry point with Express server setup
+ * API Server Entry Point
+ * Express server with RESTful API and GraphQL integration
  */
 
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
+import cors from 'cors';
 import compression from 'compression';
-import { json, urlencoded } from 'express';
+import { createGraphQLServer } from '../graphql/server';
 
+// Import middleware
 import { errorHandler } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { rateLimiter } from './middleware/rate-limiter';
 import { validateEnv } from './middleware/validate-env';
 
-import { v1Router } from './routes/v1';
-import { healthRouter } from './routes/health';
+// Import routes
+import healthRoutes from './routes/health';
+import v1Routes from './routes/v1';
 
-import Logger from '../shared/logging/logger';
+// Import database manager
+import { DatabaseManager } from '../shared/database/manager';
 
-const logger = Logger.getLogger('api');
+// Import Redis manager
+import { RedisManager } from '../shared/database/redis-manager';
 
-export class ApiServer {
-  private app: express.Application;
-  private port: number;
+// Import logger
+import { logger } from '../shared/logging/logger';
 
-  constructor(port: number = 3000) {
-    this.port = port;
-    this.app = express();
-    this.setupMiddleware();
-    this.setupRoutes();
-    this.setupErrorHandling();
-  }
+// Import environment configuration
+import { config } from '../config/environment';
 
-  private setupMiddleware(): void {
-    // Security middleware
-    this.app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", "data:", "https:"],
-        },
-      },
-    }));
+// Create Express app
+const app = express();
 
-    // CORS configuration
-    this.app.use(cors({
-      origin: process.env['ALLOWED_ORIGINS']?.split(',') || ['http://localhost:3000'],
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
-    }));
+// Trust proxy for rate limiting
+app.set('trust proxy', 1);
 
-    // Body parsing middleware
-    this.app.use(json({ limit: '10mb' }));
-    this.app.use(urlencoded({ extended: true, limit: '10mb' }));
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+}));
 
-    // Compression middleware
-    this.app.use(compression());
+// CORS configuration
+app.use(cors({
+  origin: config.corsOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
 
-    // Request logging
-    this.app.use(requestLogger);
+// Compression middleware
+app.use(compression());
 
-    // Environment validation
-    this.app.use(validateEnv);
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-    // Rate limiting
-    this.app.use(rateLimiter);
-  }
+// Environment validation middleware
+app.use(validateEnv);
 
-  private setupRoutes(): void {
-    // Health check endpoint
-    this.app.use('/health', healthRouter);
+// Request logging middleware
+app.use(requestLogger);
 
-    // API versioning - v1
-    this.app.use('/api/v1', v1Router);
+// Rate limiting middleware
+app.use(rateLimiter);
 
-    // Root endpoint
-    this.app.get('/', (req, res) => {
-      res.json({
-        name: 'YieldSensei API',
-        version: '1.0.0',
-        description: 'Multi-Agent DeFi Investment Advisor API',
-        documentation: '/api/v1/docs',
-        health: '/health',
+// Health check routes
+app.use('/health', healthRoutes);
+
+// API version 1 routes
+app.use('/api/v1', v1Routes);
+
+// GraphQL server integration
+let graphQLServer: any = null;
+
+// Error handling middleware (must be last)
+app.use(errorHandler);
+
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Initialize database
+    const dbManager = new DatabaseManager();
+    await dbManager.initialize();
+    
+    // Initialize Redis
+    const redisManager = new RedisManager();
+    await redisManager.initialize();
+    
+    // Initialize GraphQL server
+    graphQLServer = await createGraphQLServer(app);
+    
+    // Start HTTP server
+    const port = config.port || 4000;
+    const server = app.listen(port, () => {
+      logger.info(`🚀 API server running on port ${port}`);
+      logger.info(`📊 Health checks available at http://localhost:${port}/health`);
+      logger.info(`🔗 REST API available at http://localhost:${port}/api/v1`);
+      logger.info(`🎯 GraphQL available at http://localhost:${port}/graphql`);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+      logger.info('SIGTERM received, shutting down gracefully');
+      
+      if (graphQLServer) {
+        await graphQLServer.stop();
+      }
+      
+      server.close(async () => {
+        await dbManager.close();
+        await redisManager.close();
+        logger.info('Server closed');
+        process.exit(0);
       });
     });
 
-    // 404 handler
-    this.app.use('*', (req, res) => {
-      res.status(404).json({
-        error: {
-          code: 'NOT_FOUND',
-          message: `Route ${req.method} ${req.originalUrl} not found`,
-          timestamp: new Date().toISOString(),
-        },
+    process.on('SIGINT', async () => {
+      logger.info('SIGINT received, shutting down gracefully');
+      
+      if (graphQLServer) {
+        await graphQLServer.stop();
+      }
+      
+      server.close(async () => {
+        await dbManager.close();
+        await redisManager.close();
+        logger.info('Server closed');
+        process.exit(0);
       });
     });
-  }
 
-  private setupErrorHandling(): void {
-    // Global error handler
-    this.app.use(errorHandler);
-  }
-
-  public async start(): Promise<void> {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const server = this.app.listen(this.port, () => {
-          logger.info(`🚀 YieldSensei API server started on port ${this.port}`);
-          logger.info(`📚 API Documentation: http://localhost:${this.port}/api/v1/docs`);
-          logger.info(`🏥 Health Check: http://localhost:${this.port}/health`);
-          resolve();
-        });
-
-        server.on('error', (error) => {
-          logger.error('Failed to start API server:', error);
-          reject(error);
-        });
-      });
-    } catch (error) {
-      logger.error('Error starting API server:', error);
-      throw error;
-    }
-  }
-
-  public getApp(): express.Application {
-    return this.app;
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
   }
 }
 
-// Export for testing
-export default ApiServer; 
+// Start the server
+startServer();
+
+export default app; 
