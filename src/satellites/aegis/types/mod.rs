@@ -79,7 +79,7 @@ impl Default for RiskParameters {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum RiskLevel {
     Safe,
     Warning,
