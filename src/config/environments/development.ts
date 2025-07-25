@@ -13,8 +13,8 @@ export const developmentConfig: Partial<Config> = {
   port: 3000,
   logLevel: 'debug',
   
-  // Database URLs (Development defaults)
-  databaseUrl: 'postgresql://yieldsensei_app:dev_password@localhost:5432/yieldsensei_dev',
+  // Database URLs (Development defaults - credentials should be set via environment variables)
+  databaseUrl: 'postgresql://localhost:5432/yieldsensei_dev',
   clickhouseUrl: 'http://localhost:8123',
   redisUrl: 'redis://localhost:6379',
   vectorDbUrl: 'http://localhost:6333',

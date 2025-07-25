@@ -40,7 +40,7 @@ interface HealthStatus {
  * GET /health
  * Basic health check endpoint
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const healthStatus: HealthStatus = {
       status: 'healthy',
@@ -81,7 +81,7 @@ router.get('/', async (req: Request, res: Response) => {
       const redisHealth = await redisManager.healthCheck();
       healthStatus.services.redis = {
         status: redisHealth.status === 'healthy' ? 'healthy' : 'unhealthy',
-        latency: redisHealth.latency,
+        ...(redisHealth.latency !== undefined && { latency: redisHealth.latency }),
       };
     } catch (error) {
       healthStatus.services.redis = {
@@ -120,7 +120,7 @@ router.get('/', async (req: Request, res: Response) => {
  * GET /health/ready
  * Readiness probe for Kubernetes
  */
-router.get('/ready', async (req: Request, res: Response) => {
+router.get('/ready', async (_req: Request, res: Response) => {
   try {
     // Check if all critical services are ready
     const dbManager = DatabaseManager.getInstance();
@@ -162,7 +162,7 @@ router.get('/ready', async (req: Request, res: Response) => {
  * GET /health/live
  * Liveness probe for Kubernetes
  */
-router.get('/live', (req: Request, res: Response) => {
+router.get('/live', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'alive',
     timestamp: new Date().toISOString(),
@@ -170,4 +170,4 @@ router.get('/live', (req: Request, res: Response) => {
   });
 });
 
-export { router as healthRouter }; 
+export default router; 

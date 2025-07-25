@@ -277,4 +277,4 @@ router.get('/:id/logs', validatePagination, async (req: Request, res: Response) 
   }
 });
 
-export { router as satellitesRouter }; 
+export default router; 

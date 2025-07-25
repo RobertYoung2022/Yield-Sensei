@@ -31,12 +31,28 @@ export interface PartitionInfo {
  * Schema management for PostgreSQL database
  */
 export class PostgreSQLSchemaManager {
-  private dbManager: DatabaseManager;
+  private dbManager: DatabaseManager | null = null;
   private migrationsPath: string;
 
   constructor() {
-    this.dbManager = DatabaseManager.getInstance();
     this.migrationsPath = join(__dirname, 'migrations');
+  }
+  
+  /**
+   * Initialize with database manager instance
+   */
+  setDatabaseManager(dbManager: DatabaseManager): void {
+    this.dbManager = dbManager;
+  }
+  
+  /**
+   * Get database manager, throwing error if not set
+   */
+  private getDbManager(): DatabaseManager {
+    if (!this.dbManager) {
+      throw new Error('DatabaseManager not set. Call setDatabaseManager() first.');
+    }
+    return this.dbManager;
   }
 
   /**
@@ -47,7 +63,7 @@ export class PostgreSQLSchemaManager {
       logger.info('Initializing PostgreSQL schema...');
 
       // Ensure database connection
-      await this.dbManager.initialize();
+      await this.getDbManager().initialize();
 
       // Run all pending migrations
       await this.runMigrations();
@@ -68,7 +84,7 @@ export class PostgreSQLSchemaManager {
   async runMigrations(): Promise<void> {
     logger.info('Running database migrations...');
 
-    const client = await this.dbManager.getPostgresConnection();
+    const client = await this.getDbManager().getPostgresConnection();
     
     try {
       // Create migrations table if it doesn't exist
@@ -205,7 +221,7 @@ export class PostgreSQLSchemaManager {
   async setupPartitionManagement(): Promise<void> {
     logger.info('Setting up automatic partition management...');
 
-    const client = await this.dbManager.getPostgresConnection();
+    const client = await this.getDbManager().getPostgresConnection();
     
     try {
       // Create partitions for current and next month
@@ -294,7 +310,7 @@ export class PostgreSQLSchemaManager {
    * Get partition information
    */
   async getPartitionInfo(): Promise<PartitionInfo[]> {
-    const result = await this.dbManager.executePostgresQuery(`
+    const result = await this.getDbManager().executePostgresQuery(`
       SELECT * FROM get_partition_sizes()
       ORDER BY size_bytes DESC;
     `);
@@ -311,7 +327,7 @@ export class PostgreSQLSchemaManager {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - olderThanMonths);
 
-    const client = await this.dbManager.getPostgresConnection();
+    const client = await this.getDbManager().getPostgresConnection();
     
     try {
       // Find old transaction history partitions
@@ -342,7 +358,7 @@ export class PostgreSQLSchemaManager {
     const issues: string[] = [];
 
     try {
-      const client = await this.dbManager.getPostgresConnection();
+      const client = await this.getDbManager().getPostgresConnection();
       
       try {
         // Check for required tables
@@ -406,7 +422,7 @@ export class PostgreSQLSchemaManager {
    * Get schema statistics
    */
   async getSchemaStats(): Promise<any> {
-    const stats = await this.dbManager.executePostgresQuery(`
+    const stats = await this.getDbManager().executePostgresQuery(`
       SELECT 
         (SELECT COUNT(*) FROM users) as user_count,
         (SELECT COUNT(*) FROM protocols) as protocol_count,

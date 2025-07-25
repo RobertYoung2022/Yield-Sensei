@@ -94,7 +94,7 @@ export const analyticsRequestSchema = z.object({
 
 // Generic validation middleware factory
 export function validateRequest(schema: z.ZodSchema, location: 'body' | 'query' | 'params' = 'body') {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     try {
       const data = req[location];
       const validatedData = schema.parse(data);

@@ -2,8 +2,8 @@ import { Router } from 'express';
 
 const router = Router();
 
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   res.json({ message: 'Analytics endpoint - TODO' });
 });
 
-export { router as analyticsRouter }; 
+export default router; 

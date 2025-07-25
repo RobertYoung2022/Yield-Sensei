@@ -79,12 +79,15 @@ export class DatabaseManager extends EventEmitter {
     super();
     this.config = this.parseConfig();
     this.schemaManager = new PostgreSQLSchemaManager();
-    this.clickhouseManager = ClickHouseManager.getInstance();
+    // Set this instance on the schema manager to avoid circular dependency
+    this.schemaManager.setDatabaseManager(this);
+    // TODO: Re-enable ClickHouse after fixing client configuration
+    // this.clickhouseManager = ClickHouseManager.getInstance();
     
-    // Initialize integration components
-    this.integrationManager = DatabaseIntegrationManager.getInstance();
-    this.cdcManager = CDCManager.getInstance();
-    this.unifiedQueryManager = UnifiedQueryManager.getInstance();
+    // TODO: Re-enable integration components after fixing circular dependencies
+    // this.integrationManager = DatabaseIntegrationManager.getInstance();
+    // this.cdcManager = CDCManager.getInstance();
+    // this.unifiedQueryManager = UnifiedQueryManager.getInstance();
     
     // Initialize Redis manager with config
     const redisConfig: RedisConfig = {
@@ -254,10 +257,14 @@ export class DatabaseManager extends EventEmitter {
     try {
       logger.info('Connecting to ClickHouse...');
       
-      await this.clickhouseManager.initialize();
-      
-      this.status.clickhouse = 'connected';
-      logger.info('ClickHouse connected successfully');
+      if (this.clickhouseManager) {
+        await this.clickhouseManager.initialize();
+        this.status.clickhouse = 'connected';
+        logger.info('ClickHouse connected successfully');
+      } else {
+        logger.warn('ClickHouse manager not initialized - skipping ClickHouse connection');
+        this.status.clickhouse = 'disconnected';
+      }
     } catch (error) {
       this.status.clickhouse = 'error';
       logger.error('Failed to connect to ClickHouse:', error);

@@ -26,7 +26,7 @@ const recommendedEnvVars = [
 ];
 
 export function validateEnv(
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ): void {

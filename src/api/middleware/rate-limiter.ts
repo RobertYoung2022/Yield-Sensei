@@ -24,7 +24,21 @@ const logger = Logger.getLogger('rate-limiter');
 
 // Use existing Redis client from shared module
 import { RedisManager } from '../../shared/database/redis-manager';
-const redisClient = RedisManager.getInstance().getRedisInstance();
+
+// Lazy initialization of Redis client
+function getRedisClient() {
+  try {
+    const redisConfig = {
+      host: process.env['REDIS_HOST'] || 'localhost',
+      port: parseInt(process.env['REDIS_PORT'] || '6379'),
+      ...(process.env['REDIS_PASSWORD'] && { password: process.env['REDIS_PASSWORD'] }),
+    };
+    return RedisManager.getInstance(redisConfig).getRedisInstance();
+  } catch (error) {
+    logger.warn('Redis not available for rate limiting, using in-memory fallback');
+    return null;
+  }
+}
 
 // Rate limit configurations
 const rateLimitConfigs = {
@@ -55,44 +69,52 @@ const rateLimitConfigs = {
   },
 };
 
-// Create rate limiters
-const rateLimiters = {
-  free: new RateLimiterRedis({
-    storeClient: redisClient,
-    keyPrefix: 'rate_limit_free',
-    points: rateLimitConfigs.free.points,
-    duration: rateLimitConfigs.free.duration,
-    blockDuration: 60, // block for 1 minute when limit exceeded
-  }),
-  standard: new RateLimiterRedis({
-    storeClient: redisClient,
-    keyPrefix: 'rate_limit_standard',
-    points: rateLimitConfigs.standard.points,
-    duration: rateLimitConfigs.standard.duration,
-    blockDuration: 60,
-  }),
-  premium: new RateLimiterRedis({
-    storeClient: redisClient,
-    keyPrefix: 'rate_limit_premium',
-    points: rateLimitConfigs.premium.points,
-    duration: rateLimitConfigs.premium.duration,
-    blockDuration: 60,
-  }),
-  apiKey: new RateLimiterRedis({
-    storeClient: redisClient,
-    keyPrefix: 'rate_limit_api_key',
-    points: rateLimitConfigs.apiKey.points,
-    duration: rateLimitConfigs.apiKey.duration,
-    blockDuration: 60,
-  }),
-  ip: new RateLimiterRedis({
-    storeClient: redisClient,
-    keyPrefix: 'rate_limit_ip',
-    points: rateLimitConfigs.ip.points,
-    duration: rateLimitConfigs.ip.duration,
-    blockDuration: 300, // block for 5 minutes when limit exceeded
-  }),
-};
+// Lazy creation of rate limiters
+let rateLimiters: any = null;
+
+function getRateLimiters() {
+  if (!rateLimiters) {
+    const redisClient = getRedisClient();
+    rateLimiters = {
+      free: new RateLimiterRedis({
+        storeClient: redisClient,
+        keyPrefix: 'rate_limit_free',
+        points: rateLimitConfigs.free.points,
+        duration: rateLimitConfigs.free.duration,
+        blockDuration: 60, // block for 1 minute when limit exceeded
+      }),
+      standard: new RateLimiterRedis({
+        storeClient: redisClient,
+        keyPrefix: 'rate_limit_standard',
+        points: rateLimitConfigs.standard.points,
+        duration: rateLimitConfigs.standard.duration,
+        blockDuration: 60,
+      }),
+      premium: new RateLimiterRedis({
+        storeClient: redisClient,
+        keyPrefix: 'rate_limit_premium',
+        points: rateLimitConfigs.premium.points,
+        duration: rateLimitConfigs.premium.duration,
+        blockDuration: 60,
+      }),
+      apiKey: new RateLimiterRedis({
+        storeClient: redisClient,
+        keyPrefix: 'rate_limit_api_key',
+        points: rateLimitConfigs.apiKey.points,
+        duration: rateLimitConfigs.apiKey.duration,
+        blockDuration: 60,
+      }),
+      ip: new RateLimiterRedis({
+        storeClient: redisClient,
+        keyPrefix: 'rate_limit_ip',
+        points: rateLimitConfigs.ip.points,
+        duration: rateLimitConfigs.ip.duration,
+        blockDuration: 300, // block for 5 minutes when limit exceeded
+      }),
+    };
+  }
+  return rateLimiters;
+}
 
 export function rateLimiter(
   req: Request,
@@ -101,7 +123,7 @@ export function rateLimiter(
 ): void {
   // Determine user tier based on authentication
   const userTier = getUserTier(req);
-  const limiter = rateLimiters[userTier];
+  const limiter = getRateLimiters()[userTier];
   const key = getRateLimitKey(req, userTier);
 
   limiter
@@ -116,12 +138,13 @@ export function rateLimiter(
     })
     .catch((rateLimiterRes) => {
       // Rate limit exceeded
-      const retryAfter = Math.ceil(rateLimiterRes.msBeforeNext / 1000);
+      const msBeforeNext = rateLimiterRes.msBeforeNext || 60000; // Default to 1 minute
+      const retryAfter = Math.ceil(msBeforeNext / 1000);
       
       res.setHeader('Retry-After', retryAfter);
       res.setHeader('X-RateLimit-Limit', rateLimitConfigs[userTier].points);
       res.setHeader('X-RateLimit-Remaining', 0);
-      res.setHeader('X-RateLimit-Reset', new Date(Date.now() + rateLimiterRes.msBeforeNext).toISOString());
+      res.setHeader('X-RateLimit-Reset', new Date(Date.now() + msBeforeNext).toISOString());
 
       logger.warn('Rate limit exceeded:', {
         key,

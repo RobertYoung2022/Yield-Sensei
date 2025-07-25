@@ -223,4 +223,4 @@ router.get('/:id/performance', validatePortfolioId, async (req: Request, res: Re
   }
 });
 
-export { router as portfoliosRouter }; 
+export default router; 

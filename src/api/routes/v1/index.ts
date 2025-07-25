@@ -4,19 +4,19 @@
  */
 
 import { Router } from 'express';
-import { portfoliosRouter } from './portfolios';
-import { satellitesRouter } from './satellites';
-import { riskAssessmentsRouter } from './risk-assessments';
-import { marketDataRouter } from './market-data';
-import { transactionsRouter } from './transactions';
-import { usersRouter } from './users';
-import { analyticsRouter } from './analytics';
-import { docsRouter } from './docs';
+import portfoliosRouter from './portfolios';
+import satellitesRouter from './satellites';
+import riskAssessmentsRouter from './risk-assessments';
+import marketDataRouter from './market-data';
+import transactionsRouter from './transactions';
+import usersRouter from './users';
+import analyticsRouter from './analytics';
+import docsRouter from './docs';
 
 const router = Router();
 
 // API v1 root endpoint
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   res.json({
     version: '1.0.0',
     name: 'YieldSensei API v1',
@@ -45,4 +45,4 @@ router.use('/users', usersRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/docs', docsRouter);
 
-export { router as v1Router }; 
+export default router; 

@@ -64,7 +64,7 @@ export const config: Config = {
   logLevel: process.env['LOG_LEVEL'] || 'info',
   
   // Database URLs
-  databaseUrl: process.env['DATABASE_URL'] || 'postgresql://yieldsensei:password@localhost:5432/yieldsensei',
+  databaseUrl: process.env['DATABASE_URL'] || 'postgresql://localhost:5432/yieldsensei',
   clickhouseUrl: process.env['CLICKHOUSE_URL'] || 'http://localhost:8123',
   redisUrl: process.env['REDIS_URL'] || 'redis://localhost:6379',
   vectorDbUrl: process.env['VECTOR_DB_URL'] || 'http://localhost:8000',
