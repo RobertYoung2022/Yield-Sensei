@@ -120,7 +120,7 @@ export class VaultManager {
       environment: metadata.environment || 'all',
       created: new Date(),
       lastRotated: new Date(),
-      expiresAt: metadata.expiresAt,
+      expiresAt: metadata.expiresAt || undefined,
       rotationPolicy: metadata.rotationPolicy || {
         enabled: false,
         intervalDays: 90,
@@ -131,7 +131,9 @@ export class VaultManager {
       accessControl: metadata.accessControl || {
         roles: ['admin'],
         users: [],
-        permissions: ['read']
+        permissions: ['read'],
+        ipRestrictions: undefined,
+        timeRestrictions: undefined
       },
       tags: metadata.tags || []
     };

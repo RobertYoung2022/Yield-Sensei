@@ -8,6 +8,7 @@ import { CrossChainArbitrageEngine } from './arbitrage/cross-chain-arbitrage-eng
 import { BridgeRiskAssessment } from './safety/bridge-risk-assessment';
 import { BridgeMonitoringService } from './safety/bridge-monitoring';
 import { LiquidityOptimizer } from './liquidity/liquidity-optimizer';
+import { CapitalEfficiencyAnalyzer } from './liquidity/capital-efficiency-analyzer';
 import { MultiChainCoordinator } from './coordination/multi-chain-coordinator';
 import { OpportunityValidator, ValidatorConfig } from './arbitrage/opportunity-validator';
 import { AssetMapperService } from './arbitrage/asset-mapper';
@@ -106,6 +107,7 @@ class BridgeSatelliteAgent {
   private riskAssessment: BridgeRiskAssessment;
   private bridgeMonitoring: BridgeMonitoringService;
   private liquidityOptimizer: LiquidityOptimizer;
+  private capitalEfficiencyAnalyzer: CapitalEfficiencyAnalyzer;
   private multiChainCoordinator: MultiChainCoordinator;
   private opportunityValidator: OpportunityValidator;
   private assetMapper: AssetMapperService;
@@ -123,6 +125,13 @@ class BridgeSatelliteAgent {
     this.riskAssessment = new BridgeRiskAssessment(this.config);
     this.bridgeMonitoring = new BridgeMonitoringService(this.config);
     this.liquidityOptimizer = new LiquidityOptimizer(this.config);
+    this.capitalEfficiencyAnalyzer = new CapitalEfficiencyAnalyzer(this.config, {
+      riskTolerance: 'moderate',
+      minIdleThreshold: 0.05,
+      rebalancingCostThreshold: 1000,
+      targetUtilizationRate: this.config.liquidity.maxUtilization,
+      opportunityUpdateInterval: 3600000 // 1 hour
+    });
     this.multiChainCoordinator = new MultiChainCoordinator(this.config);
     
     // Initialize new arbitrage components
@@ -166,6 +175,7 @@ class BridgeSatelliteAgent {
         this.riskAssessment.initialize(),
         this.bridgeMonitoring.initialize(),
         this.liquidityOptimizer.initialize(),
+        this.capitalEfficiencyAnalyzer.initialize(),
         this.multiChainCoordinator.initialize(),
         this.assetMapper.initialize(),
         this.historicalAnalyzer.initialize(),
@@ -197,6 +207,7 @@ class BridgeSatelliteAgent {
         this.riskAssessment.start(),
         this.bridgeMonitoring.start(),
         this.liquidityOptimizer.start(),
+        this.capitalEfficiencyAnalyzer.start(),
         this.multiChainCoordinator.start(),
       ]);
 
@@ -230,6 +241,7 @@ class BridgeSatelliteAgent {
         this.riskAssessment.stop(),
         this.bridgeMonitoring.stop(),
         this.liquidityOptimizer.stop(),
+        this.capitalEfficiencyAnalyzer.stop(),
         this.multiChainCoordinator.stop(),
       ]);
 
@@ -300,6 +312,26 @@ class BridgeSatelliteAgent {
     return this.liquidityOptimizer.optimize();
   }
 
+  async analyzeCapitalEfficiency(): Promise<any> {
+    return this.capitalEfficiencyAnalyzer.analyzeCapitalEfficiency();
+  }
+
+  async getCapitalAllocationBreakdown(): Promise<any> {
+    return this.capitalEfficiencyAnalyzer.getCapitalAllocationBreakdown();
+  }
+
+  async getCapitalOptimizationRecommendations(): Promise<any> {
+    return this.capitalEfficiencyAnalyzer.generateOptimizationRecommendations();
+  }
+
+  async simulateCapitalAllocationScenarios(scenarios: any[]): Promise<any[]> {
+    return this.capitalEfficiencyAnalyzer.simulateAllocationScenarios(scenarios);
+  }
+
+  getCapitalEfficiencyMetrics(): any {
+    return this.capitalEfficiencyAnalyzer.getCurrentEfficiencyMetrics();
+  }
+
   async getPortfolioStatus(): Promise<CrossChainPortfolio> {
     return this.multiChainCoordinator.getPortfolioStatus();
   }
@@ -356,6 +388,7 @@ class BridgeSatelliteAgent {
     this.riskAssessment.updateConfig(this.config);
     this.bridgeMonitoring.updateConfig(this.config);
     this.liquidityOptimizer.updateConfig(this.config);
+    this.capitalEfficiencyAnalyzer.updateConfig(this.config);
     this.multiChainCoordinator.updateConfig(this.config);
 
     logger.info('Bridge Satellite configuration updated');
@@ -700,17 +733,20 @@ class BridgeSatelliteAgent {
     assetStats: any;
     validationStats: any;
     riskDistribution: any;
+    capitalEfficiency: any;
   }> {
     const [
       evaluationSummary,
       performanceMetrics,
       assetStats,
       validationStats,
+      capitalEfficiency,
     ] = await Promise.all([
       this.getEvaluationSummary(),
       this.getPerformanceMetrics(),
       this.getAssetStats(),
       this.getValidationStats(),
+      this.analyzeCapitalEfficiency(),
     ]);
 
     // Calculate risk distribution
@@ -723,6 +759,7 @@ class BridgeSatelliteAgent {
       assetStats,
       validationStats,
       riskDistribution,
+      capitalEfficiency,
     };
   }
 

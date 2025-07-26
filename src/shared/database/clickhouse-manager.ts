@@ -5,7 +5,7 @@
 
 import { ClickHouseClient } from '@clickhouse/client';
 import Logger from '@/shared/logging/logger';
-import { config } from '@/config/environment';
+// Note: config import removed as it was unused
 import { EventEmitter } from 'events';
 
 const logger = Logger.getLogger('clickhouse-manager');

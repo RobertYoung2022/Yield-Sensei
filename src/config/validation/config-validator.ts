@@ -390,7 +390,7 @@ export class ConfigValidator {
     }
 
     // Check SSL/TLS requirements
-    if (config.database?.postgres?.ssl === false && config.nodeEnv === 'production') {
+    if (config['database']?.postgres?.ssl === false && config.nodeEnv === 'production') {
       errors.push({
         path: 'database.postgres.ssl',
         message: 'SSL must be enabled for PostgreSQL in production',

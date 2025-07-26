@@ -580,6 +580,76 @@ hit_rate:${this.stats.hitRate.toFixed(3)}`;
   }
 
   /**
+   * Delete a key (alias for delete method)
+   */
+  public async del(key: string): Promise<boolean> {
+    return this.delete(key);
+  }
+
+  /**
+   * Set key with expiration time in seconds
+   */
+  public async setex(key: string, seconds: number, value: any): Promise<boolean> {
+    try {
+      await this.set(key, value, { ttl: seconds });
+      return true;
+    } catch (error) {
+      this.logger.error('Redis SETEX error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete a hash field
+   */
+  public async hdel(key: string, field: string): Promise<number> {
+    try {
+      const hashKey = this.buildKey(`${key}:${field}`);
+      const existed = this.cache.has(hashKey);
+      this.cache.delete(hashKey);
+      
+      if (existed) {
+        this.stats.deletes++;
+        return 1;
+      }
+      return 0;
+    } catch (error) {
+      this.logger.error('Redis HDEL error:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Set a hash field
+   */
+  public async hset(key: string, field: string, value: any): Promise<number> {
+    try {
+      const hashKey = this.buildKey(`${key}:${field}`);
+      const existed = this.cache.has(hashKey);
+      
+      await this.set(hashKey, value);
+      
+      return existed ? 0 : 1;
+    } catch (error) {
+      this.logger.error('Redis HSET error:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get a hash field
+   */
+  public async hget(key: string, field: string): Promise<any> {
+    try {
+      const hashKey = this.buildKey(`${key}:${field}`);
+      return this.get(hashKey);
+    } catch (error) {
+      this.logger.error('Redis HGET error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Clean up expired entries (maintenance function)
    */
   public async cleanup(): Promise<number> {

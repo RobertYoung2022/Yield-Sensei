@@ -5,7 +5,7 @@
  * across PostgreSQL, ClickHouse, Redis, and Vector DB systems.
  */
 
-import { Pool, PoolClient } from 'pg';
+// TypeScript types only import { PoolClient } from 'pg';
 import { EventEmitter } from 'events';
 import Logger from '@/shared/logging/logger';
 import { DatabaseManager } from './manager';
@@ -498,7 +498,7 @@ export class CDCManager extends EventEmitter {
       }
 
       // Update Redis cache
-      const cacheKey = `transaction:${change.newRecord?.id || change.oldRecord?.id}`;
+      const cacheKey = `transaction:${change.newRecord?.['id'] || change.oldRecord?.['id']}`;
       if (change.operation === 'DELETE') {
         await redis.del(cacheKey);
       } else {
@@ -519,14 +519,14 @@ export class CDCManager extends EventEmitter {
       const redis = this.dbManager.getRedis();
       const clickhouse = this.dbManager.getClickHouse();
 
-      const userId = change.newRecord?.user_id || change.oldRecord?.user_id;
+      const userId = change.newRecord?.['user_id'] || change.oldRecord?.['user_id'];
       const cacheKey = `portfolio:${userId}`;
 
       // Update Redis cache
       if (change.operation === 'DELETE') {
-        await redis.hdel(cacheKey, change.oldRecord?.asset_id);
+        await redis.hdel(cacheKey, change.oldRecord?.['asset_id']);
       } else {
-        await redis.hset(cacheKey, change.newRecord?.asset_id, JSON.stringify(change.newRecord));
+        await redis.hset(cacheKey, change.newRecord?.['asset_id'], JSON.stringify(change.newRecord));
         await redis.expire(cacheKey, 1800); // 30 minutes TTL
       }
 
@@ -535,11 +535,11 @@ export class CDCManager extends EventEmitter {
         await clickhouse.insert('user_activity_daily', [{
           timestamp: new Date(),
           user_id: userId,
-          asset_id: change.newRecord?.asset_id,
-          protocol_id: change.newRecord?.protocol_id,
+          asset_id: change.newRecord?.['asset_id'],
+          protocol_id: change.newRecord?.['protocol_id'],
           activity_type: change.operation.toLowerCase(),
-          quantity: change.newRecord?.quantity || 0,
-          value_usd: change.newRecord?.value_usd || 0
+          quantity: change.newRecord?.['quantity'] || 0,
+          value_usd: change.newRecord?.['value_usd'] || 0
         }]);
       }
 
@@ -558,7 +558,7 @@ export class CDCManager extends EventEmitter {
       const clickhouse = this.dbManager.getClickHouse();
 
       // Update Redis cache
-      const cacheKey = `protocol:${change.newRecord?.id || change.oldRecord?.id}`;
+      const cacheKey = `protocol:${change.newRecord?.['id'] || change.oldRecord?.['id']}`;
       if (change.operation === 'DELETE') {
         await redis.del(cacheKey);
       } else {
@@ -569,11 +569,11 @@ export class CDCManager extends EventEmitter {
       if (change.operation === 'INSERT' || change.operation === 'UPDATE') {
         await clickhouse.insert('protocol_tvl_history', [{
           timestamp: new Date(),
-          protocol_id: change.newRecord?.id,
-          tvl: change.newRecord?.tvl || 0,
-          apy: change.newRecord?.apy || 0,
-          risk_score: change.newRecord?.risk_score || 0,
-          user_count: change.newRecord?.user_count || 0
+          protocol_id: change.newRecord?.['id'],
+          tvl: change.newRecord?.['tvl'] || 0,
+          apy: change.newRecord?.['apy'] || 0,
+          risk_score: change.newRecord?.['risk_score'] || 0,
+          user_count: change.newRecord?.['user_count'] || 0
         }]);
       }
 
@@ -591,7 +591,7 @@ export class CDCManager extends EventEmitter {
       const redis = this.dbManager.getRedis();
 
       // Update Redis cache
-      const cacheKey = `user:${change.newRecord?.id || change.oldRecord?.id}`;
+      const cacheKey = `user:${change.newRecord?.['id'] || change.oldRecord?.['id']}`;
       if (change.operation === 'DELETE') {
         await redis.del(cacheKey);
       } else {
@@ -613,8 +613,8 @@ export class CDCManager extends EventEmitter {
         id: crypto.randomUUID(),
         table: change.table,
         operation: change.operation,
-        oldRecord: change.oldRecord,
-        newRecord: change.newRecord,
+        oldRecord: change.oldRecord || undefined,
+        newRecord: change.newRecord || undefined,
         timestamp: change.timestamp,
         transactionId: change.transactionId,
         metadata: {
@@ -626,9 +626,14 @@ export class CDCManager extends EventEmitter {
 
       const topic = this.getTopicForTable(change.table);
       
+      if (!this.kafkaManager) {
+        logger.warn('KafkaManager not initialized, skipping Kafka publish');
+        return;
+      }
+      
       await this.kafkaManager.produce({
         topic,
-        key: change.newRecord?.id || change.oldRecord?.id,
+        key: change.newRecord?.['id'] || change.oldRecord?.['id'],
         value: JSON.stringify(message),
         headers: {
           'table': change.table,
@@ -743,8 +748,9 @@ export class CDCManager extends EventEmitter {
       AND timestamp < NOW() - INTERVAL '${daysToKeep} days'
     `);
 
-    logger.info(`Cleaned up ${result.rowCount} old CDC changes`);
-    return result.rowCount;
+    const rowCount = result.rowCount || 0;
+    logger.info(`Cleaned up ${rowCount} old CDC changes`);
+    return rowCount;
   }
 
   /**

@@ -248,7 +248,7 @@ export class OrchestrationEngine extends EventEmitter {
       // Determine component health
       const components = {
         messageBus: messageBusHealth.healthy ? 'healthy' as const : 'unhealthy' as const,
-        database: databaseHealth.healthy ? 'healthy' as const : 'unhealthy' as const,
+        database: databaseHealth.status === 'healthy' ? 'healthy' as const : 'unhealthy' as const,
         agents: lifecycleStats.errorAgents === 0 ? 'healthy' as const : 
                 lifecycleStats.errorAgents < lifecycleStats.totalAgents / 2 ? 'degraded' as const : 'unhealthy' as const,
       };

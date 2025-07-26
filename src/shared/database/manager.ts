@@ -426,6 +426,34 @@ export class DatabaseManager extends EventEmitter {
   }
 
   /**
+   * Perform health check on all database connections
+   */
+  async healthCheck(): Promise<{ status: string; details: DatabaseStatus }> {
+    try {
+      const status = this.getStatus();
+      const isHealthy = this.isHealthy();
+      
+      return {
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        details: status
+      };
+    } catch (error) {
+      logger.error('Health check failed:', error);
+      return {
+        status: 'error',
+        details: this.getStatus()
+      };
+    }
+  }
+
+  /**
+   * Disconnect all database connections (alias for close)
+   */
+  async disconnect(): Promise<void> {
+    return this.close();
+  }
+
+  /**
    * Get database health metrics
    */
   async getHealthMetrics(): Promise<any> {
