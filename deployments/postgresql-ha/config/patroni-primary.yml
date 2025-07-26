@@ -1,0 +1,217 @@
+scope: yieldsensei-cluster
+name: postgres-primary
+namespace: /db/
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: postgres-primary:8008
+  certification:
+    certfile: ""
+    keyfile: ""
+  authentication:
+    username: patroni
+    password: patroni-password
+
+etcd3:
+  hosts: etcd1:2379,etcd2:2379,etcd3:2379
+
+bootstrap:
+  # this section will be written into Etcd:/<namespace>/<scope>/config after initializing new cluster
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 30
+    maximum_lag_on_failover: 1048576
+    master_start_timeout: 300
+    synchronous_mode: true
+    synchronous_mode_strict: false
+    synchronous_node_count: 1
+    check_timeline: false
+    use_pg_rewind: true
+    use_slots: true
+    
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      recovery_conf:
+        restore_command: 'cp /var/lib/postgresql/wal_archive/%f %p'
+      
+      parameters:
+        # Performance optimization for DeFi workloads
+        max_connections: 200
+        shared_buffers: 512MB
+        effective_cache_size: 1536MB
+        maintenance_work_mem: 128MB
+        checkpoint_completion_target: 0.9
+        wal_buffers: 16MB
+        default_statistics_target: 100
+        random_page_cost: 1.1
+        effective_io_concurrency: 200
+        work_mem: 8MB
+        min_wal_size: 1GB
+        max_wal_size: 4GB
+        
+        # Replication settings
+        max_wal_senders: 10
+        max_replication_slots: 10
+        wal_level: replica
+        hot_standby: on
+        wal_log_hints: on
+        wal_compression: on
+        
+        # Synchronous replication for critical transactions
+        synchronous_standby_names: 'ANY 1 (postgres-replica1, postgres-replica2)'
+        synchronous_commit: on
+        
+        # Logging for monitoring
+        log_destination: 'stderr'
+        logging_collector: on
+        log_checkpoints: on
+        log_connections: on
+        log_disconnections: on
+        log_lock_waits: on
+        log_temp_files: 0
+        log_autovacuum_min_duration: 0
+        log_error_verbosity: default
+        log_line_prefix: '%m [%p] %q%u@%d '
+        log_statement: 'mod'
+        log_min_duration_statement: 1000
+        
+        # Security
+        ssl: off  # Disabled for internal cluster communication
+        password_encryption: scram-sha-256
+        
+        # Autovacuum optimization for high-frequency transactions
+        autovacuum: on
+        autovacuum_max_workers: 3
+        autovacuum_naptime: 20s
+        autovacuum_vacuum_threshold: 50
+        autovacuum_analyze_threshold: 50
+        autovacuum_vacuum_scale_factor: 0.1
+        autovacuum_analyze_scale_factor: 0.05
+        autovacuum_vacuum_cost_delay: 10ms
+        autovacuum_vacuum_cost_limit: 1000
+        
+        # Memory settings for large datasets
+        temp_buffers: 32MB
+        max_prepared_transactions: 50
+        
+        # Lock management
+        deadlock_timeout: 1s
+        max_locks_per_transaction: 256
+        
+        # Checkpoint settings for write-heavy workloads
+        checkpoint_timeout: 5min
+        checkpoint_warning: 30s
+        
+        # Parallel query settings
+        max_worker_processes: 8
+        max_parallel_workers_per_gather: 2
+        max_parallel_workers: 8
+        max_parallel_maintenance_workers: 2
+        
+        # Time zone
+        timezone: 'UTC'
+        
+        # Extension preloading for performance monitoring
+        shared_preload_libraries: 'pg_stat_statements'
+        
+        # Statistics collection
+        track_activities: on
+        track_counts: on
+        track_io_timing: on
+        track_functions: all
+        
+      pg_hba:
+        - host replication replicator 0.0.0.0/0 md5
+        - host all all 0.0.0.0/0 md5
+        - local all all peer
+
+  # Database initialization
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+    - auth-host: md5
+    - auth-local: peer
+
+  # Users created during bootstrap
+  users:
+    postgres:
+      password: changeme_in_production
+      options:
+        - createrole
+        - createdb
+    replicator:
+      password: repl_changeme
+      options:
+        - replication
+    yieldsensei_app:
+      password: changeme_in_production
+      options:
+        - createdb
+
+  # Scripts to run after bootstrap
+  post_bootstrap: |
+    # Create application database and schema
+    psql -c "CREATE DATABASE yieldsensei OWNER yieldsensei_app;"
+    
+    # Load initial schema if migration files exist
+    if [ -f "/var/lib/postgresql/migrations/001_create_initial_schema.sql" ]; then
+      psql -d yieldsensei -f /var/lib/postgresql/migrations/001_create_initial_schema.sql
+    fi
+    
+    # Create replication slot
+    psql -c "SELECT pg_create_physical_replication_slot('postgres_replica1_slot');"
+    psql -c "SELECT pg_create_physical_replication_slot('postgres_replica2_slot');"
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: postgres-primary:5432
+  data_dir: /var/lib/postgresql/data
+  bin_dir: /usr/local/bin
+  config_dir: /var/lib/postgresql/data
+  pgpass: /tmp/pgpass
+  
+  authentication:
+    replication:
+      username: replicator
+      password: repl_changeme
+    superuser:
+      username: postgres
+      password: changeme_in_production
+
+  # Custom callbacks for lifecycle events
+  callbacks:
+    on_start: /var/lib/postgresql/scripts/on_start.sh
+    on_stop: /var/lib/postgresql/scripts/on_stop.sh
+    on_restart: /var/lib/postgresql/scripts/on_restart.sh
+    on_role_change: /var/lib/postgresql/scripts/on_role_change.sh
+
+  # Recovery settings
+  recovery_conf:
+    restore_command: 'cp /var/lib/postgresql/wal_archive/%f %p'
+
+  # Custom configuration file inclusion
+  custom_conf: |
+    # Custom YieldSensei optimizations
+    include_if_exists = '/var/lib/postgresql/conf.d/yieldsensei.conf'
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
+  
+# Logging configuration
+log:
+  level: INFO
+  file: /var/log/patroni.log
+  format: '%(asctime)s %(levelname)s: %(message)s'
+  dateformat: '%Y-%m-%d %H:%M:%S %Z'
+  max_queue_size: 1000
+  dir: /var/log/patroni
+  file_num: 10
+  file_size: 25MB
+  loggers:
+    patroni.postmaster: WARNING
+    urllib3: DEBUG 

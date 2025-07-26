@@ -17,6 +17,12 @@ export interface Config {
   databaseUrl: string;
   clickhouseUrl: string;
   redisUrl: string;
+  vectorDbUrl: string;
+  
+  // Vector Database
+  vectorDbHost: string;
+  vectorDbPort: number;
+  vectorDbApiKey?: string | undefined;
   
   // API Keys
   anthropicApiKey?: string | undefined;
@@ -58,9 +64,15 @@ export const config: Config = {
   logLevel: process.env['LOG_LEVEL'] || 'info',
   
   // Database URLs
-  databaseUrl: process.env['DATABASE_URL'] || 'postgresql://yieldsensei:password@localhost:5432/yieldsensei',
+  databaseUrl: process.env['DATABASE_URL'] || 'postgresql://localhost:5432/yieldsensei',
   clickhouseUrl: process.env['CLICKHOUSE_URL'] || 'http://localhost:8123',
   redisUrl: process.env['REDIS_URL'] || 'redis://localhost:6379',
+  vectorDbUrl: process.env['VECTOR_DB_URL'] || 'http://localhost:8000',
+  
+  // Vector Database
+  vectorDbHost: process.env['VECTOR_DB_HOST'] || 'localhost',
+  vectorDbPort: parseInt(process.env['VECTOR_DB_PORT'] || '8000', 10),
+  vectorDbApiKey: process.env['VECTOR_DB_API_KEY'],
   
   // API Keys
   anthropicApiKey: process.env['ANTHROPIC_API_KEY'],
@@ -75,8 +87,12 @@ export const config: Config = {
   optimismRpcUrl: process.env['OPTIMISM_RPC_URL'],
   
   // Security
-  jwtSecret: process.env['JWT_SECRET'] || 'default-jwt-secret-change-in-production',
-  encryptionKey: process.env['ENCRYPTION_KEY'] || 'default-encryption-key-change-in-production',
+  jwtSecret: process.env['JWT_SECRET'] || (() => {
+    throw new Error('JWT_SECRET environment variable is required for security');
+  })(),
+  encryptionKey: process.env['ENCRYPTION_KEY'] || (() => {
+    throw new Error('ENCRYPTION_KEY environment variable is required for security');
+  })(),
   
   // Performance
   rateLimitWindowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '60000', 10),

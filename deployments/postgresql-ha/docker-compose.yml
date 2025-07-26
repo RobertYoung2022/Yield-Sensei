@@ -1,0 +1,386 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # ETCD CLUSTER - Distributed key-value store for Patroni coordination
+  # =============================================================================
+  etcd1:
+    image: quay.io/coreos/etcd:v3.5.9
+    container_name: yieldsensei-etcd1
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    environment:
+      ETCD_NAME: etcd1
+      ETCD_DATA_DIR: /etcd-data
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd1:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd1:2380
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-cluster-token
+      ETCD_ENABLE_V2: "true"
+    volumes:
+      - etcd1_data:/etcd-data
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/etcd", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  etcd2:
+    image: quay.io/coreos/etcd:v3.5.9
+    container_name: yieldsensei-etcd2
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    environment:
+      ETCD_NAME: etcd2
+      ETCD_DATA_DIR: /etcd-data
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd2:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd2:2380
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-cluster-token
+      ETCD_ENABLE_V2: "true"
+    volumes:
+      - etcd2_data:/etcd-data
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/etcd", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  etcd3:
+    image: quay.io/coreos/etcd:v3.5.9
+    container_name: yieldsensei-etcd3
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    environment:
+      ETCD_NAME: etcd3
+      ETCD_DATA_DIR: /etcd-data
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd3:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd3:2380
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-cluster-token
+      ETCD_ENABLE_V2: "true"
+    volumes:
+      - etcd3_data:/etcd-data
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/etcd", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # POSTGRESQL CLUSTER - Primary and Replica nodes managed by Patroni
+  # =============================================================================
+  postgres-primary:
+    image: postgres:15-alpine
+    container_name: yieldsensei-postgres-primary
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    environment:
+      POSTGRES_DB: yieldsensei
+      POSTGRES_USER: yieldsensei_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-repl_changeme}
+      PATRONI_SCOPE: yieldsensei-cluster
+      PATRONI_NAME: postgres-primary
+      PATRONI_ETCD3_HOSTS: etcd1:2379,etcd2:2379,etcd3:2379
+      PATRONI_RESTAPI_LISTEN: 0.0.0.0:8008
+      PATRONI_RESTAPI_CONNECT_ADDRESS: postgres-primary:8008
+      PATRONI_POSTGRESQL_LISTEN: 0.0.0.0:5432
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: postgres-primary:5432
+      PATRONI_POSTGRESQL_DATA_DIR: /var/lib/postgresql/data
+      PATRONI_POSTGRESQL_PGPASS: /tmp/pgpass
+      PATRONI_POSTGRESQL_AUTHENTICATION_REPLICATION_USERNAME: replicator
+      PATRONI_POSTGRESQL_AUTHENTICATION_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-repl_changeme}
+      PATRONI_POSTGRESQL_AUTHENTICATION_SUPERUSER_USERNAME: postgres
+      PATRONI_POSTGRESQL_AUTHENTICATION_SUPERUSER_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./config/patroni-primary.yml:/etc/patroni/patroni.yml
+      - ./scripts/postgres-entrypoint.sh:/docker-entrypoint-initdb.d/postgres-entrypoint.sh
+    command: ["/opt/bitnami/scripts/postgresql/entrypoint.sh", "/opt/bitnami/scripts/postgresql/run.sh"]
+    depends_on:
+      etcd1:
+        condition: service_healthy
+      etcd2:
+        condition: service_healthy
+      etcd3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U yieldsensei_app -d yieldsensei"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres-replica1:
+    image: postgres:15-alpine
+    container_name: yieldsensei-postgres-replica1
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    environment:
+      POSTGRES_DB: yieldsensei
+      POSTGRES_USER: yieldsensei_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-repl_changeme}
+      PATRONI_SCOPE: yieldsensei-cluster
+      PATRONI_NAME: postgres-replica1
+      PATRONI_ETCD3_HOSTS: etcd1:2379,etcd2:2379,etcd3:2379
+      PATRONI_RESTAPI_LISTEN: 0.0.0.0:8008
+      PATRONI_RESTAPI_CONNECT_ADDRESS: postgres-replica1:8008
+      PATRONI_POSTGRESQL_LISTEN: 0.0.0.0:5432
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: postgres-replica1:5432
+      PATRONI_POSTGRESQL_DATA_DIR: /var/lib/postgresql/data
+      PATRONI_POSTGRESQL_PGPASS: /tmp/pgpass
+      PATRONI_POSTGRESQL_AUTHENTICATION_REPLICATION_USERNAME: replicator
+      PATRONI_POSTGRESQL_AUTHENTICATION_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-repl_changeme}
+      PATRONI_POSTGRESQL_AUTHENTICATION_SUPERUSER_USERNAME: postgres
+      PATRONI_POSTGRESQL_AUTHENTICATION_SUPERUSER_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+    volumes:
+      - postgres_replica1_data:/var/lib/postgresql/data
+      - ./config/patroni-replica.yml:/etc/patroni/patroni.yml
+    command: ["/opt/bitnami/scripts/postgresql/entrypoint.sh", "/opt/bitnami/scripts/postgresql/run.sh"]
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U yieldsensei_app -d yieldsensei"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres-replica2:
+    image: postgres:15-alpine
+    container_name: yieldsensei-postgres-replica2
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    environment:
+      POSTGRES_DB: yieldsensei
+      POSTGRES_USER: yieldsensei_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-repl_changeme}
+      PATRONI_SCOPE: yieldsensei-cluster
+      PATRONI_NAME: postgres-replica2
+      PATRONI_ETCD3_HOSTS: etcd1:2379,etcd2:2379,etcd3:2379
+      PATRONI_RESTAPI_LISTEN: 0.0.0.0:8008
+      PATRONI_RESTAPI_CONNECT_ADDRESS: postgres-replica2:8008
+      PATRONI_POSTGRESQL_LISTEN: 0.0.0.0:5432
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: postgres-replica2:5432
+      PATRONI_POSTGRESQL_DATA_DIR: /var/lib/postgresql/data
+      PATRONI_POSTGRESQL_PGPASS: /tmp/pgpass
+      PATRONI_POSTGRESQL_AUTHENTICATION_REPLICATION_USERNAME: replicator
+      PATRONI_POSTGRESQL_AUTHENTICATION_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-repl_changeme}
+      PATRONI_POSTGRESQL_AUTHENTICATION_SUPERUSER_USERNAME: postgres
+      PATRONI_POSTGRESQL_AUTHENTICATION_SUPERUSER_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+    volumes:
+      - postgres_replica2_data:/var/lib/postgresql/data
+      - ./config/patroni-replica.yml:/etc/patroni/patroni.yml
+    command: ["/opt/bitnami/scripts/postgresql/entrypoint.sh", "/opt/bitnami/scripts/postgresql/run.sh"]
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U yieldsensei_app -d yieldsensei"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # HAPROXY - Load balancer and connection router
+  # =============================================================================
+  haproxy:
+    image: haproxy:2.8-alpine
+    container_name: yieldsensei-haproxy
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    ports:
+      - "5432:5432"     # Primary write connection
+      - "5433:5433"     # Read-only replica connections
+      - "8404:8404"     # HAProxy stats
+    volumes:
+      - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - postgres-primary
+      - postgres-replica1
+      - postgres-replica2
+    healthcheck:
+      test: ["CMD", "haproxy", "-c", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # PGBOUNCER - Connection pooling
+  # =============================================================================
+  pgbouncer:
+    image: pgbouncer/pgbouncer:1.20.1
+    container_name: yieldsensei-pgbouncer
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    ports:
+      - "6432:6432"     # PgBouncer connection
+    environment:
+      DATABASES_HOST: haproxy
+      DATABASES_PORT: 5432
+      DATABASES_USER: yieldsensei_app
+      DATABASES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+      DATABASES_DBNAME: yieldsensei
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 20
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 5
+      MAX_DB_CONNECTIONS: 50
+      MAX_USER_CONNECTIONS: 50
+      SERVER_ROUND_ROBIN: 1
+      LOG_CONNECTIONS: 1
+      LOG_DISCONNECTIONS: 1
+      LOG_POOLER_ERRORS: 1
+    volumes:
+      - ./config/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./config/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    depends_on:
+      - haproxy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -d pgbouncer"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # MONITORING - Postgres Exporter for Prometheus metrics
+  # =============================================================================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: yieldsensei-postgres-exporter
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    ports:
+      - "9187:9187"     # Metrics endpoint
+    environment:
+      DATA_SOURCE_NAME: "postgresql://yieldsensei_app:${POSTGRES_PASSWORD:-changeme_in_production}@haproxy:5432/yieldsensei?sslmode=disable"
+      PG_EXPORTER_QUERIES_CONFIG_FILE: /etc/postgres_exporter/queries.yaml
+      PG_EXPORTER_DISABLE_DEFAULT_METRICS: false
+      PG_EXPORTER_DISABLE_SETTINGS_METRICS: false
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
+      PG_EXPORTER_EXCLUDE_DATABASES: "template0,template1"
+    volumes:
+      - ./config/postgres-exporter-queries.yaml:/etc/postgres_exporter/queries.yaml:ro
+    depends_on:
+      - haproxy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9187/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # BACKUP SERVICE - Automated backups with retention
+  # =============================================================================
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local:15
+    container_name: yieldsensei-postgres-backup
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    environment:
+      POSTGRES_HOST: haproxy
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: yieldsensei
+      POSTGRES_USER: yieldsensei_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_production}
+      POSTGRES_EXTRA_OPTS: "--schema=public --blobs --verbose"
+      SCHEDULE: "0 2 * * *"         # Daily at 2 AM
+      BACKUP_KEEP_DAYS: 7           # Keep 7 days of backups
+      BACKUP_KEEP_WEEKS: 4          # Keep 4 weeks of backups
+      BACKUP_KEEP_MONTHS: 6         # Keep 6 months of backups
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - postgres_backups:/backups
+      - ./scripts/backup-hooks:/scripts:ro
+    depends_on:
+      - haproxy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # HEALTH CHECKER - Custom health monitoring and alerting
+  # =============================================================================
+  postgres-health-checker:
+    build:
+      context: ./health-checker
+      dockerfile: Dockerfile
+    container_name: yieldsensei-postgres-health-checker
+    restart: unless-stopped
+    networks:
+      - postgres-ha
+    environment:
+      CHECK_INTERVAL: 30            # Check every 30 seconds
+      ETCD_ENDPOINTS: "etcd1:2379,etcd2:2379,etcd3:2379"
+      PATRONI_SCOPE: yieldsensei-cluster
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      REPLICATION_LAG_THRESHOLD: 10  # Alert if lag > 10 seconds
+      FAILOVER_THRESHOLD: 60         # Alert if primary down > 60 seconds
+    volumes:
+      - ./scripts/health-checker.py:/app/health-checker.py:ro
+      - ./config/health-checker.yaml:/app/config.yaml:ro
+    depends_on:
+      - etcd1
+      - etcd2
+      - etcd3
+      - postgres-primary
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/health')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+networks:
+  postgres-ha:
+    driver: bridge
+    name: yieldsensei-postgres-ha
+
+volumes:
+  # etcd volumes
+  etcd1_data:
+    name: yieldsensei-etcd1-data
+  etcd2_data:
+    name: yieldsensei-etcd2-data
+  etcd3_data:
+    name: yieldsensei-etcd3-data
+  
+  # PostgreSQL volumes
+  postgres_primary_data:
+    name: yieldsensei-postgres-primary-data
+  postgres_replica1_data:
+    name: yieldsensei-postgres-replica1-data
+  postgres_replica2_data:
+    name: yieldsensei-postgres-replica2-data
+  
+  # Backup volume
+  postgres_backups:
+    name: yieldsensei-postgres-backups 
