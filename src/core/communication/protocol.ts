@@ -9,6 +9,7 @@ import { Message, MessageType, AgentId, ProtocolConfig, MessageError } from '@/t
 import Logger from '@/shared/logging/logger';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
+import { MessageValidator } from './message-validator';
 
 const logger = Logger.getLogger('protocol');
 
@@ -225,28 +226,29 @@ export class MessageSerializer {
    * Validate message structure and content
    */
   private validateMessage(message: Message): void {
-    // Basic structure validation
-    if (!message.id || !message.type || !message.from || !message.to || !message.timestamp) {
-      throw new MessageError('Message missing required fields', message.id || 'unknown', 'INVALID_MESSAGE');
+    // Use type guard for basic validation
+    if (!MessageValidator.isValidMessage(message)) {
+      throw new MessageError('Invalid message structure', message.id || 'unknown', 'INVALID_MESSAGE');
     }
 
-    // Type-specific validation
+    // Validate payload using enhanced validator
+    const validation = MessageValidator.validateMessagePayload(message.type, message.payload);
+    if (!validation.valid) {
+      throw new MessageError(
+        `Invalid message payload: ${validation.errors.join(', ')}`,
+        message.id,
+        'INVALID_PAYLOAD'
+      );
+    }
+
+    // Additional schema-based validation for backward compatibility
     const schema = MESSAGE_SCHEMAS[message.type];
-    if (!schema) {
-      throw new MessageError(`Unknown message type: ${message.type}`, message.id, 'INVALID_MESSAGE_TYPE');
-    }
-
-    // Check required fields
-    for (const field of schema.required) {
-      if (!(field in message.payload)) {
-        throw new MessageError(`Missing required field: ${field}`, message.id, 'MISSING_FIELD');
-      }
-    }
-
-    // Run field validation
-    for (const [field, validator] of Object.entries(schema.validation)) {
-      if (field in message.payload && !validator(message.payload[field])) {
-        throw new MessageError(`Invalid field value: ${field}`, message.id, 'INVALID_FIELD');
+    if (schema) {
+      // Check optional fields with validation
+      for (const [field, validator] of Object.entries(schema.validation)) {
+        if (field in message.payload && !validator(message.payload[field])) {
+          throw new MessageError(`Invalid field value: ${field}`, message.id, 'INVALID_FIELD');
+        }
       }
     }
   }
@@ -268,19 +270,60 @@ export class MessageSerializer {
   }
 
   /**
-   * Encrypt data (placeholder - implement with crypto)
+   * Encrypt data using AES-256-GCM
    */
   private encrypt(data: Buffer): Buffer {
-    // TODO: Implement encryption
-    return data;
+    const crypto = require('crypto');
+    const { config } = require('@/config/environment');
+    
+    if (!config.encryptionKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required for message encryption');
+    }
+    
+    const algorithm = 'aes-256-gcm';
+    const key = Buffer.from(config.encryptionKey, 'hex');
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+    
+    const encrypted = Buffer.concat([
+      cipher.update(data),
+      cipher.final()
+    ]);
+    
+    const authTag = cipher.getAuthTag();
+    
+    // Return IV + AuthTag + EncryptedData
+    return Buffer.concat([iv, authTag, encrypted]);
   }
 
   /**
-   * Decrypt data (placeholder - implement with crypto)
+   * Decrypt data using AES-256-GCM
    */
   private decrypt(data: Buffer): Buffer {
-    // TODO: Implement decryption
-    return data;
+    const crypto = require('crypto');
+    const { config } = require('@/config/environment');
+    
+    if (!config.encryptionKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required for message decryption');
+    }
+    
+    const algorithm = 'aes-256-gcm';
+    const key = Buffer.from(config.encryptionKey, 'hex');
+    
+    // Extract IV, AuthTag, and EncryptedData
+    const iv = data.slice(0, 16);
+    const authTag = data.slice(16, 32);
+    const encryptedData = data.slice(32);
+    
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    decipher.setAuthTag(authTag);
+    
+    const decrypted = Buffer.concat([
+      decipher.update(encryptedData),
+      decipher.final()
+    ]);
+    
+    return decrypted;
   }
 }
 
@@ -313,22 +356,19 @@ export class ProtocolManager extends EventEmitter {
       ttl?: number;
     } = {}
   ): Message {
-    const message: Message = {
-      id: randomUUID(),
+    // Use validated message creation
+    const message = MessageValidator.createValidatedMessage(
       type,
       from,
       to,
-      timestamp: new Date(),
       payload,
-      priority: options.priority || 'medium',
-    };
-
-    if (options.correlationId) {
-      message.correlationId = options.correlationId;
-    }
-    if (options.ttl) {
-      message.ttl = options.ttl;
-    }
+      {
+        id: randomUUID(),
+        priority: options.priority,
+        correlationId: options.correlationId,
+        ttl: options.ttl
+      }
+    );
 
     // Store in history
     this.messageHistory.set(message.id, message);

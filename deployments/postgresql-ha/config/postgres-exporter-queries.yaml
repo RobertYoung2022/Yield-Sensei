@@ -1,0 +1,354 @@
+# YieldSensei PostgreSQL Exporter Custom Queries
+# Comprehensive monitoring for DeFi yield farming platform
+
+# PostgreSQL Replication Lag Monitoring
+pg_replication_lag:
+  query: |
+    SELECT 
+      application_name,
+      client_addr,
+      state,
+      sync_state,
+      (CASE WHEN pg_is_in_recovery() THEN 0 ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), flush_lsn) END) AS lag_bytes
+    FROM pg_stat_replication
+  metrics:
+    - application_name:
+        usage: "LABEL"
+        description: "Application name of the standby server"
+    - client_addr:
+        usage: "LABEL"
+        description: "IP address of the standby server"
+    - state:
+        usage: "LABEL"
+        description: "Current state of the replication"
+    - sync_state:
+        usage: "LABEL"
+        description: "Synchronous state of the replica"
+    - lag_bytes:
+        usage: "GAUGE"
+        description: "Replication lag in bytes"
+
+# Transaction Rate Monitoring for DeFi Operations
+pg_transaction_rate:
+  query: |
+    SELECT 
+      schemaname,
+      relname as table_name,
+      n_tup_ins as inserts,
+      n_tup_upd as updates,
+      n_tup_del as deletes,
+      (n_tup_ins + n_tup_upd + n_tup_del) as total_changes
+    FROM pg_stat_user_tables 
+    WHERE schemaname = 'public'
+  metrics:
+    - schemaname:
+        usage: "LABEL"
+        description: "Schema name"
+    - table_name:
+        usage: "LABEL"
+        description: "Table name"
+    - inserts:
+        usage: "COUNTER"
+        description: "Number of rows inserted"
+    - updates:
+        usage: "COUNTER"
+        description: "Number of rows updated"
+    - deletes:
+        usage: "COUNTER"
+        description: "Number of rows deleted"
+    - total_changes:
+        usage: "COUNTER"
+        description: "Total number of row changes"
+
+# Portfolio Holdings Metrics
+pg_portfolio_metrics:
+  query: |
+    SELECT 
+      COUNT(DISTINCT user_id) as active_users,
+      COUNT(*) as total_holdings,
+      SUM(balance_usd) as total_portfolio_value_usd,
+      AVG(balance_usd) as avg_holding_value_usd,
+      COUNT(DISTINCT asset_id) as unique_assets,
+      COUNT(DISTINCT protocol_id) as unique_protocols
+    FROM portfolio_holdings 
+    WHERE balance > 0
+  metrics:
+    - active_users:
+        usage: "GAUGE"
+        description: "Number of users with active holdings"
+    - total_holdings:
+        usage: "GAUGE"
+        description: "Total number of portfolio holdings"
+    - total_portfolio_value_usd:
+        usage: "GAUGE"
+        description: "Total portfolio value in USD"
+    - avg_holding_value_usd:
+        usage: "GAUGE"
+        description: "Average holding value in USD"
+    - unique_assets:
+        usage: "GAUGE"
+        description: "Number of unique assets held"
+    - unique_protocols:
+        usage: "GAUGE"
+        description: "Number of unique protocols used"
+
+# Transaction Volume and Performance
+pg_transaction_volume:
+  query: |
+    SELECT 
+      transaction_type,
+      status,
+      COUNT(*) as transaction_count,
+      SUM(amount_usd) as total_volume_usd,
+      AVG(amount_usd) as avg_transaction_usd,
+      COUNT(CASE WHEN block_timestamp >= NOW() - INTERVAL '1 hour' THEN 1 END) as last_hour_count,
+      COUNT(CASE WHEN block_timestamp >= NOW() - INTERVAL '24 hours' THEN 1 END) as last_24h_count
+    FROM transaction_history 
+    WHERE block_timestamp >= NOW() - INTERVAL '7 days'
+    GROUP BY transaction_type, status
+  metrics:
+    - transaction_type:
+        usage: "LABEL"
+        description: "Type of transaction"
+    - status:
+        usage: "LABEL"
+        description: "Transaction status"
+    - transaction_count:
+        usage: "GAUGE"
+        description: "Number of transactions (last 7 days)"
+    - total_volume_usd:
+        usage: "GAUGE"
+        description: "Total transaction volume in USD (last 7 days)"
+    - avg_transaction_usd:
+        usage: "GAUGE"
+        description: "Average transaction value in USD"
+    - last_hour_count:
+        usage: "GAUGE"
+        description: "Number of transactions in the last hour"
+    - last_24h_count:
+        usage: "GAUGE"
+        description: "Number of transactions in the last 24 hours"
+
+# Protocol Usage and TVL
+pg_protocol_tvl:
+  query: |
+    SELECT 
+      p.name as protocol_name,
+      p.category,
+      p.risk_level,
+      COUNT(DISTINCT ph.user_id) as user_count,
+      SUM(ph.balance_usd) as tvl_usd,
+      AVG(ph.current_apy) as avg_apy,
+      COUNT(ph.*) as position_count
+    FROM protocols p
+    LEFT JOIN portfolio_holdings ph ON p.id = ph.protocol_id AND ph.balance > 0
+    WHERE p.is_active = true
+    GROUP BY p.id, p.name, p.category, p.risk_level
+  metrics:
+    - protocol_name:
+        usage: "LABEL"
+        description: "Protocol name"
+    - category:
+        usage: "LABEL"
+        description: "Protocol category"
+    - risk_level:
+        usage: "LABEL"
+        description: "Protocol risk level"
+    - user_count:
+        usage: "GAUGE"
+        description: "Number of users using this protocol"
+    - tvl_usd:
+        usage: "GAUGE"
+        description: "Total Value Locked in USD"
+    - avg_apy:
+        usage: "GAUGE"
+        description: "Average APY for this protocol"
+    - position_count:
+        usage: "GAUGE"
+        description: "Number of positions in this protocol"
+
+# Database Performance Metrics
+pg_table_stats:
+  query: |
+    SELECT 
+      schemaname,
+      relname as table_name,
+      n_live_tup as live_tuples,
+      n_dead_tup as dead_tuples,
+      seq_scan,
+      seq_tup_read,
+      idx_scan,
+      idx_tup_fetch,
+      ROUND((idx_scan::float / GREATEST(idx_scan + seq_scan, 1)) * 100, 2) as index_usage_ratio
+    FROM pg_stat_user_tables 
+    WHERE schemaname = 'public'
+  metrics:
+    - schemaname:
+        usage: "LABEL"
+        description: "Schema name"
+    - table_name:
+        usage: "LABEL"
+        description: "Table name"
+    - live_tuples:
+        usage: "GAUGE"
+        description: "Number of live tuples"
+    - dead_tuples:
+        usage: "GAUGE"
+        description: "Number of dead tuples"
+    - seq_scan:
+        usage: "COUNTER"
+        description: "Number of sequential scans"
+    - seq_tup_read:
+        usage: "COUNTER"
+        description: "Number of tuples read by sequential scans"
+    - idx_scan:
+        usage: "COUNTER"
+        description: "Number of index scans"
+    - idx_tup_fetch:
+        usage: "COUNTER"
+        description: "Number of tuples fetched by index scans"
+    - index_usage_ratio:
+        usage: "GAUGE"
+        description: "Percentage of index scans vs sequential scans"
+
+# Partition Size Monitoring
+pg_partition_stats:
+  query: |
+    SELECT 
+      schemaname,
+      tablename,
+      CASE 
+        WHEN tablename LIKE '%transaction_history%' THEN 'transaction_history'
+        WHEN tablename LIKE '%portfolio_snapshots%' THEN 'portfolio_snapshots'
+        ELSE 'other'
+      END as partition_type,
+      pg_total_relation_size(schemaname||'.'||tablename) as size_bytes,
+      (SELECT reltuples FROM pg_class WHERE relname = tablename) as estimated_rows
+    FROM pg_tables 
+    WHERE schemaname = 'public' 
+    AND (tablename LIKE '%_2024_%' OR tablename LIKE '%_2025_%')
+  metrics:
+    - schemaname:
+        usage: "LABEL"
+        description: "Schema name"
+    - tablename:
+        usage: "LABEL"
+        description: "Partition table name"
+    - partition_type:
+        usage: "LABEL"
+        description: "Type of partition"
+    - size_bytes:
+        usage: "GAUGE"
+        description: "Partition size in bytes"
+    - estimated_rows:
+        usage: "GAUGE"
+        description: "Estimated number of rows"
+
+# Connection Pool Monitoring
+pg_connection_stats:
+  query: |
+    SELECT 
+      datname,
+      usename,
+      application_name,
+      state,
+      COUNT(*) as connection_count
+    FROM pg_stat_activity 
+    WHERE datname IS NOT NULL
+    GROUP BY datname, usename, application_name, state
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "Database name"
+    - usename:
+        usage: "LABEL"
+        description: "Username"
+    - application_name:
+        usage: "LABEL"
+        description: "Application name"
+    - state:
+        usage: "LABEL"
+        description: "Connection state"
+    - connection_count:
+        usage: "GAUGE"
+        description: "Number of connections"
+
+# Query Performance (Top Slow Queries)
+pg_slow_queries:
+  query: |
+    SELECT 
+      LEFT(query, 100) as query_preview,
+      calls,
+      total_time,
+      mean_time,
+      stddev_time,
+      rows,
+      100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0) AS hit_percent
+    FROM pg_stat_statements 
+    WHERE calls > 10
+    ORDER BY mean_time DESC 
+    LIMIT 20
+  metrics:
+    - query_preview:
+        usage: "LABEL"
+        description: "Query preview (first 100 characters)"
+    - calls:
+        usage: "COUNTER"
+        description: "Number of times executed"
+    - total_time:
+        usage: "COUNTER"
+        description: "Total time spent in query"
+    - mean_time:
+        usage: "GAUGE"
+        description: "Mean execution time"
+    - stddev_time:
+        usage: "GAUGE"
+        description: "Standard deviation of execution time"
+    - rows:
+        usage: "COUNTER"
+        description: "Total rows retrieved or affected"
+    - hit_percent:
+        usage: "GAUGE"
+        description: "Cache hit percentage"
+
+# Asset Performance Tracking
+pg_asset_performance:
+  query: |
+    SELECT 
+      a.symbol,
+      a.name,
+      a.asset_type,
+      a.chain_id,
+      COUNT(DISTINCT ph.user_id) as holder_count,
+      SUM(ph.balance_usd) as total_value_usd,
+      AVG(ph.current_apy) as avg_apy,
+      COALESCE(a.price_usd, 0) as current_price_usd
+    FROM assets a
+    LEFT JOIN portfolio_holdings ph ON a.id = ph.asset_id AND ph.balance > 0
+    WHERE a.is_active = true
+    GROUP BY a.id, a.symbol, a.name, a.asset_type, a.chain_id, a.price_usd
+  metrics:
+    - symbol:
+        usage: "LABEL"
+        description: "Asset symbol"
+    - name:
+        usage: "LABEL"
+        description: "Asset name"
+    - asset_type:
+        usage: "LABEL"
+        description: "Asset type"
+    - chain_id:
+        usage: "LABEL"
+        description: "Blockchain ID"
+    - holder_count:
+        usage: "GAUGE"
+        description: "Number of holders"
+    - total_value_usd:
+        usage: "GAUGE"
+        description: "Total value held in USD"
+    - avg_apy:
+        usage: "GAUGE"
+        description: "Average APY for this asset"
+    - current_price_usd:
+        usage: "GAUGE"
+        description: "Current price in USD" 

@@ -1,0 +1,27 @@
+# PgBouncer user authentication file
+# Format: "username" "password_hash"
+# Use md5 hashes for security
+
+# Application user for YieldSensei
+"yieldsensei_app" "md5d9b1b8f9c8e4e3c1a5b7e6d4f2a9c8e7"
+
+# Administrative users
+"postgres" "md5a6b5c4d3e2f1a9b8c7d6e5f4a3b2c1d9"
+"yieldsensei_admin" "md5e5f4a3b2c1d9a6b5c4d3e2f1a9b8c7d6"
+
+# Replication user (for monitoring connections)
+"replicator" "md5f4a3b2c1d9e5f4a3b2c1d9a6b5c4d3e2"
+
+# Monitoring users
+"patroni" "md5b2c1d9f4a3b2c1d9e5f4a3b2c1d9a6b5"
+"monitoring" "md5c1d9b2c1d9f4a3b2c1d9e5f4a3b2c1d9"
+
+# Development/Test users
+"yieldsensei_test" "md5d9a6b5c4d3e2f1a9b8c7d6e5f4a3b2c1"
+
+# Note: In production, generate these hashes using:
+# echo -n "passwordusername" | md5sum
+# For example, for user "yieldsensei_app" with password "changeme_in_production":
+# echo -n "changeme_in_productionyieldsensei_app" | md5sum
+#
+# Remember to update the actual passwords in environment variables and regenerate these hashes! 

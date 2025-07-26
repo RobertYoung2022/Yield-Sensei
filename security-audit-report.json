@@ -1,0 +1,756 @@
+{
+  "summary": {
+    "totalPackages": 82,
+    "vulnerablePackages": 0,
+    "criticalIssues": 0,
+    "highIssues": 0,
+    "moderateIssues": 0,
+    "lowIssues": 0,
+    "riskScore": 59
+  },
+  "packages": [
+    {
+      "name": "@types/socket.io",
+      "version": "^3.0.1",
+      "riskScore": 95,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2022-06-13T01:16:45.912Z",
+      "maintainers": 1
+    },
+    {
+      "name": "crypto-js",
+      "version": "^4.2.0",
+      "riskScore": 95,
+      "issues": [],
+      "ageMonths": 149,
+      "lastUpdate": "2024-07-01T21:09:32.848Z",
+      "maintainers": 1
+    },
+    {
+      "name": "express-request-id",
+      "version": "^3.0.0",
+      "riskScore": 95,
+      "issues": [],
+      "ageMonths": 135,
+      "lastUpdate": "2022-10-05T07:39:08.902Z",
+      "maintainers": 1
+    },
+    {
+      "name": "hpp",
+      "version": "^0.2.3",
+      "riskScore": 95,
+      "issues": [],
+      "ageMonths": 127,
+      "lastUpdate": "2022-06-18T21:44:03.206Z",
+      "maintainers": 1
+    },
+    {
+      "name": "speakeasy",
+      "version": "^2.0.0",
+      "riskScore": 95,
+      "issues": [],
+      "ageMonths": 168,
+      "lastUpdate": "2022-06-26T22:41:15.138Z",
+      "maintainers": 1
+    },
+    {
+      "name": "xss-clean",
+      "version": "^0.1.4",
+      "riskScore": 95,
+      "issues": [],
+      "ageMonths": 115,
+      "lastUpdate": "2023-06-02T16:36:42.949Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/helmet",
+      "version": "^0.0.48",
+      "riskScore": 95,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2022-06-13T01:10:25.053Z",
+      "maintainers": 1
+    },
+    {
+      "name": "apollo-server-core",
+      "version": "^3.13.0",
+      "riskScore": 80,
+      "issues": [],
+      "ageMonths": 98,
+      "lastUpdate": "2024-10-25T18:42:30.298Z",
+      "maintainers": 1
+    },
+    {
+      "name": "apollo-server-express",
+      "version": "^3.13.0",
+      "riskScore": 80,
+      "issues": [],
+      "ageMonths": 98,
+      "lastUpdate": "2024-10-25T18:42:31.352Z",
+      "maintainers": 1
+    },
+    {
+      "name": "express-mongo-sanitize",
+      "version": "^2.2.0",
+      "riskScore": 80,
+      "issues": [],
+      "ageMonths": 119,
+      "lastUpdate": "2025-01-11T15:55:54.932Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/express-rate-limit",
+      "version": "^5.1.3",
+      "riskScore": 80,
+      "issues": [],
+      "ageMonths": 104,
+      "lastUpdate": "2024-10-23T01:16:36.779Z",
+      "maintainers": 1
+    },
+    {
+      "name": "wasm-pack",
+      "version": "^0.0.0",
+      "riskScore": 80,
+      "issues": [],
+      "ageMonths": 84,
+      "lastUpdate": "2024-10-29T18:54:29.649Z",
+      "maintainers": 1
+    },
+    {
+      "name": "graphql-tag",
+      "version": "^2.12.6",
+      "riskScore": 75,
+      "issues": [],
+      "ageMonths": 111,
+      "lastUpdate": "2022-06-18T14:00:34.164Z",
+      "maintainers": 4
+    },
+    {
+      "name": "kafkajs",
+      "version": "^2.2.0",
+      "riskScore": 75,
+      "issues": [],
+      "ageMonths": 95,
+      "lastUpdate": "2023-02-27T13:18:01.487Z",
+      "maintainers": 2
+    },
+    {
+      "name": "prom-client",
+      "version": "^15.1.3",
+      "riskScore": 75,
+      "issues": [],
+      "ageMonths": 118,
+      "lastUpdate": "2024-06-27T09:30:07.985Z",
+      "maintainers": 3
+    },
+    {
+      "name": "bcryptjs",
+      "version": "^3.0.2",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 149,
+      "lastUpdate": "2025-06-28T18:41:21.471Z",
+      "maintainers": 1
+    },
+    {
+      "name": "decimal.js",
+      "version": "^10.4.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 138,
+      "lastUpdate": "2025-07-06T22:50:39.000Z",
+      "maintainers": 1
+    },
+    {
+      "name": "ethers",
+      "version": "^6.8.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 102,
+      "lastUpdate": "2025-07-02T12:38:55.788Z",
+      "maintainers": 1
+    },
+    {
+      "name": "node-cron",
+      "version": "^4.2.1",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 116,
+      "lastUpdate": "2025-07-10T19:02:49.019Z",
+      "maintainers": 1
+    },
+    {
+      "name": "pg",
+      "version": "^8.11.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 178,
+      "lastUpdate": "2025-06-27T14:52:45.063Z",
+      "maintainers": 1
+    },
+    {
+      "name": "rate-limiter-flexible",
+      "version": "^3.0.6",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 88,
+      "lastUpdate": "2025-05-18T13:42:59.179Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/bcryptjs",
+      "version": "^2.4.6",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-03-14T00:04:00.753Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/compression",
+      "version": "^1.7.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-06-07T02:15:50.581Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/cookie-parser",
+      "version": "^1.4.9",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-06-07T02:16:16.215Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/cors",
+      "version": "^2.8.19",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-06-07T02:16:33.987Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/express",
+      "version": "^4.17.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-06-07T02:19:34.917Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/express-session",
+      "version": "^1.18.2",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-06-07T02:16:59.322Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/jest",
+      "version": "^29.5.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-06-16T07:35:58.595Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/jsonwebtoken",
+      "version": "^9.0.10",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-06-16T07:36:06.320Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/node",
+      "version": "^20.8.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-07-22T11:34:53.546Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/opossum",
+      "version": "^8.1.9",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 83,
+      "lastUpdate": "2025-07-06T19:02:16.044Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/pg",
+      "version": "^8.10.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-06-01T20:35:22.511Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/qrcode",
+      "version": "^1.5.5",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 107,
+      "lastUpdate": "2025-02-23T07:34:59.031Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/speakeasy",
+      "version": "^2.0.10",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-02-23T07:51:55.128Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/uuid",
+      "version": "^9.0.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-02-23T08:09:49.244Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@types/ws",
+      "version": "^8.5.0",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 112,
+      "lastUpdate": "2025-04-01T03:00:02.922Z",
+      "maintainers": 1
+    },
+    {
+      "name": "rimraf",
+      "version": "^6.0.1",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 177,
+      "lastUpdate": "2025-06-28T18:41:26.430Z",
+      "maintainers": 1
+    },
+    {
+      "name": "tsx",
+      "version": "^4.20.3",
+      "riskScore": 65,
+      "issues": [],
+      "ageMonths": 121,
+      "lastUpdate": "2025-06-13T08:38:50.039Z",
+      "maintainers": 1
+    },
+    {
+      "name": "@tensorflow/tfjs-node",
+      "version": "^4.14.0",
+      "riskScore": 60,
+      "issues": [],
+      "ageMonths": 88,
+      "lastUpdate": "2025-01-13T19:26:45.395Z",
+      "maintainers": 10
+    },
+    {
+      "name": "cookie-parser",
+      "version": "^1.4.7",
+      "riskScore": 60,
+      "issues": [],
+      "ageMonths": 140,
+      "lastUpdate": "2024-10-08T18:26:16.407Z",
+      "maintainers": 3
+    },
+    {
+      "name": "dataloader",
+      "version": "^2.2.3",
+      "riskScore": 60,
+      "issues": [],
+      "ageMonths": 121,
+      "lastUpdate": "2024-12-03T18:28:12.266Z",
+      "maintainers": 2
+    },
+    {
+      "name": "express-validator",
+      "version": "^7.2.1",
+      "riskScore": 60,
+      "issues": [],
+      "ageMonths": 169,
+      "lastUpdate": "2024-12-29T02:41:14.140Z",
+      "maintainers": 4
+    },
+    {
+      "name": "joi",
+      "version": "^17.11.0",
+      "riskScore": 60,
+      "issues": [],
+      "ageMonths": 157,
+      "lastUpdate": "2025-01-10T00:31:55.557Z",
+      "maintainers": 6
+    },
+    {
+      "name": "jsonwebtoken",
+      "version": "^9.0.2",
+      "riskScore": 60,
+      "issues": [],
+      "ageMonths": 147,
+      "lastUpdate": "2025-01-10T00:35:01.616Z",
+      "maintainers": 3
+    },
+    {
+      "name": "qrcode",
+      "version": "^1.5.4",
+      "riskScore": 60,
+      "issues": [],
+      "ageMonths": 178,
+      "lastUpdate": "2024-08-05T21:52:58.706Z",
+      "maintainers": 2
+    },
+    {
+      "name": "knex",
+      "version": "^3.0.0",
+      "riskScore": 60,
+      "issues": [],
+      "ageMonths": 149,
+      "lastUpdate": "2024-12-13T19:06:07.256Z",
+      "maintainers": 5
+    },
+    {
+      "name": "@graphql-tools/merge",
+      "version": "^9.1.1",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 64,
+      "lastUpdate": "2025-07-21T03:39:03.420Z",
+      "maintainers": 5
+    },
+    {
+      "name": "@opentelemetry/api",
+      "version": "^1.9.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 67,
+      "lastUpdate": "2025-07-22T15:16:26.226Z",
+      "maintainers": 3
+    },
+    {
+      "name": "@opentelemetry/sdk-node",
+      "version": "^0.52.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 61,
+      "lastUpdate": "2025-07-22T15:17:25.679Z",
+      "maintainers": 3
+    },
+    {
+      "name": "axios",
+      "version": "^1.6.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 133,
+      "lastUpdate": "2025-07-23T06:05:16.935Z",
+      "maintainers": 4
+    },
+    {
+      "name": "commander",
+      "version": "^11.1.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 170,
+      "lastUpdate": "2025-05-18T23:00:59.689Z",
+      "maintainers": 4
+    },
+    {
+      "name": "compression",
+      "version": "^1.7.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 141,
+      "lastUpdate": "2025-07-17T17:36:13.458Z",
+      "maintainers": 3
+    },
+    {
+      "name": "cors",
+      "version": "^2.8.5",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 152,
+      "lastUpdate": "2025-04-09T02:30:00.440Z",
+      "maintainers": 2
+    },
+    {
+      "name": "dotenv",
+      "version": "^16.3.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 147,
+      "lastUpdate": "2025-07-24T20:45:26.576Z",
+      "maintainers": 4
+    },
+    {
+      "name": "express",
+      "version": "^4.18.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 178,
+      "lastUpdate": "2025-07-24T20:07:42.898Z",
+      "maintainers": 4
+    },
+    {
+      "name": "express-rate-limit",
+      "version": "^8.0.1",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 130,
+      "lastUpdate": "2025-07-16T21:12:27.548Z",
+      "maintainers": 2
+    },
+    {
+      "name": "express-session",
+      "version": "^1.18.2",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 140,
+      "lastUpdate": "2025-07-17T17:53:20.524Z",
+      "maintainers": 2
+    },
+    {
+      "name": "express-winston",
+      "version": "^4.2.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 159,
+      "lastUpdate": "2025-06-28T18:41:35.510Z",
+      "maintainers": 3
+    },
+    {
+      "name": "graphql",
+      "version": "^16.11.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 128,
+      "lastUpdate": "2025-06-11T16:35:24.793Z",
+      "maintainers": 7
+    },
+    {
+      "name": "graphql-tools",
+      "version": "^9.0.20",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 114,
+      "lastUpdate": "2025-07-21T03:38:58.753Z",
+      "maintainers": 5
+    },
+    {
+      "name": "helmet",
+      "version": "^8.1.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 165,
+      "lastUpdate": "2025-03-17T19:00:46.663Z",
+      "maintainers": 2
+    },
+    {
+      "name": "opossum",
+      "version": "^8.1.3",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 107,
+      "lastUpdate": "2025-06-05T12:55:15.484Z",
+      "maintainers": 9
+    },
+    {
+      "name": "redis",
+      "version": "^4.6.15",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 178,
+      "lastUpdate": "2025-07-23T15:53:25.286Z",
+      "maintainers": 5
+    },
+    {
+      "name": "socket.io",
+      "version": "^4.8.1",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 178,
+      "lastUpdate": "2025-05-08T13:13:01.493Z",
+      "maintainers": 2
+    },
+    {
+      "name": "uuid",
+      "version": "^9.0.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 175,
+      "lastUpdate": "2025-02-19T18:16:11.787Z",
+      "maintainers": 2
+    },
+    {
+      "name": "winston",
+      "version": "^3.17.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 177,
+      "lastUpdate": "2025-06-28T18:41:25.588Z",
+      "maintainers": 8
+    },
+    {
+      "name": "ws",
+      "version": "^8.14.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 167,
+      "lastUpdate": "2025-06-28T13:28:38.787Z",
+      "maintainers": 4
+    },
+    {
+      "name": "@babel/core",
+      "version": "^7.28.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 95,
+      "lastUpdate": "2025-07-02T09:04:46.146Z",
+      "maintainers": 4
+    },
+    {
+      "name": "@babel/preset-env",
+      "version": "^7.28.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 95,
+      "lastUpdate": "2025-07-02T09:04:55.771Z",
+      "maintainers": 4
+    },
+    {
+      "name": "@typescript-eslint/eslint-plugin",
+      "version": "^6.9.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 80,
+      "lastUpdate": "2025-07-21T17:22:23.424Z",
+      "maintainers": 2
+    },
+    {
+      "name": "@typescript-eslint/parser",
+      "version": "^6.9.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 80,
+      "lastUpdate": "2025-07-21T17:22:11.538Z",
+      "maintainers": 2
+    },
+    {
+      "name": "babel-jest",
+      "version": "^29.7.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 128,
+      "lastUpdate": "2025-07-22T02:28:41.914Z",
+      "maintainers": 5
+    },
+    {
+      "name": "eslint",
+      "version": "^8.52.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 147,
+      "lastUpdate": "2025-07-25T14:46:05.839Z",
+      "maintainers": 2
+    },
+    {
+      "name": "eslint-config-prettier",
+      "version": "^9.0.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 104,
+      "lastUpdate": "2025-07-20T23:16:08.192Z",
+      "maintainers": 3
+    },
+    {
+      "name": "eslint-plugin-prettier",
+      "version": "^5.0.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 104,
+      "lastUpdate": "2025-07-21T03:42:51.421Z",
+      "maintainers": 6
+    },
+    {
+      "name": "jest",
+      "version": "^29.7.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 164,
+      "lastUpdate": "2025-07-22T02:28:59.180Z",
+      "maintainers": 5
+    },
+    {
+      "name": "prettier",
+      "version": "^3.0.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 104,
+      "lastUpdate": "2025-06-27T02:53:53.358Z",
+      "maintainers": 11
+    },
+    {
+      "name": "ts-jest",
+      "version": "^29.1.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 109,
+      "lastUpdate": "2025-06-12T04:02:43.356Z",
+      "maintainers": 3
+    },
+    {
+      "name": "typedoc",
+      "version": "^0.25.0",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 136,
+      "lastUpdate": "2025-06-30T02:22:31.000Z",
+      "maintainers": 5
+    },
+    {
+      "name": "typescript",
+      "version": "^5.4.5",
+      "riskScore": 45,
+      "issues": [],
+      "ageMonths": 157,
+      "lastUpdate": "2025-07-25T07:17:08.741Z",
+      "maintainers": 8
+    },
+    {
+      "name": "@opentelemetry/exporter-trace-otlp-grpc",
+      "version": "^0.52.0",
+      "riskScore": 35,
+      "issues": [],
+      "ageMonths": 46,
+      "lastUpdate": "2025-07-22T15:16:42.255Z",
+      "maintainers": 3
+    },
+    {
+      "name": "@clickhouse/client",
+      "version": "^1.12.0",
+      "riskScore": 25,
+      "issues": [],
+      "ageMonths": 35,
+      "lastUpdate": "2025-07-24T09:16:31.009Z",
+      "maintainers": 7
+    }
+  ],
+  "recommendations": [
+    "📦 Review 38 high-risk packages for alternatives",
+    "🗓️  Update 10 packages not updated in over a year"
+  ],
+  "timestamp": "2025-07-25T20:32:09.798Z"
+}

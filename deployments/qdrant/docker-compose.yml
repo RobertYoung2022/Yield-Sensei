@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: qdrant-main
+    restart: unless-stopped
+    ports:
+      - "6333:6333"      # HTTP API
+      - "6334:6334"      # gRPC API
+    volumes:
+      - ./config/config.yaml:/qdrant/config/production.yaml
+      - qdrant-storage:/qdrant/storage
+      - ./snapshots:/qdrant/snapshots
+      - ./logs:/qdrant/logs
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__LOG_LEVEL=INFO
+      - QDRANT__STORAGE__STORAGE_PATH=/qdrant/storage
+      - QDRANT__STORAGE__SNAPSHOTS_PATH=/qdrant/snapshots
+      - QDRANT__SERVICE__ENABLE_CORS=true
+      - QDRANT__CLUSTER__ENABLED=false
+      - QDRANT__SERVICE__MAX_REQUEST_SIZE_MB=32
+      - QDRANT__SERVICE__MAX_WORKERS=0  # Use all available cores
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - qdrant-network
+    command: ["./qdrant", "--config-path", "/qdrant/config/production.yaml"]
+
+  # Qdrant Backup Service
+  qdrant-backup:
+    image: qdrant/qdrant:v1.7.4
+    container_name: qdrant-backup
+    restart: "no"
+    volumes:
+      - ./scripts/backup.sh:/backup.sh
+      - qdrant-storage:/qdrant/storage:ro
+      - ./backups:/backups
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - BACKUP_SCHEDULE=0 2 * * *  # Daily at 2 AM
+      - BACKUP_RETENTION_DAYS=30
+    networks:
+      - qdrant-network
+    profiles:
+      - backup
+    entrypoint: ["/bin/bash", "/backup.sh"]
+
+  # Qdrant Web UI (Optional)
+  qdrant-web-ui:
+    image: qdrant/qdrant-web-ui:latest
+    container_name: qdrant-web-ui
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - QDRANT_API_URL=http://qdrant:6333
+    depends_on:
+      - qdrant
+    networks:
+      - qdrant-network
+    profiles:
+      - ui
+
+  # Vector Embeddings Generator Service
+  embeddings-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.embeddings
+    container_name: qdrant-embeddings-generator
+    restart: unless-stopped
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - HUGGING_FACE_TOKEN=${HUGGING_FACE_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PROCESSING_INTERVAL=300  # 5 minutes
+      - BATCH_SIZE=100
+      - MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    depends_on:
+      - qdrant
+    networks:
+      - qdrant-network
+    profiles:
+      - processing
+
+  # Qdrant Metrics Exporter for Prometheus
+  qdrant-exporter:
+    image: prom/node-exporter:latest
+    container_name: qdrant-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - qdrant-network
+    profiles:
+      - monitoring
+
+  # Vector Search API Service
+  vector-search-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.search-api
+    container_name: qdrant-search-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - API_PORT=8080
+      - LOG_LEVEL=info
+      - RATE_LIMIT_REQUESTS=1000
+      - RATE_LIMIT_WINDOW=3600  # 1 hour
+      - CACHE_TTL=300  # 5 minutes
+    depends_on:
+      - qdrant
+    networks:
+      - qdrant-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - api
+
+  # Redis for Vector Search Caching
+  redis-vector-cache:
+    image: redis:7.2-alpine
+    container_name: qdrant-redis-cache
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-vector-cache:/data
+    command: >
+      redis-server 
+      --maxmemory 1gb 
+      --maxmemory-policy allkeys-lru 
+      --save 60 100
+      --appendonly yes
+    networks:
+      - qdrant-network
+    profiles:
+      - cache
+
+volumes:
+  qdrant-storage:
+    driver: local
+  redis-vector-cache:
+    driver: local
+
+networks:
+  qdrant-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# Development override file
+# Use: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+---
+# docker-compose.dev.yml content would go here for development overrides 

@@ -1,0 +1,30 @@
+{
+  "name": "yieldsensei-clickhouse-sink",
+  "config": {
+    "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+    "tasks.max": "3",
+    "topics": "defi.transactions,market.prices,market.analytics,defi.yields,risk.assessments,crosschain.events",
+    "clickhouse.server.url": "http://clickhouse:8123",
+    "clickhouse.server.user": "default",
+    "clickhouse.server.password": "",
+    "clickhouse.server.database": "yieldsensei",
+    "clickhouse.table.name": "${topic}",
+    "clickhouse.retry.count": 3,
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8081",
+    "clickhouse.topic2table.map": "defi.transactions:transactions,market.prices:market_data,market.analytics:analytics,defi.yields:yield_data,risk.assessments:risk_data,crosschain.events:crosschain_data",
+    "clickhouse.datetime.timezone": "UTC",
+    "clickhouse.buffer.count": 10000,
+    "clickhouse.buffer.size": 5242880,
+    "clickhouse.buffer.flush.time": 1000,
+    "auto.create.tables": "true",
+    "auto.evolve": "true",
+    "exactlyOnce": "true",
+    "clickhouse.settings": "async_insert=1,wait_for_async_insert=0,async_insert_max_data_size=10485760",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "errors.deadletterqueue.topic.name": "dlq-clickhouse-sink"
+  }
+} 
