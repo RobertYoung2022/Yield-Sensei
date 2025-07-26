@@ -9,12 +9,10 @@
  * - Kafka (streaming integration)
  */
 
-import { Pool, PoolClient } from 'pg';
 import { EventEmitter } from 'events';
 import Logger from '@/shared/logging/logger';
 import { DatabaseManager } from './manager';
 import { ClickHouseManager } from './clickhouse-manager';
-import { RedisManager } from './redis-manager-simple';
 import { VectorManager } from './vector-manager';
 import { KafkaManager } from '../streaming/kafka-manager';
 
@@ -114,7 +112,7 @@ export interface CDCHandler {
 export class DatabaseIntegrationManager extends EventEmitter {
   private static instance: DatabaseIntegrationManager;
   private dbManager: DatabaseManager;
-  private kafkaManager: KafkaManager;
+  private kafkaManager: KafkaManager | null = null;
   private config: DataSyncConfig;
   private syncStatus: Map<string, SyncStatus> = new Map();
   private cdcHandlers: Map<string, CDCHandler> = new Map();
@@ -231,7 +229,7 @@ export class DatabaseIntegrationManager extends EventEmitter {
       
     } catch (error) {
       status.status = 'error';
-      status.errors.push(error.message);
+      status.errors.push(error instanceof Error ? error.message : String(error));
       status.duration = Date.now() - startTime;
       
       logger.error(`Sync failed for table ${table}:`, error);
@@ -274,7 +272,7 @@ export class DatabaseIntegrationManager extends EventEmitter {
     );
 
     // Insert into ClickHouse
-    await clickhouse.insertBatch(clickhouseTable, transformedData);
+    await clickhouse.insert(clickhouseTable, transformedData);
   }
 
   /**
@@ -363,24 +361,24 @@ export class DatabaseIntegrationManager extends EventEmitter {
       }
 
       // Update Redis cache
-      const cacheKey = `transaction:${change.newRecord?.id || change.oldRecord?.id}`;
+      const cacheKey = `transaction:${change.newRecord?.['id'] || change.oldRecord?.['id']}`;
       if (change.operation === 'DELETE') {
-        await redis.del(cacheKey);
+        await redis.delete(cacheKey);
       } else {
-        await redis.setex(cacheKey, 3600, JSON.stringify(change.newRecord));
+        await redis.set(cacheKey, JSON.stringify(change.newRecord), { ttl: 3600 });
       }
 
       // Publish to Kafka for real-time processing
       if (this.kafkaManager) {
         await this.kafkaManager.produceTransactionData({
-          id: change.newRecord?.id || change.oldRecord?.id,
-          userId: change.newRecord?.user_id || change.oldRecord?.user_id,
-          protocolId: change.newRecord?.protocol_id || change.oldRecord?.protocol_id,
-          type: change.newRecord?.type || change.oldRecord?.type,
-          amount: change.newRecord?.amount || change.oldRecord?.amount,
-          tokenAddress: change.newRecord?.token_address || change.oldRecord?.token_address,
-          blockNumber: change.newRecord?.block_number || change.oldRecord?.block_number,
-          txHash: change.newRecord?.tx_hash || change.oldRecord?.tx_hash
+          id: change.newRecord?.['id'] || change.oldRecord?.['id'],
+          userId: change.newRecord?.['user_id'] || change.oldRecord?.['user_id'],
+          protocolId: change.newRecord?.['protocol_id'] || change.oldRecord?.['protocol_id'],
+          type: change.newRecord?.['type'] || change.oldRecord?.['type'],
+          amount: change.newRecord?.['amount'] || change.oldRecord?.['amount'],
+          tokenAddress: change.newRecord?.['token_address'] || change.oldRecord?.['token_address'],
+          blockNumber: change.newRecord?.['block_number'] || change.oldRecord?.['block_number'],
+          txHash: change.newRecord?.['tx_hash'] || change.oldRecord?.['tx_hash']
         });
       }
 
@@ -398,16 +396,17 @@ export class DatabaseIntegrationManager extends EventEmitter {
       const redis = this.dbManager.getRedis();
 
       // Update Redis cache with portfolio data
-      const userId = change.newRecord?.user_id || change.oldRecord?.user_id;
+      const userId = change.newRecord?.['user_id'] || change.oldRecord?.['user_id'];
       const cacheKey = `portfolio:${userId}`;
       
       if (change.operation === 'DELETE') {
-        // Remove from portfolio cache
-        await redis.hdel(cacheKey, change.oldRecord?.asset_id);
+        // Remove from portfolio cache - use individual key
+        const assetKey = `${cacheKey}:${change.oldRecord?.['asset_id']}`;
+        await redis.delete(assetKey);
       } else {
-        // Update portfolio cache
-        await redis.hset(cacheKey, change.newRecord?.asset_id, JSON.stringify(change.newRecord));
-        await redis.expire(cacheKey, 1800); // 30 minutes TTL
+        // Update portfolio cache - use individual key
+        const assetKey = `${cacheKey}:${change.newRecord?.['asset_id']}`;
+        await redis.set(assetKey, JSON.stringify(change.newRecord), { ttl: 1800 }); // 30 minutes TTL
       }
 
       // Publish portfolio update event
@@ -417,7 +416,7 @@ export class DatabaseIntegrationManager extends EventEmitter {
           key: userId,
           value: JSON.stringify({
             userId,
-            assetId: change.newRecord?.asset_id || change.oldRecord?.asset_id,
+            assetId: change.newRecord?.['asset_id'] || change.oldRecord?.['asset_id'],
             operation: change.operation,
             timestamp: new Date().toISOString()
           })
@@ -439,35 +438,35 @@ export class DatabaseIntegrationManager extends EventEmitter {
       const clickhouse = this.dbManager.getClickHouse();
 
       // Update Redis cache
-      const cacheKey = `protocol:${change.newRecord?.id || change.oldRecord?.id}`;
+      const cacheKey = `protocol:${change.newRecord?.['id'] || change.oldRecord?.['id']}`;
       if (change.operation === 'DELETE') {
-        await redis.del(cacheKey);
+        await redis.delete(cacheKey);
       } else {
-        await redis.setex(cacheKey, 3600, JSON.stringify(change.newRecord));
+        await redis.set(cacheKey, JSON.stringify(change.newRecord), { ttl: 3600 });
       }
 
       // Update ClickHouse protocol metrics
       if (change.operation === 'INSERT' || change.operation === 'UPDATE') {
         await clickhouse.insert('protocol_tvl_history', [{
           timestamp: new Date(),
-          protocol_id: change.newRecord?.id,
-          tvl: change.newRecord?.tvl || 0,
-          apy: change.newRecord?.apy || 0,
-          risk_score: change.newRecord?.risk_score || 0,
-          user_count: change.newRecord?.user_count || 0
+          protocol_id: change.newRecord?.['id'],
+          tvl: change.newRecord?.['tvl'] || 0,
+          apy: change.newRecord?.['apy'] || 0,
+          risk_score: change.newRecord?.['risk_score'] || 0,
+          user_count: change.newRecord?.['user_count'] || 0
         }]);
       }
 
       // Publish protocol update
       if (this.kafkaManager) {
         await this.kafkaManager.produceProtocolData({
-          id: change.newRecord?.id || change.oldRecord?.id,
-          name: change.newRecord?.name || change.oldRecord?.name,
-          description: change.newRecord?.description || change.oldRecord?.description,
-          category: change.newRecord?.category || change.oldRecord?.category,
-          tvl: change.newRecord?.tvl || change.oldRecord?.tvl || 0,
-          apy: change.newRecord?.apy || change.oldRecord?.apy || 0,
-          riskScore: change.newRecord?.risk_score || change.oldRecord?.risk_score || 0
+          id: change.newRecord?.['id'] || change.oldRecord?.['id'],
+          name: change.newRecord?.['name'] || change.oldRecord?.['name'],
+          description: change.newRecord?.['description'] || change.oldRecord?.['description'],
+          category: change.newRecord?.['category'] || change.oldRecord?.['category'],
+          tvl: change.newRecord?.['tvl'] || change.oldRecord?.['tvl'] || 0,
+          apy: change.newRecord?.['apy'] || change.oldRecord?.['apy'] || 0,
+          riskScore: change.newRecord?.['risk_score'] || change.oldRecord?.['risk_score'] || 0
         });
       }
 
@@ -616,6 +615,8 @@ export class DatabaseIntegrationManager extends EventEmitter {
       for (let i = 0; i < dbResults.length; i++) {
         const result = dbResults[i];
         const database = query.databases[i];
+        
+        if (!result || !database) continue;
 
         if (result.status === 'fulfilled') {
           results.push(...result.value);
@@ -708,8 +709,17 @@ export class DatabaseIntegrationManager extends EventEmitter {
    */
   private async executeVectorQuery(vector: VectorManager, query: string): Promise<any[]> {
     // Parse query for vector search parameters
-    const searchParams = this.parseVectorQuery(query);
-    return await vector.search(searchParams);
+    const parsedParams = this.parseVectorQuery(query);
+    
+    // Create proper SearchParams object
+    const searchParams = {
+      vector: parsedParams.vector || [],
+      limit: parsedParams.limit || 10,
+      with_payload: true,
+      with_vector: false,
+    };
+    
+    return await vector.search('default', searchParams);
   }
 
   /**
@@ -774,10 +784,13 @@ export class DatabaseIntegrationManager extends EventEmitter {
 
       // Execute rollbacks in reverse order
       for (let i = rollbacks.length - 1; i >= 0; i--) {
-        try {
-          await rollbacks[i]();
-        } catch (rollbackError) {
-          logger.error('Rollback operation failed:', rollbackError);
+        const rollbackFn = rollbacks[i];
+        if (rollbackFn) {
+          try {
+            await rollbackFn();
+          } catch (rollbackError) {
+            logger.error('Rollback operation failed:', rollbackError);
+          }
         }
       }
 
@@ -858,12 +871,18 @@ export class DatabaseIntegrationManager extends EventEmitter {
   private parseVectorQuery(query: string): any {
     // Simple query parser for vector search
     // In a real implementation, this would be more sophisticated
-    const params: any = {};
+    const params: any = {
+      vector: [], // Default empty vector
+      limit: 10,
+    };
     
     if (query.includes('similarity')) {
       params.type = 'similarity';
+      // In real implementation, would extract vector from query
+      params.vector = new Array(512).fill(0); // Default 512-dim zero vector
     } else if (query.includes('embedding')) {
       params.type = 'embedding';
+      params.vector = new Array(512).fill(0);
     }
     
     return params;

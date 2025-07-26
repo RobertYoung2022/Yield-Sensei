@@ -62,15 +62,20 @@ export class MarketIntelligenceService extends EventEmitter {
         assetId: query.assetId,
         assetType: query.assetType,
         sentiment: await this.getMarketSentiment(query),
-        analystRatings: query.includeAnalystRatings ? 
-          await this.getAnalystRatings(query) : undefined,
-        newsAnalysis: query.includeNews ? 
-          await this.getNewsAnalysis(query) : undefined,
-        trendAnalysis: query.includeTrends ? 
-          await this.getTrendAnalysis(query) : undefined,
-        competitiveAnalysis: query.includeCompetitive && query.competitors ? 
-          await this.getCompetitiveAnalysis(query) : undefined
       };
+
+      if (query.includeAnalystRatings) {
+        intelligence.analystRatings = await this.getAnalystRatings(query);
+      }
+      if (query.includeNews) {
+        intelligence.newsAnalysis = await this.getNewsAnalysis(query);
+      }
+      if (query.includeTrends) {
+        intelligence.trendAnalysis = await this.getTrendAnalysis(query);
+      }
+      if (query.includeCompetitive && query.competitors) {
+        intelligence.competitiveAnalysis = await this.getCompetitiveAnalysis(query);
+      }
 
       logger.info('Market intelligence retrieved', { 
         assetId: query.assetId,
@@ -108,8 +113,12 @@ export class MarketIntelligenceService extends EventEmitter {
         max_tokens: 2000,
         temperature: 0.1,
         return_citations: true,
-        search_recency_filter: this.getRecencyFilter(query.timeframe)
       };
+
+      const recencyFilter = this.getRecencyFilter(query.timeframe);
+      if (recencyFilter) {
+        request.search_recency_filter = recencyFilter;
+      }
 
       const response = await this.client.chat(request);
       return this.parseSentimentResponse(response, query);
@@ -142,7 +151,7 @@ export class MarketIntelligenceService extends EventEmitter {
 
   private parseSentimentResponse(
     response: PerplexityResponse,
-    query: MarketIntelligenceQuery
+    _query: MarketIntelligenceQuery
   ): MarketSentiment {
     const content = response.choices[0]?.message?.content || '';
 
@@ -153,11 +162,11 @@ export class MarketIntelligenceService extends EventEmitter {
     const neutralMatch = content.match(/Neutral.*?(\d+\.?\d*)%/i);
     const confidenceMatch = content.match(/Confidence.*?(\d*\.?\d+)/i);
 
-    const overall = overallMatch ? parseFloat(overallMatch[1]) : 0;
-    const bullish = bullishMatch ? parseFloat(bullishMatch[1]) / 100 : 0.33;
-    const bearish = bearishMatch ? parseFloat(bearishMatch[1]) / 100 : 0.33;
-    const neutral = neutralMatch ? parseFloat(neutralMatch[1]) / 100 : 0.34;
-    const confidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : 0.7;
+    const overall = overallMatch ? parseFloat(overallMatch[1] || '0') : 0;
+    const bullish = bullishMatch ? parseFloat(bullishMatch[1] || '0') / 100 : 0.33;
+    const bearish = bearishMatch ? parseFloat(bearishMatch[1] || '0') / 100 : 0.33;
+    const neutral = neutralMatch ? parseFloat(neutralMatch[1] || '0') / 100 : 0.34;
+    const confidence = confidenceMatch ? parseFloat(confidenceMatch[1] || '0') : 0.7;
 
     // Extract sentiment sources
     const sources = this.extractSentimentSources(content);
@@ -181,7 +190,7 @@ export class MarketIntelligenceService extends EventEmitter {
       sources.push({
         type: 'news',
         name: 'News Media',
-        sentiment: parseFloat(newsMatch[1]),
+        sentiment: parseFloat(newsMatch[1] || '0'),
         weight: 0.3,
         timestamp: new Date()
       });
@@ -193,7 +202,7 @@ export class MarketIntelligenceService extends EventEmitter {
       sources.push({
         type: 'social',
         name: 'Social Media',
-        sentiment: parseFloat(socialMatch[1]),
+        sentiment: parseFloat(socialMatch[1] || '0'),
         weight: 0.2,
         timestamp: new Date()
       });
@@ -205,7 +214,7 @@ export class MarketIntelligenceService extends EventEmitter {
       sources.push({
         type: 'analyst',
         name: 'Analyst Reports',
-        sentiment: parseFloat(analystMatch[1]),
+        sentiment: parseFloat(analystMatch[1] || '0'),
         weight: 0.4,
         timestamp: new Date()
       });
@@ -217,7 +226,7 @@ export class MarketIntelligenceService extends EventEmitter {
       sources.push({
         type: 'insider',
         name: 'Insider Activity',
-        sentiment: parseFloat(insiderMatch[1]),
+        sentiment: parseFloat(insiderMatch[1] || '0'),
         weight: 0.1,
         timestamp: new Date()
       });
@@ -298,11 +307,11 @@ export class MarketIntelligenceService extends EventEmitter {
     const analystCountMatch = content.match(/(\d+)\s*analysts?/i);
 
     const ratings: AnalystRatings = {
-      consensus: this.normalizeConsensusRating(consensusMatch ? consensusMatch[1] : 'hold'),
-      averageTarget: avgTargetMatch ? parseFloat(avgTargetMatch[1].replace(/,/g, '')) : 0,
-      highTarget: highTargetMatch ? parseFloat(highTargetMatch[1].replace(/,/g, '')) : 0,
-      lowTarget: lowTargetMatch ? parseFloat(lowTargetMatch[1].replace(/,/g, '')) : 0,
-      numberOfAnalysts: analystCountMatch ? parseInt(analystCountMatch[1]) : 0,
+      consensus: this.normalizeConsensusRating(consensusMatch ? consensusMatch[1] || 'hold' : 'hold'),
+      averageTarget: avgTargetMatch ? parseFloat((avgTargetMatch[1] || '0').replace(/,/g, '')) : 0,
+      highTarget: highTargetMatch ? parseFloat((highTargetMatch[1] || '0').replace(/,/g, '')) : 0,
+      lowTarget: lowTargetMatch ? parseFloat((lowTargetMatch[1] || '0').replace(/,/g, '')) : 0,
+      numberOfAnalysts: analystCountMatch ? parseInt(analystCountMatch[1] || '0') : 0,
       recentChanges: this.extractRatingChanges(content)
     };
 
@@ -327,12 +336,12 @@ export class MarketIntelligenceService extends EventEmitter {
     let match;
     while ((match = changePattern.exec(content)) !== null) {
       changes.push({
-        analyst: match[1].trim(),
+        analyst: (match[1] || '').trim(),
         firm: '', // Would need more complex parsing
-        previousRating: match[2],
-        newRating: match[3],
-        newTarget: parseFloat(match[4].replace(/,/g, '')),
-        date: new Date(match[5]),
+        previousRating: match[2] || '',
+        newRating: match[3] || '',
+        newTarget: parseFloat((match[4] || '0').replace(/,/g, '')),
+        date: new Date(match[5] || Date.now()),
         rationale: '' // Would need additional parsing
       });
     }
@@ -356,9 +365,13 @@ export class MarketIntelligenceService extends EventEmitter {
         ],
         max_tokens: 3000,
         temperature: 0.1,
-        return_citations: true,
-        search_recency_filter: this.getRecencyFilter(query.timeframe)
+        return_citations: true
       };
+
+      const recencyFilter = this.getRecencyFilter(query.timeframe);
+      if (recencyFilter) {
+        request.search_recency_filter = recencyFilter;
+      }
 
       const response = await this.client.chat(request);
       return this.parseNewsAnalysis(response, query);
@@ -394,7 +407,7 @@ export class MarketIntelligenceService extends EventEmitter {
 
   private parseNewsAnalysis(
     response: PerplexityResponse,
-    query: MarketIntelligenceQuery
+    _query: MarketIntelligenceQuery
   ): NewsAnalysis {
     const content = response.choices[0]?.message?.content || '';
 
@@ -423,14 +436,14 @@ export class MarketIntelligenceService extends EventEmitter {
       if (headlineMatch) {
         stories.push({
           id: `news-${Date.now()}-${index}`,
-          headline: headlineMatch[1].trim(),
-          summary: summaryMatch ? summaryMatch[1].trim() : '',
-          source: sourceMatch ? sourceMatch[1].trim() : 'Unknown',
-          url: citations && citations[index] ? citations[index].url : '',
+          headline: (headlineMatch[1] || '').trim(),
+          summary: summaryMatch ? (summaryMatch[1] || '').trim() : '',
+          source: sourceMatch ? (sourceMatch[1] || '').trim() : 'Unknown',
+          url: citations && citations[index] ? citations[index].url || '' : '',
           publishedAt: new Date(), // Would need date parsing
-          sentiment: sentimentMatch ? parseFloat(sentimentMatch[1]) : 0,
-          relevance: relevanceMatch ? parseFloat(relevanceMatch[1]) : 0.5,
-          entities: [query.assetId]
+          sentiment: sentimentMatch ? parseFloat(sentimentMatch[1] || '0') : 0,
+          relevance: relevanceMatch ? parseFloat(relevanceMatch[1] || '0') : 0.5,
+          entities: []
         });
       }
     });
@@ -440,7 +453,7 @@ export class MarketIntelligenceService extends EventEmitter {
 
   private extractKeyThemes(content: string): string[] {
     const themesMatch = content.match(/Key themes?:?\s*([^\n]+(?:\n(?!^\w+:).*)*)/im);
-    if (!themesMatch) return [];
+    if (!themesMatch || !themesMatch[1]) return [];
 
     return themesMatch[1]
       .split(/[•\-\n]/)
@@ -462,10 +475,10 @@ export class MarketIntelligenceService extends EventEmitter {
       if (descMatch) {
         events.push({
           type: 'market-event',
-          description: descMatch[1].trim(),
-          expectedImpact: (impactMatch ? impactMatch[1] : 'neutral') as any,
-          probability: probMatch ? parseFloat(probMatch[1]) : 0.5,
-          timeframe: timeframeMatch ? timeframeMatch[1].trim() : 'unknown'
+          description: (descMatch[1] || '').trim(),
+          expectedImpact: (impactMatch ? impactMatch[1] || 'neutral' : 'neutral') as any,
+          probability: probMatch ? parseFloat(probMatch[1] || '0') : 0.5,
+          timeframe: timeframeMatch ? (timeframeMatch[1] || '').trim() : 'unknown'
         });
       }
     });
@@ -475,7 +488,7 @@ export class MarketIntelligenceService extends EventEmitter {
 
   private extractMediaAttention(content: string): number {
     const attentionMatch = content.match(/Media attention.*?(\d*\.?\d+)/i);
-    return attentionMatch ? parseFloat(attentionMatch[1]) : 0.5;
+    return attentionMatch ? parseFloat(attentionMatch[1] || '0') : 0.5;
   }
 
   async getTrendAnalysis(query: MarketIntelligenceQuery): Promise<TrendAnalysis> {
@@ -541,18 +554,18 @@ export class MarketIntelligenceService extends EventEmitter {
   private extractTrend(content: string, term: string): 'bullish' | 'bearish' | 'neutral' {
     const pattern = new RegExp(`${term}.*?(bullish|bearish|neutral)`, 'i');
     const match = content.match(pattern);
-    if (!match) return 'neutral';
+    if (!match || !match[1]) return 'neutral';
     return match[1].toLowerCase() as any;
   }
 
   private extractMomentum(content: string): number {
     const match = content.match(/Momentum.*?(-?\d*\.?\d+)/i);
-    return match ? Math.max(-1, Math.min(1, parseFloat(match[1]))) : 0;
+    return match ? Math.max(-1, Math.min(1, parseFloat(match[1] || '0'))) : 0;
   }
 
   private extractVolatility(content: string): number {
     const match = content.match(/Volatility.*?(\d*\.?\d+)/i);
-    return match ? Math.max(0, Math.min(1, parseFloat(match[1]))) : 0.5;
+    return match ? Math.max(0, Math.min(1, parseFloat(match[1] || '0'))) : 0.5;
   }
 
   private extractCorrelations(content: string): AssetCorrelation[] {
@@ -562,11 +575,11 @@ export class MarketIntelligenceService extends EventEmitter {
     let match;
     
     while ((match = corrPattern.exec(content)) !== null) {
-      if (match[1].length < 20) { // Avoid long text matches
+      if (match[1] && match[1].length < 20) { // Avoid long text matches
         correlations.push({
           assetId: match[1].trim().replace(/\s+/g, '-'),
           assetName: match[1].trim(),
-          correlation: parseFloat(match[2]),
+          correlation: parseFloat(match[2] || '0'),
           period: '3-month' // Default, would need more parsing
         });
       }
@@ -644,18 +657,18 @@ export class MarketIntelligenceService extends EventEmitter {
 
   private extractMarketPosition(content: string): number {
     const match = content.match(/Market position.*?#?(\d+)/i);
-    return match ? parseInt(match[1]) : 0;
+    return match ? parseInt(match[1] || '0') : 0;
   }
 
   private extractMarketShare(content: string): number {
     const match = content.match(/Market share.*?(\d+\.?\d*)%/i);
-    return match ? parseFloat(match[1]) / 100 : 0;
+    return match ? parseFloat(match[1] || '0') / 100 : 0;
   }
 
   private extractListItems(content: string, type: string): string[] {
     const pattern = new RegExp(`${type}:?\\s*([^\\n]+(?:\\n(?!^\\w+:).*)*))`, 'im');
     const match = content.match(pattern);
-    if (!match) return [];
+    if (!match || !match[1]) return [];
 
     return match[1]
       .split(/[•\-\n]/)
@@ -700,7 +713,7 @@ export class MarketIntelligenceService extends EventEmitter {
 
     for (const [key, pattern] of Object.entries(patterns)) {
       const match = section.match(pattern);
-      if (match) {
+      if (match && match[1]) {
         let value = parseFloat(match[1].replace(/,/g, ''));
         if (match[2] === 'B') value *= 1000000000;
         else if (match[2] === 'M') value *= 1000000;
@@ -713,7 +726,7 @@ export class MarketIntelligenceService extends EventEmitter {
 
   private extractRelativePerformance(section: string): number {
     const match = section.match(/Performance.*?(-?\d*\.?\d+)/i);
-    return match ? parseFloat(match[1]) : 0;
+    return match ? parseFloat(match[1] || '0') : 0;
   }
 
   async analyzeSentiment(request: SentimentAnalysisRequest): Promise<number> {
@@ -764,7 +777,7 @@ export class MarketIntelligenceService extends EventEmitter {
       case 'year':
         return 'year';
       default:
-        return 'week';
+        return undefined;
     }
   }
 }

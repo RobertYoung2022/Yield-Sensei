@@ -7,35 +7,35 @@ export function createDataSources() {
   return {
     // Portfolio services
     portfolioService: {
-      getPortfolios: async (params: any) => {
+      getPortfolios: async (_params: any) => {
         // TODO: Implement portfolio retrieval
         return [];
       },
-      getPortfolioById: async (id: string, userId?: string) => {
+      getPortfolioById: async (_id: string, _userId?: string) => {
         // TODO: Implement single portfolio retrieval
         return null;
       },
-      getUserPortfolios: async (userId: string, params: any) => {
+      getUserPortfolios: async (_userId: string, _params: any) => {
         // TODO: Implement user portfolios retrieval
         return [];
       },
-      createPortfolio: async (data: any) => {
+      createPortfolio: async (_data: any) => {
         // TODO: Implement portfolio creation
         return null;
       },
-      updatePortfolio: async (id: string, data: any, userId: string) => {
+      updatePortfolio: async (_id: string, _data: any, _userId: string) => {
         // TODO: Implement portfolio update
         return null;
       },
-      deletePortfolio: async (id: string, userId: string) => {
+      deletePortfolio: async (_id: string, _userId: string) => {
         // TODO: Implement portfolio deletion
         return true;
       },
-      getPortfoliosByIds: async (ids: string[]) => {
+      getPortfoliosByIds: async (_ids: string[]) => {
         // TODO: Implement batch portfolio retrieval
         return [];
       },
-      getSatellitePortfolios: async (satelliteId: string) => {
+      getSatellitePortfolios: async (_satelliteId: string) => {
         // TODO: Implement satellite portfolios retrieval
         return [];
       },
@@ -43,11 +43,11 @@ export function createDataSources() {
 
     // User services
     userService: {
-      getUserById: async (id: string) => {
+      getUserById: async (_id: string) => {
         // TODO: Implement user retrieval
         return null;
       },
-      getUsersByIds: async (ids: string[]) => {
+      getUsersByIds: async (_ids: string[]) => {
         // TODO: Implement batch user retrieval
         return [];
       },
@@ -55,35 +55,35 @@ export function createDataSources() {
 
     // Satellite services
     satelliteService: {
-      getSatellites: async (params: any) => {
+      getSatellites: async (_params: any) => {
         // TODO: Implement satellites retrieval
         return [];
       },
-      getSatelliteById: async (id: string) => {
+      getSatelliteById: async (_id: string) => {
         // TODO: Implement single satellite retrieval
         return null;
       },
-      getSatelliteStatus: async (id: string) => {
+      getSatelliteStatus: async (_id: string) => {
         // TODO: Implement satellite status retrieval
         return 'ONLINE';
       },
-      getSatelliteMetrics: async (id: string, period: string) => {
+      getSatelliteMetrics: async (_id: string, _period: string) => {
         // TODO: Implement satellite metrics retrieval
         return null;
       },
-      getSatelliteLogs: async (id: string, params: any) => {
+      getSatelliteLogs: async (_id: string, _params: any) => {
         // TODO: Implement satellite logs retrieval
         return [];
       },
-      restartSatellite: async (id: string, userId: string) => {
+      restartSatellite: async (_id: string, _userId: string) => {
         // TODO: Implement satellite restart
         return { estimatedDuration: 30 };
       },
-      updateConfiguration: async (id: string, config: any, userId: string) => {
+      updateConfiguration: async (_id: string, _config: any, _userId: string) => {
         // TODO: Implement configuration update
         return null;
       },
-      getSatellitesByIds: async (ids: string[]) => {
+      getSatellitesByIds: async (_ids: string[]) => {
         // TODO: Implement batch satellite retrieval
         return [];
       },
@@ -91,11 +91,11 @@ export function createDataSources() {
 
     // Position services
     positionService: {
-      getPortfolioPositions: async (portfolioId: string) => {
+      getPortfolioPositions: async (_portfolioId: string) => {
         // TODO: Implement positions retrieval
         return [];
       },
-      getPositionsByIds: async (ids: string[]) => {
+      getPositionsByIds: async (_ids: string[]) => {
         // TODO: Implement batch position retrieval
         return [];
       },
@@ -103,7 +103,7 @@ export function createDataSources() {
 
     // Transaction services
     transactionService: {
-      getPortfolioTransactions: async (portfolioId: string) => {
+      getPortfolioTransactions: async (_portfolioId: string) => {
         // TODO: Implement transactions retrieval
         return [];
       },
@@ -111,7 +111,7 @@ export function createDataSources() {
 
     // Risk services
     riskService: {
-      getPortfolioRiskAssessments: async (portfolioId: string) => {
+      getPortfolioRiskAssessments: async (_portfolioId: string) => {
         // TODO: Implement risk assessments retrieval
         return [];
       },
@@ -119,7 +119,7 @@ export function createDataSources() {
 
     // Analytics services
     analyticsService: {
-      getPortfolioAnalytics: async (portfolioId: string, period: string, userId?: string) => {
+      getPortfolioAnalytics: async (_portfolioId: string, _period: string, _userId?: string) => {
         // TODO: Implement analytics calculation
         return null;
       },
@@ -127,11 +127,11 @@ export function createDataSources() {
 
     // Market data services
     marketDataService: {
-      getMarketData: async (symbol: string) => {
+      getMarketData: async (_symbol: string) => {
         // TODO: Implement market data retrieval
         return null;
       },
-      getMarketDataBySymbols: async (symbols: string[]) => {
+      getMarketDataBySymbols: async (_symbols: string[]) => {
         // TODO: Implement batch market data retrieval
         return [];
       },

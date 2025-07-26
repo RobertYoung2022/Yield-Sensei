@@ -7,10 +7,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { 
   AuthResponse, 
-  TokenResponse, 
   MFAChallenge,
-  AuthenticationError,
-  AuthorizationError,
   GrantType,
   MFAType 
 } from '../types';
@@ -53,22 +50,22 @@ export class AuthRoutes {
     
     // Token management
     this.router.post('/refresh', this.refreshValidation, this.refresh);
-    this.router.post('/revoke', this.authMiddleware.authenticate, this.revoke);
-    this.router.get('/validate', this.authMiddleware.authenticate, this.validate);
+    this.router.post('/revoke', this.authMiddleware.authenticate as any, this.revoke);
+    this.router.get('/validate', this.authMiddleware.authenticate as any, this.validate);
     
     // Password management
     this.router.post('/forgot-password', this.forgotPasswordValidation, this.forgotPassword);
     this.router.post('/reset-password', this.resetPasswordValidation, this.resetPassword);
-    this.router.post('/change-password', this.authMiddleware.authenticate, this.changePasswordValidation, this.changePassword);
+    this.router.post('/change-password', this.authMiddleware.authenticate as any, this.changePasswordValidation, this.changePassword);
     
     // MFA endpoints
-    this.router.post('/mfa/setup', this.authMiddleware.authenticate, this.mfaSetupValidation, this.mfaSetup);
+    this.router.post('/mfa/setup', this.authMiddleware.authenticate as any, this.mfaSetupValidation, this.mfaSetup);
     this.router.post('/mfa/verify', this.mfaVerifyValidation, this.mfaVerify);
-    this.router.post('/mfa/disable', this.authMiddleware.authenticate, this.mfaDisable);
-    this.router.post('/mfa/backup-codes', this.authMiddleware.authenticate, this.generateBackupCodes);
+    this.router.post('/mfa/disable', this.authMiddleware.authenticate as any, this.mfaDisable);
+    this.router.post('/mfa/backup-codes', this.authMiddleware.authenticate as any, this.generateBackupCodes);
     
     // Logout
-    this.router.post('/logout', this.authMiddleware.authenticate, this.logout);
+    this.router.post('/logout', this.authMiddleware.authenticate as any, this.logout);
   }
 
   // Validation middleware
@@ -148,7 +145,7 @@ export class AuthRoutes {
         return;
       }
 
-      const { email, password, username, firstName, lastName } = req.body;
+      const { email: _email, password, username: _username, firstName: _firstName, lastName: _lastName } = req.body;
 
       // TODO: Implement user registration logic
       // 1. Check if user already exists
@@ -200,7 +197,7 @@ export class AuthRoutes {
         return;
       }
 
-      const { email, password } = req.body;
+      const { email, password: _password } = req.body;
 
       // TODO: Implement login logic
       // 1. Find user by email
@@ -257,7 +254,7 @@ export class AuthRoutes {
         return;
       }
 
-      const { grant_type, client_id, client_secret, username, password, code, refresh_token } = req.body;
+      const { grant_type: _grant_type, client_id: _client_id, client_secret: _client_secret, username: _username, password: _password, code: _code, refresh_token: _refresh_token } = req.body;
 
       // TODO: Implement OAuth 2.0 token endpoint
       // Handle different grant types: password, authorization_code, refresh_token, client_credentials
@@ -323,7 +320,7 @@ export class AuthRoutes {
         return;
       }
 
-      const { refresh_token, client_id } = req.body;
+      const { refresh_token: _refresh_token, client_id: _client_id } = req.body;
 
       // TODO: Implement refresh token logic
       // 1. Verify refresh token
@@ -347,7 +344,7 @@ export class AuthRoutes {
     }
   };
 
-  private revoke = async (req: Request, res: Response): Promise<void> => {
+  private revoke = async (_req: Request, res: Response): Promise<void> => {
     try {
       // TODO: Implement token revocation
       // 1. Add token to blacklist
@@ -402,7 +399,7 @@ export class AuthRoutes {
         return;
       }
 
-      const { email } = req.body;
+      const { email: _email } = req.body;
 
       // TODO: Implement forgot password logic
       // 1. Find user by email
@@ -439,7 +436,7 @@ export class AuthRoutes {
         return;
       }
 
-      const { token, password } = req.body;
+      const { token: _token, password: _password } = req.body;
 
       // TODO: Implement password reset logic
       // 1. Verify reset token
@@ -476,8 +473,8 @@ export class AuthRoutes {
         return;
       }
 
-      const { currentPassword, newPassword } = req.body;
-      const user = (req as any).user;
+      const { currentPassword: _currentPassword, newPassword: _newPassword } = req.body;
+      const _user = (req as any).user;
 
       // TODO: Implement password change logic
       // 1. Verify current password
@@ -515,17 +512,24 @@ export class AuthRoutes {
       }
 
       const { type } = req.body;
-      const user = (req as any).user;
+      const _user = (req as any).user;
 
       // TODO: Implement MFA setup logic
-      const mfaSetup = await this.mfaService.setupMFA(user.id, user.email, type);
+      const mfaSetup = await this.mfaService.setupMFA(_user.id, _user.email, type);
 
       const response: MFAChallenge = {
         type: mfaSetup.type,
-        secret: mfaSetup.secret,
-        qrCode: mfaSetup.qrCode,
-        backupCodes: mfaSetup.backupCodes,
       };
+      
+      if (mfaSetup.secret) {
+        response.secret = mfaSetup.secret;
+      }
+      if (mfaSetup.qrCode) {
+        response.qrCode = mfaSetup.qrCode;
+      }
+      if (mfaSetup.backupCodes) {
+        response.backupCodes = mfaSetup.backupCodes;
+      }
 
       res.json({
         data: response,
@@ -554,7 +558,7 @@ export class AuthRoutes {
         return;
       }
 
-      const { userId, challenge, type } = req.body;
+      const { userId: _userId, challenge: _challenge, type: _type } = req.body;
 
       // TODO: Implement MFA verification logic
       // 1. Get user's MFA secret
@@ -580,7 +584,7 @@ export class AuthRoutes {
 
   private mfaDisable = async (req: Request, res: Response): Promise<void> => {
     try {
-      const user = (req as any).user;
+      const _user = (req as any).user;
 
       // TODO: Implement MFA disable logic
       // 1. Verify user wants to disable MFA
@@ -604,7 +608,7 @@ export class AuthRoutes {
 
   private generateBackupCodes = async (req: Request, res: Response): Promise<void> => {
     try {
-      const user = (req as any).user;
+      const _user = (req as any).user;
 
       // TODO: Implement backup codes generation
       // 1. Generate new backup codes
@@ -629,7 +633,7 @@ export class AuthRoutes {
     }
   };
 
-  private logout = async (req: Request, res: Response): Promise<void> => {
+  private logout = async (_req: Request, res: Response): Promise<void> => {
     try {
       // TODO: Implement logout logic
       // 1. Add token to blacklist

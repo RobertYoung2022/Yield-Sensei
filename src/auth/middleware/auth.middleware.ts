@@ -38,13 +38,13 @@ export class AuthMiddleware {
       return null;
     }
 
-    return parts[1];
+    return parts[1] || null;
   }
 
   /**
    * Authenticate user from token
    */
-  authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  authenticate = async (req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> => {
     try {
       const token = this.extractToken(req);
       
@@ -84,7 +84,7 @@ export class AuthMiddleware {
   /**
    * Optional authentication (doesn't fail if no token)
    */
-  optionalAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  optionalAuth = async (req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> => {
     try {
       const token = this.extractToken(req);
       
@@ -122,7 +122,7 @@ export class AuthMiddleware {
    * Require specific role
    */
   requireRole = (roles: UserRole | UserRole[]) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
       if (!req.user) {
         throw new AuthenticationError('Authentication required', 'AUTHENTICATION_REQUIRED');
       }
@@ -144,7 +144,7 @@ export class AuthMiddleware {
    * Require specific permission
    */
   requirePermission = (permissions: Permission | Permission[]) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
       if (!req.user) {
         throw new AuthenticationError('Authentication required', 'AUTHENTICATION_REQUIRED');
       }
@@ -170,7 +170,7 @@ export class AuthMiddleware {
    * Require any of the specified permissions
    */
   requireAnyPermission = (permissions: Permission[]) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
       if (!req.user) {
         throw new AuthenticationError('Authentication required', 'AUTHENTICATION_REQUIRED');
       }
@@ -193,7 +193,7 @@ export class AuthMiddleware {
   /**
    * Require admin role
    */
-  requireAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  requireAdmin = (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
     if (!req.user) {
       throw new AuthenticationError('Authentication required', 'AUTHENTICATION_REQUIRED');
     }
@@ -208,7 +208,7 @@ export class AuthMiddleware {
   /**
    * Require system role
    */
-  requireSystem = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  requireSystem = (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
     if (!req.user) {
       throw new AuthenticationError('Authentication required', 'AUTHENTICATION_REQUIRED');
     }
@@ -224,7 +224,7 @@ export class AuthMiddleware {
    * Check if user owns the resource or has admin access
    */
   requireOwnershipOrAdmin = (resourceUserId: string) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
       if (!req.user) {
         throw new AuthenticationError('Authentication required', 'AUTHENTICATION_REQUIRED');
       }
@@ -243,7 +243,7 @@ export class AuthMiddleware {
   /**
    * Rate limiting for authentication attempts
    */
-  authRateLimit = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  authRateLimit = (_req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
     // TODO: Implement rate limiting for auth endpoints
     // This would typically use Redis to track failed attempts
     next();
@@ -252,17 +252,18 @@ export class AuthMiddleware {
   /**
    * Validate token and return user info
    */
-  validateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  validateToken = async (req: AuthenticatedRequest, res: Response, _next: NextFunction): Promise<void> => {
     try {
       const token = this.extractToken(req);
       
       if (!token) {
-        return res.status(401).json({
+        res.status(401).json({
           error: {
             code: 'NO_TOKEN',
             message: 'No token provided',
           },
         });
+        return;
       }
 
       const payload = this.jwtService.verifyAccessToken(token);
