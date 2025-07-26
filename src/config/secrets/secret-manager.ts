@@ -7,7 +7,7 @@
 
 import { VaultManager, VaultConfig, SecretMetadata, SecretValue } from './vault-manager';
 import { AccessControlManager, User, Role } from './access-control';
-import { RotationManager, RotationSchedule, RotationResult } from './rotation-manager';
+import { RotationManager, RotationResult } from './rotation-manager';
 
 export interface SecretManagerConfig {
   vault: VaultConfig;
@@ -180,7 +180,7 @@ export class SecretManager {
       const result = await this.rotationManager.rotateSecret(name, newValue, userId);
       
       operation.success = result.success;
-      if (!result.success) {
+      if (!result.success && result.error !== undefined) {
         operation.error = result.error;
       }
 

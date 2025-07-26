@@ -652,7 +652,7 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
       to: originalMessage.from,
       timestamp: new Date(),
       payload,
-      correlationId: originalMessage.correlationId,
+      ...(originalMessage.correlationId && { correlationId: originalMessage.correlationId }),
       priority: originalMessage.priority
     };
 
@@ -668,7 +668,7 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
       to: originalMessage.from,
       timestamp: new Date(),
       payload: { error },
-      correlationId: originalMessage.correlationId,
+      ...(originalMessage.correlationId && { correlationId: originalMessage.correlationId }),
       priority: originalMessage.priority
     };
 

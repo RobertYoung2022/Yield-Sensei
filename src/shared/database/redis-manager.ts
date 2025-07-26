@@ -1,121 +1,5 @@
-// TODO: Install ioredis package - npm install ioredis @types/ioredis
-// For now, providing basic type definitions to prevent compilation errors
-
+import Redis, { Cluster, RedisOptions } from 'ioredis';
 import { EventEmitter } from 'events';
-
-// Basic Redis interface definitions (replace with actual ioredis when installed)
-interface RedisOptions {
-  host?: string;
-  port?: number;
-  password?: string;
-  db?: number;
-  retryDelayOnFailover?: number;
-  maxRetriesPerRequest?: number;
-  lazyConnect?: boolean;
-  enableAutoPipelining?: boolean;
-  keyPrefix?: string;
-  sentinels?: Array<{ host: string; port: number }>;
-  name?: string;
-}
-
-interface RedisPipeline {
-  setex(key: string, seconds: number, value: string): RedisPipeline;
-  sadd(key: string, ...members: string[]): RedisPipeline;
-  expire(key: string, seconds: number): RedisPipeline;
-  exec(): Promise<any[]>;
-}
-
-interface RedisInterface {
-  ping(): Promise<string>;
-  pipeline(): RedisPipeline;
-  setex(key: string, seconds: number, value: string): Promise<any>;
-  get(key: string): Promise<string | null>;
-  del(...keys: string[]): Promise<number>;
-  smembers(key: string): Promise<string[]>;
-  sadd(key: string, ...members: string[]): Promise<number>;
-  expire(key: string, seconds: number): Promise<number>;
-  incrby(key: string, increment: number): Promise<number>;
-  exists(key: string): Promise<number>;
-  mget(...keys: string[]): Promise<(string | null)[]>;
-  publish(channel: string, message: string): Promise<number>;
-  subscribe(channel: string): Promise<void>;
-  psubscribe(pattern: string): Promise<void>;
-  unsubscribe(channel: string): Promise<void>;
-  info(section?: string): Promise<string>;
-  call(command: string, ...args: any[]): Promise<any>;
-  quit(): Promise<void>;
-  duplicate(): RedisInterface;
-  on(event: string, listener: (...args: any[]) => void): this;
-}
-
-// Stub implementations (replace with actual ioredis when installed)
-class Redis implements RedisInterface {
-  constructor(options: RedisOptions) {
-    console.warn('Redis stub - install ioredis package for actual implementation');
-  }
-  
-  async ping(): Promise<string> { return 'PONG'; }
-  pipeline(): RedisPipeline { 
-    return {
-      setex: () => this.pipeline(),
-      sadd: () => this.pipeline(),
-      expire: () => this.pipeline(),
-      exec: async () => []
-    };
-  }
-  async setex(): Promise<any> { return 'OK'; }
-  async get(): Promise<string | null> { return null; }
-  async del(): Promise<number> { return 0; }
-  async smembers(): Promise<string[]> { return []; }
-  async sadd(): Promise<number> { return 0; }
-  async expire(): Promise<number> { return 0; }
-  async incrby(): Promise<number> { return 0; }
-  async exists(): Promise<number> { return 0; }
-  async mget(): Promise<(string | null)[]> { return []; }
-  async publish(): Promise<number> { return 0; }
-  async subscribe(): Promise<void> { }
-  async psubscribe(): Promise<void> { }
-  async unsubscribe(): Promise<void> { }
-  async info(): Promise<string> { return ''; }
-  async call(): Promise<any> { return null; }
-  async quit(): Promise<void> { }
-  duplicate(): RedisInterface { return new Redis({}); }
-  on(): this { return this; }
-}
-
-class Cluster implements RedisInterface {
-  constructor(options: RedisOptions) {
-    console.warn('Redis Cluster stub - install ioredis package for actual implementation');
-  }
-  
-  async ping(): Promise<string> { return 'PONG'; }
-  pipeline(): RedisPipeline { 
-    return {
-      setex: () => this.pipeline(),
-      sadd: () => this.pipeline(),
-      expire: () => this.pipeline(),
-      exec: async () => []
-    };
-  }
-  async setex(): Promise<any> { return 'OK'; }
-  async get(): Promise<string | null> { return null; }
-  async del(): Promise<number> { return 0; }
-  async smembers(): Promise<string[]> { return []; }
-  async sadd(): Promise<number> { return 0; }
-  async expire(): Promise<number> { return 0; }
-  async incrby(): Promise<number> { return 0; }
-  async exists(): Promise<number> { return 0; }
-  async mget(): Promise<(string | null)[]> { return []; }
-  async publish(): Promise<number> { return 0; }
-  async subscribe(): Promise<void> { }
-  async psubscribe(): Promise<void> { }
-  async unsubscribe(): Promise<void> { }
-  async info(): Promise<string> { return ''; }
-  async call(): Promise<any> { return null; }
-  async quit(): Promise<void> { }
-  duplicate(): RedisInterface { return new Cluster({}); }
-  on(): this { return this; }
-}
 
 // Simple logger interface for now
 interface Logger {
@@ -181,8 +65,8 @@ export interface CacheStats {
 export class RedisManager extends EventEmitter {
   private static instance: RedisManager;
   private redis: Redis | Cluster | null = null;
-  private subscriber: Redis | null = null;
-  private publisher: Redis | null = null;
+  private subscriber: Redis | Cluster | null = null;
+  private publisher: Redis | Cluster | null = null;
   private config: RedisConfig;
   private logger: Logger;
   private stats: CacheStats = {
@@ -218,9 +102,8 @@ export class RedisManager extends EventEmitter {
   public async connect(): Promise<void> {
     try {
       const redisOptions: RedisOptions = {
-        password: this.config.password,
+        ...(this.config.password && { password: this.config.password }),
         db: this.config.db || 0,
-        retryDelayOnFailover: this.config.retryDelayOnFailover || 100,
         maxRetriesPerRequest: this.config.maxRetriesPerRequest || 3,
         lazyConnect: this.config.lazyConnect !== false,
         enableAutoPipelining: this.config.enableAutoPipelining !== false,
@@ -526,7 +409,7 @@ export class RedisManager extends EventEmitter {
       const sanitizedKeys = keys.map(key => this.sanitizeKey(key));
       const values = await this.redis.mget(...sanitizedKeys);
       
-      return values.map((value: string | null, index: number) => {
+      return values.map((value: string | null) => {
         if (value === null) {
           this.stats.misses++;
           return null;
@@ -681,7 +564,11 @@ export class RedisManager extends EventEmitter {
     if (!this.redis) return null;
 
     try {
-      return await this.redis.info(section);
+      if (section) {
+        return await this.redis.info(section);
+      } else {
+        return await this.redis.info();
+      }
     } catch (error) {
       this.logger.error('Redis INFO error:', error);
       return null;

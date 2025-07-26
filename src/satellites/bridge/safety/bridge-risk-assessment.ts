@@ -12,7 +12,8 @@ import {
   HistoricalPerformance,
   BridgeAlert,
   BridgeID,
-  ChainID
+  ChainID,
+  BridgePerformanceMetrics
 } from '../types';
 
 const logger = Logger.getLogger('bridge-risk');
@@ -163,11 +164,21 @@ export class BridgeRiskAssessment {
   /**
    * Get bridge performance metrics
    */
-  async getBridgePerformanceMetrics(): Promise<Record<BridgeID, HistoricalPerformance>> {
-    const metrics: Record<BridgeID, HistoricalPerformance> = {};
+  async getBridgePerformanceMetrics(): Promise<Record<BridgeID, BridgePerformanceMetrics>> {
+    const metrics: Record<BridgeID, BridgePerformanceMetrics> = {};
     
     for (const bridge of this.config.bridges) {
-      metrics[bridge.id] = this.performanceMetrics.get(bridge.id) || this.getDefaultPerformance();
+      const historical = this.performanceMetrics.get(bridge.id) || this.getDefaultPerformance();
+      // Convert HistoricalPerformance to BridgePerformanceMetrics
+      metrics[bridge.id] = {
+        bridgeId: bridge.id,
+        usageCount: historical.totalTransactions,
+        totalVolume: historical.dailyVolume,
+        avgFee: 0, // Would need to be calculated from historical data
+        successRate: historical.successRate,
+        avgProcessingTime: historical.avgProcessingTime,
+        reliability: historical.uptimePercentage,
+      };
     }
     
     return metrics;

@@ -488,7 +488,7 @@ export class VectorManager extends EventEmitter {
     return this.search('protocols', {
       vector: query,
       limit,
-      filter,
+      ...(filter && Object.keys(filter).length > 0 && { filter }),
       score_threshold: 0.7, // Minimum similarity threshold
     });
   }
@@ -505,17 +505,17 @@ export class VectorManager extends EventEmitter {
     const filter: Record<string, any> = {};
     
     if (riskLevel) {
-      filter.risk_level = riskLevel;
+      filter['risk_level'] = riskLevel;
     }
     
     if (minApy) {
-      filter.apy = { gte: minApy };
+      filter['apy'] = { gte: minApy };
     }
 
     return this.search('strategies', {
       vector: queryVector,
       limit,
-      filter: Object.keys(filter).length > 0 ? filter : undefined,
+      ...(Object.keys(filter).length > 0 && { filter }),
       score_threshold: 0.6,
     });
   }
@@ -548,7 +548,7 @@ export class VectorManager extends EventEmitter {
     return this.search('documents', {
       vector: queryVector,
       limit,
-      filter,
+      ...(filter && { filter }),
       score_threshold: 0.5,
       with_payload: true,
     });

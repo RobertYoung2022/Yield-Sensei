@@ -289,7 +289,7 @@ export class PerplexityIntegration extends EventEmitter {
         id: `market-${Date.now()}`,
         type: 'market_research',
         query: this.generateMarketQuery(topic, jurisdiction),
-        context: { jurisdiction },
+        context: { ...(jurisdiction && { jurisdiction }) },
         priority: 'medium',
         timestamp: new Date(),
         status: 'pending'

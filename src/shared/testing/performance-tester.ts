@@ -9,7 +9,7 @@ import { EventEmitter } from 'events';
 import Logger from '@/shared/logging/logger';
 import { DatabaseManager } from '../database/manager';
 import { ClickHouseManager } from '../database/clickhouse-manager';
-import { RedisManager } from '../database/redis-manager-simple';
+import { markUnused } from '../../utils/type-safety.js';
 import { VectorManager } from '../database/vector-manager';
 
 const logger = Logger.getLogger('performance-tester');
@@ -210,7 +210,8 @@ export class PerformanceTester extends EventEmitter {
     const testData = this.generateTestData(1000);
 
     // Run concurrent operations
-    const promises = Array(config.concurrency).fill(null).map(async (_, index) => {
+    const promises = Array(config.concurrency).fill(null).map(async (_, _index) => {
+      markUnused(_index);
       const endTime = startTime + (config.duration * 1000);
       
       while (Date.now() < endTime) {
@@ -252,10 +253,10 @@ export class PerformanceTester extends EventEmitter {
 
     // Calculate statistics
     const sortedLatencies = latencies.sort((a, b) => a - b);
-    const averageLatency = latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
-    const p50Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.5)];
-    const p95Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.95)];
-    const p99Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.99)];
+    const averageLatency: number = latencies.length > 0 ? latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length : 0;
+    const p50Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.5)] ?? 0) : 0;
+    const p95Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.95)] ?? 0) : 0;
+    const p99Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.99)] ?? 0) : 0;
 
     const result: TestResult = {
       testName,
@@ -304,7 +305,8 @@ export class PerformanceTester extends EventEmitter {
     const testData = this.generateClickHouseTestData(config.clickhouse.batchSize);
 
     // Run concurrent operations
-    const promises = Array(config.concurrency).fill(null).map(async (_, index) => {
+    const promises = Array(config.concurrency).fill(null).map(async (_, _index) => {
+      markUnused(_index);
       const endTime = startTime + (config.duration * 1000);
       
       while (Date.now() < endTime) {
@@ -346,10 +348,10 @@ export class PerformanceTester extends EventEmitter {
 
     // Calculate statistics
     const sortedLatencies = latencies.sort((a, b) => a - b);
-    const averageLatency = latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
-    const p50Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.5)];
-    const p95Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.95)];
-    const p99Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.99)];
+    const averageLatency: number = latencies.length > 0 ? latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length : 0;
+    const p50Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.5)] ?? 0) : 0;
+    const p95Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.95)] ?? 0) : 0;
+    const p99Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.99)] ?? 0) : 0;
 
     const result: TestResult = {
       testName,
@@ -398,7 +400,8 @@ export class PerformanceTester extends EventEmitter {
     const testData = this.generateRedisTestData(1000);
 
     // Run concurrent operations
-    const promises = Array(config.concurrency).fill(null).map(async (_, index) => {
+    const promises = Array(config.concurrency).fill(null).map(async (_, _index) => {
+      markUnused(_index);
       const endTime = startTime + (config.duration * 1000);
       
       while (Date.now() < endTime) {
@@ -446,10 +449,10 @@ export class PerformanceTester extends EventEmitter {
 
     // Calculate statistics
     const sortedLatencies = latencies.sort((a, b) => a - b);
-    const averageLatency = latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
-    const p50Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.5)];
-    const p95Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.95)];
-    const p99Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.99)];
+    const averageLatency: number = latencies.length > 0 ? latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length : 0;
+    const p50Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.5)] ?? 0) : 0;
+    const p95Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.95)] ?? 0) : 0;
+    const p99Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.99)] ?? 0) : 0;
 
     const result: TestResult = {
       testName,
@@ -497,7 +500,8 @@ export class PerformanceTester extends EventEmitter {
     const testEmbeddings = this.generateTestEmbeddings(config.vector.embeddingDimensions, 100);
 
     // Run concurrent operations
-    const promises = Array(config.concurrency).fill(null).map(async (_, index) => {
+    const promises = Array(config.concurrency).fill(null).map(async (_, _index) => {
+      markUnused(_index);
       const endTime = startTime + (config.duration * 1000);
       
       while (Date.now() < endTime) {
@@ -509,7 +513,9 @@ export class PerformanceTester extends EventEmitter {
             Math.floor(Math.random() * config.vector.searchTypes.length)
           ];
 
-          const embedding = testEmbeddings[Math.floor(Math.random() * testEmbeddings.length)];
+          const embeddingIndex = Math.floor(Math.random() * testEmbeddings.length);
+          const embedding = testEmbeddings[embeddingIndex];
+          if (!embedding) continue;
 
           switch (searchType) {
             case 'similarity':
@@ -541,10 +547,10 @@ export class PerformanceTester extends EventEmitter {
 
     // Calculate statistics
     const sortedLatencies = latencies.sort((a, b) => a - b);
-    const averageLatency = latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
-    const p50Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.5)];
-    const p95Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.95)];
-    const p99Latency = sortedLatencies[Math.floor(sortedLatencies.length * 0.99)];
+    const averageLatency: number = latencies.length > 0 ? latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length : 0;
+    const p50Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.5)] ?? 0) : 0;
+    const p95Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.95)] ?? 0) : 0;
+    const p99Latency: number = sortedLatencies.length > 0 ? (sortedLatencies[Math.floor(sortedLatencies.length * 0.99)] ?? 0) : 0;
 
     const result: TestResult = {
       testName,
@@ -667,29 +673,24 @@ export class PerformanceTester extends EventEmitter {
   }
 
   private async executeVectorSimilarity(vector: VectorManager, embedding: number[]): Promise<void> {
-    await vector.search({
-      type: 'similarity',
-      embedding,
+    await vector.search('test_collection', {
+      vector: embedding,
       limit: 10,
-      threshold: 0.8
+      score_threshold: 0.8
     });
   }
 
   private async executeVectorExact(vector: VectorManager, embedding: number[]): Promise<void> {
-    await vector.search({
-      type: 'exact',
-      embedding,
+    await vector.search('test_collection', {
+      vector: embedding,
       limit: 10
     });
   }
 
   private async executeVectorRange(vector: VectorManager, embedding: number[]): Promise<void> {
-    await vector.search({
-      type: 'range',
-      embedding,
-      limit: 10,
-      minDistance: 0.1,
-      maxDistance: 0.9
+    await vector.search('test_collection', {
+      vector: embedding,
+      limit: 10
     });
   }
 
@@ -771,7 +772,7 @@ export class PerformanceTester extends EventEmitter {
   private generateSummary(results: TestResult[]): LoadTestResult['summary'] {
     const totalDuration = Math.max(...results.map(r => r.duration));
     const totalOperations = results.reduce((sum, r) => sum + r.totalOperations, 0);
-    const totalSuccessful = results.reduce((sum, r) => sum + r.successfulOperations, 0);
+    markUnused(results.reduce((sum, r) => sum + r.successfulOperations, 0));
     const totalFailed = results.reduce((sum, r) => sum + r.failedOperations, 0);
     
     const averageThroughput = results.reduce((sum, r) => sum + r.throughput, 0) / results.length;

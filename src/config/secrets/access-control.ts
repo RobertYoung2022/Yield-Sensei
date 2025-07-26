@@ -377,7 +377,9 @@ export class AccessControlManager {
           break;
         case 'between':
           if (Array.isArray(condition.value) && condition.value.length === 2) {
-            if (contextValue < condition.value[0] || contextValue > condition.value[1]) {
+            const min = condition.value[0];
+            const max = condition.value[1];
+            if (min !== undefined && max !== undefined && (contextValue < min || contextValue > max)) {
               return false;
             }
           }

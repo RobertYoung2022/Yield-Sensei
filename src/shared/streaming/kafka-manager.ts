@@ -1,4 +1,4 @@
-import { Kafka, Producer, Consumer, Admin, KafkaConfig, ProducerConfig, ConsumerConfig } from 'kafkajs';
+import { Kafka, Producer, Consumer, Admin, KafkaConfig } from 'kafkajs';
 import { EventEmitter } from 'events';
 
 // Configuration interfaces
@@ -296,9 +296,9 @@ export class KafkaManager extends EventEmitter {
          messages: [{
            key: message.key || null,
            value: message.value,
-           headers: message.headers,
-           partition: message.partition,
-           timestamp: message.timestamp
+           ...(message.headers && { headers: message.headers }),
+           ...(message.partition !== undefined && { partition: message.partition }),
+           ...(message.timestamp && { timestamp: message.timestamp })
          }]
        });
 
@@ -323,7 +323,7 @@ export class KafkaManager extends EventEmitter {
         if (!acc[msg.topic]) {
           acc[msg.topic] = [];
         }
-        acc[msg.topic].push({
+        acc[msg.topic]!.push({
           key: msg.key,
           value: msg.value,
           headers: msg.headers,

@@ -6,10 +6,10 @@
  */
 
 import { EventEmitter } from 'events';
-import { createHash } from 'crypto';
+// Removed unused createHash import
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { ConfigValidator, ConfigSnapshot, ValidationResult } from './config-validator';
+import { ConfigValidator, ConfigSnapshot } from './config-validator';
 
 export interface DriftDetectionConfig {
   baselinePath: string;
@@ -546,7 +546,7 @@ export class DriftDetector extends EventEmitter {
   /**
    * Webhook notification
    */
-  private async notifyWebhook(event: DriftEvent, report: DriftReport, config: any): Promise<void> {
+  private async notifyWebhook(_event: DriftEvent, _report: DriftReport, config: any): Promise<void> {
     // Implementation would send HTTP POST to configured webhook
     console.log(`🔔 Webhook notification would be sent to: ${config.url}`);
   }
@@ -554,7 +554,7 @@ export class DriftDetector extends EventEmitter {
   /**
    * Email notification
    */
-  private async notifyEmail(event: DriftEvent, report: DriftReport, config: any): Promise<void> {
+  private async notifyEmail(_event: DriftEvent, _report: DriftReport, config: any): Promise<void> {
     // Implementation would send email via configured service
     console.log(`📧 Email notification would be sent to: ${config.to}`);
   }

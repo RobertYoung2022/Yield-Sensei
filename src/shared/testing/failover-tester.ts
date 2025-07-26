@@ -390,8 +390,8 @@ export class FailoverTester extends EventEmitter {
       duration: 30,
       concurrency: 100,
       rampUpTime: 5,
-      postgres: { enabled: true, connectionPoolSize: 20, queryTypes: ['read', 'write', 'mixed'] },
-      clickhouse: { enabled: true, batchSize: 1000, queryTypes: ['analytics', 'insert', 'aggregation'] },
+      postgres: { enabled: true, connectionPoolSize: 20, queryTypes: ['read', 'write', 'mixed'] as ('read' | 'write' | 'mixed')[] },
+      clickhouse: { enabled: true, batchSize: 1000, queryTypes: ['read', 'write', 'mixed'] as ('read' | 'write' | 'mixed')[] },
       redis: { enabled: true, operationTypes: ['get', 'set', 'hget', 'hset', 'pipeline'] },
       vector: { enabled: true, embeddingDimensions: 768, searchTypes: ['similarity', 'exact', 'range'] }
     };
@@ -510,14 +510,17 @@ export class FailoverTester extends EventEmitter {
         status = 'degraded';
       }
 
-      return {
+      const result: HealthCheckResult = {
         database: database || 'all',
         timestamp,
         status,
         responseTime,
-        error,
         metrics
       };
+      if (error) {
+        result.error = error;
+      }
+      return result;
 
     } catch (err) {
       const responseTime = Date.now() - startTime;

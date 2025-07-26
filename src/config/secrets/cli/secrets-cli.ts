@@ -23,15 +23,15 @@ interface CLIConfig {
 
 class SecretsCLI {
   private config: CLIConfig;
-  private secretManager: SecretManager;
-  private cicdIntegration: CICDIntegration;
+  private secretManager!: SecretManager;
+  private cicdIntegration!: CICDIntegration;
 
   constructor() {
     this.config = {
-      platform: process.env.CICD_PLATFORM || 'github',
-      environment: process.env.NODE_ENV || 'development',
-      projectId: process.env.PROJECT_ID || '',
-      baseUrl: process.env.CICD_BASE_URL,
+      platform: process.env['CICD_PLATFORM'] || 'github',
+      environment: process.env['NODE_ENV'] || 'development',
+      projectId: process.env['PROJECT_ID'] || '',
+      ...(process.env['CICD_BASE_URL'] && { baseUrl: process.env['CICD_BASE_URL'] }),
       verbose: false
     };
   }
@@ -47,8 +47,10 @@ class SecretsCLI {
       platform: this.config.platform as any,
       environment: this.config.environment as any,
       projectId: this.config.projectId,
-      baseUrl: this.config.baseUrl,
-      apiToken: process.env.CICD_API_TOKEN || process.env.GITHUB_TOKEN || process.env.GITLAB_TOKEN,
+      ...(this.config.baseUrl && { baseUrl: this.config.baseUrl }),
+      ...(process.env['CICD_API_TOKEN'] ? { apiToken: process.env['CICD_API_TOKEN'] } :
+          process.env['GITHUB_TOKEN'] ? { apiToken: process.env['GITHUB_TOKEN'] } :
+          process.env['GITLAB_TOKEN'] ? { apiToken: process.env['GITLAB_TOKEN'] } : {}),
       secretsScope: 'repository',
       encryptionEnabled: true,
       auditLogging: true
@@ -450,7 +452,9 @@ class SecretsCLI {
 
       if (deployments.length > 0) {
         const latest = deployments[deployments.length - 1];
-        this.log(`Latest Deployment: ${latest.deployedAt.toISOString()}`);
+        if (latest) {
+          this.log(`Latest Deployment: ${latest.deployedAt.toISOString()}`);
+        }
       }
 
       this.log('\n📈 Recent Activity:');
@@ -492,7 +496,7 @@ class SecretsCLI {
   }
 
   private log(message: string): void {
-    if (this.config.verbose || !process.env.CI) {
+    if (this.config.verbose || !process.env['CI']) {
       console.log(message);
     }
   }

@@ -6,7 +6,6 @@ import {
   ChannelSubscription, 
   SubscriptionFilters, 
   WebSocketMessage, 
-  MessageType,
   WebSocketConnection,
   WebSocketError,
   WebSocketErrorCode

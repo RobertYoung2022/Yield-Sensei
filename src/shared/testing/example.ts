@@ -375,7 +375,7 @@ export function monitorTestStatus(): void {
   // Get health check results
   const healthChecks = failoverTester.getHealthChecks();
   logger.info('Health Check Results:');
-  healthChecks.forEach((health, database) => {
+  healthChecks.forEach((health, database: string) => {
     logger.info(`  ${database}: ${health.status} (${health.responseTime}ms)`);
   });
 }

@@ -21,7 +21,7 @@ async function main() {
       await dbManager.initialize();
       logger.info('✅ Database connections initialized successfully');
     } catch (error) {
-      logger.warn('⚠️  Database connections failed - continuing without databases for testing:', error.message);
+      logger.warn('⚠️  Database connections failed - continuing without databases for testing:', error instanceof Error ? error.message : 'Unknown error');
     }
     
     // Initialize orchestration engine
@@ -31,7 +31,7 @@ async function main() {
       await orchestrator.initialize();
       logger.info('✅ Orchestration engine initialized successfully');
     } catch (error) {
-      logger.warn('⚠️  Orchestration engine initialization failed - continuing for testing:', error.message);
+      logger.warn('⚠️  Orchestration engine initialization failed - continuing for testing:', error instanceof Error ? error.message : 'Unknown error');
     }
     
     // Start all satellite agents
@@ -40,7 +40,7 @@ async function main() {
       await orchestrator.startAllAgents();
       logger.info('✅ Satellite agents started successfully');
     } catch (error) {
-      logger.warn('⚠️  Satellite agent startup failed - continuing for testing:', error.message);
+      logger.warn('⚠️  Satellite agent startup failed - continuing for testing:', error instanceof Error ? error.message : 'Unknown error');
     }
     
     // Setup graceful shutdown

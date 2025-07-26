@@ -4,8 +4,8 @@
  */
 
 import Logger from '../../../shared/logging/logger';
+import { BridgeSatelliteConfig } from '../bridge-satellite';
 import { 
-  BridgeSatelliteConfig, 
   CrossChainPortfolio, 
   LiquidityPosition,
   ChainID,
@@ -83,10 +83,10 @@ export class MultiChainCoordinator {
   private assetPositions = new Map<string, AssetPosition>(); // key: chainId:assetId
   private coordinatedTransactions = new Map<string, CoordinatedTransaction>();
   private riskLimits: RiskLimit[] = [];
-  private positionSizingRules: PositionSizingRule[] = [];
+  private _positionSizingRules: PositionSizingRule[] = [];
   private portfolioCache?: CrossChainPortfolio;
   private lastPortfolioUpdate = 0;
-  private coordinationInterval?: NodeJS.Timeout;
+  private coordinationInterval?: NodeJS.Timeout | undefined;
   private transactionQueue: CoordinatedTransaction[] = [];
   private readonly maxConcurrentTransactions = 3;
   private readonly portfolioCacheTimeout = 30000; // 30 seconds
@@ -298,24 +298,24 @@ export class MultiChainCoordinator {
     const byAsset: Record<AssetID, { totalValue: number; chains: Record<ChainID, number> }> = {};
     let totalPortfolioValue = 0;
 
-    for (const [positionKey, position] of this.assetPositions) {
+    for (const [_positionKey, position] of this.assetPositions) {
       totalPortfolioValue += position.value;
 
       // Aggregate by chain
       if (!byChain[position.chainId]) {
         byChain[position.chainId] = { totalValue: 0, assets: {} };
       }
-      byChain[position.chainId].totalValue += position.value;
-      byChain[position.chainId].assets[position.assetId] = 
-        (byChain[position.chainId].assets[position.assetId] || 0) + position.value;
+      byChain[position.chainId]!.totalValue += position.value;
+      byChain[position.chainId]!.assets[position.assetId] = 
+        (byChain[position.chainId]!.assets[position.assetId] || 0) + position.value;
 
       // Aggregate by asset
       if (!byAsset[position.assetId]) {
         byAsset[position.assetId] = { totalValue: 0, chains: {} };
       }
-      byAsset[position.assetId].totalValue += position.value;
-      byAsset[position.assetId].chains[position.chainId] = 
-        (byAsset[position.assetId].chains[position.chainId] || 0) + position.value;
+      byAsset[position.assetId]!.totalValue += position.value;
+      byAsset[position.assetId]!.chains[position.chainId] = 
+        (byAsset[position.assetId]!.chains[position.chainId] || 0) + position.value;
     }
 
     // Calculate concentration risk (Herfindahl index)
@@ -863,7 +863,7 @@ export class MultiChainCoordinator {
   }
 
   private initializePositionSizingRules(): void {
-    this.positionSizingRules = [
+    this._positionSizingRules = [
       {
         id: 'max_chain_exposure',
         name: 'Maximum Chain Exposure',

@@ -5,7 +5,7 @@
  * scheduling, notifications, and audit logging.
  */
 
-import { VaultManager, SecretMetadata, RotationPolicy } from './vault-manager';
+import { VaultManager, RotationPolicy } from './vault-manager';
 import { AccessControlManager } from './access-control';
 
 export interface RotationSchedule {
@@ -107,7 +107,7 @@ export class RotationManager {
       auditTrail.push('Permission check passed');
 
       // Get current secret to get old version
-      const currentSecret = await this.vaultManager.getSecret(secretName, userId);
+      await this.vaultManager.getSecret(secretName, userId);
       const oldVersion = 'current'; // In a real implementation, we'd track versions
 
       // Rotate the secret
@@ -289,9 +289,9 @@ export class RotationManager {
    * Get rotation history
    */
   getRotationHistory(
-    secretName?: string,
-    startDate?: Date,
-    endDate?: Date
+    _secretName?: string,
+    _startDate?: Date,
+    _endDate?: Date
   ): RotationResult[] {
     // In a real implementation, this would query a database
     // For now, we'll return an empty array
@@ -401,7 +401,7 @@ export class RotationManager {
     return Array.from(this.schedules.values()).find(s => s.secretName === secretName);
   }
 
-  private async generateSecretValue(secretName: string): Promise<string> {
+  private async generateSecretValue(_secretName: string): Promise<string> {
     // In production, this would use a secure random generator
     // For now, we'll generate a simple random string
     const crypto = await import('crypto');
@@ -411,8 +411,8 @@ export class RotationManager {
   private async createNotification(
     secretName: string,
     type: 'completed' | 'failed',
-    userId: string,
-    auditTrail: string[]
+    _userId: string,
+    _auditTrail: string[]
   ): Promise<void> {
     const notification: RotationNotification = {
       id: this.generateNotificationId(),

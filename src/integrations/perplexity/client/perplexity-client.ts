@@ -104,8 +104,8 @@ export class PerplexityClient extends EventEmitter {
 
   private createHttpClient(): AxiosInstance {
     const client = axios.create({
-      baseURL: this.config.baseUrl,
-      timeout: this.config.timeout,
+      baseURL: this.config.baseUrl || 'https://api.perplexity.ai',
+      timeout: this.config.timeout || 30000,
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
         'Content-Type': 'application/json',

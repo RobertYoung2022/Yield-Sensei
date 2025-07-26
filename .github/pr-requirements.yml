@@ -1,0 +1,155 @@
+# PR Requirements Configuration for Type Safety
+# This file defines the requirements that PRs must meet to be mergeable
+
+type_safety:
+  # Basic requirements that must pass
+  required_checks:
+    - "TypeScript compilation must succeed (npm run typecheck)"
+    - "Type coverage must be ≥85% (npm run type-coverage:check)"
+    - "ESLint type-aware rules must pass (npm run lint)"
+  
+  # Warnings that don't block merge but should be addressed
+  warnings:
+    - "New 'any' types detected in diff"
+    - "Type coverage below target threshold"
+    - "High number of unused parameters (TS6133)"
+    - "Missing return statements (TS7030)"
+  
+  # Automatic checks performed by CI
+  automated_checks:
+    - name: "basic_compilation"
+      command: "npm run typecheck"
+      required: true
+      timeout: "5m"
+    
+    - name: "strict_compilation"
+      command: "npm run typecheck:strict"
+      required: false
+      timeout: "5m"
+    
+    - name: "build_compilation"
+      command: "npm run typecheck:build"
+      required: false
+      timeout: "5m"
+    
+    - name: "type_coverage"
+      command: "npm run type-coverage:check"
+      required: true
+      timeout: "3m"
+    
+    - name: "progressive_validation"
+      command: "npm run type-validate:progressive"
+      required: false
+      timeout: "5m"
+    
+    - name: "eslint_types"
+      command: "npm run lint"
+      required: true
+      timeout: "3m"
+    
+    - name: "type_error_report"
+      command: "npm run type-report"
+      required: false
+      timeout: "3m"
+
+  # Thresholds and limits
+  thresholds:
+    type_coverage_minimum: 85
+    max_any_types: 50
+    max_ts4111_errors: 100  # Index signature access
+    max_ts6133_errors: 200  # Unused parameters
+    max_ts7030_errors: 50   # Missing returns
+    max_new_any_types_in_pr: 5
+    max_total_errors: 1000
+  
+  # Files that are exempt from strict requirements
+  exemptions:
+    files:
+      - "**/*.test.ts"
+      - "**/*.spec.ts"
+      - "**/__tests__/**"
+      - "**/jest.config.js"
+      - "scripts/**"
+    
+    directories:
+      - "tests/"
+      - "__mocks__/"
+      - "coverage/"
+  
+  # Auto-fix suggestions
+  auto_suggestions:
+    TS4111: "Use bracket notation: obj['property'] or type guards from src/utils/type-guards.ts"
+    TS6133: "Prefix unused parameters with underscore: _unusedParam"
+    TS7030: "Ensure all code paths return values or use exhaustive patterns"
+    TS2379: "Use exactOptionalPropertyTypes helpers from src/utils/safe-access.ts"
+    TS2339: "Use type guards to check property existence before access"
+    any_types: "Replace with specific types or use utilities from src/utils/type-replacements.ts"
+
+# Integration settings
+integrations:
+  github_actions:
+    workflow_file: ".github/workflows/type-safety.yml"
+    required_status_checks:
+      - "TypeScript Type Safety"
+      - "Type Error Analysis & Reporting"
+      - "Type Coverage & Quality"
+    
+  husky:
+    pre_commit_checks:
+      - "TypeScript compilation"
+      - "New any type detection"
+      - "Lint-staged validation"
+  
+  notifications:
+    slack_webhook: "${SLACK_WEBHOOK_URL}"
+    teams_webhook: "${TEAMS_WEBHOOK_URL}"
+    channels:
+      - "#dev-type-safety"
+      - "#code-quality"
+
+# Documentation and resources
+resources:
+  documentation:
+    - "docs/TYPESCRIPT_BEST_PRACTICES.md"
+    - "docs/TYPESCRIPT_ERROR_PATTERNS.md"
+  
+  utilities:
+    - "src/utils/type-guards.ts"
+    - "src/utils/safe-access.ts"
+    - "src/utils/error-handling.ts"
+    - "src/utils/type-replacements.ts"
+  
+  scripts:
+    - "scripts/type-validation.ts"
+    - "scripts/type-error-reporter.ts"
+    - "scripts/pre-commit-typecheck.ts"
+
+# Reporting and metrics
+reporting:
+  frequency: "daily"
+  metrics_tracked:
+    - "total_typescript_errors"
+    - "any_type_count"
+    - "type_coverage_percentage"
+    - "error_patterns_by_type"
+    - "pr_failure_rate"
+    - "time_to_fix_errors"
+  
+  alerts:
+    error_spike_threshold: 50  # Alert if errors increase by more than 50
+    coverage_drop_threshold: 5  # Alert if coverage drops by more than 5%
+    any_type_increase_threshold: 10  # Alert if any types increase by more than 10
+
+# Version compatibility
+typescript_versions:
+  supported:
+    - "~5.4.0"
+    - "latest"
+  
+  node_versions:
+    - "18.x"
+    - "20.x"
+  
+  testing_matrix:
+    include_combinations: true
+    fail_fast: false

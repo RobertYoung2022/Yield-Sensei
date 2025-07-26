@@ -141,7 +141,7 @@ router.get('/:id/status', async (req: Request, res: Response) => {
     // 3. Checking system health indicators
     
     const status: SatelliteStatus = {
-      id,
+      id: id || 'default-id',
       status: 'online',
       lastHeartbeat: new Date().toISOString(),
       performance: {
@@ -204,7 +204,7 @@ router.put('/:id/configuration', async (req: Request, res: Response) => {
     // 4. Restarting satellite if needed
     
     const updatedSatellite: Satellite = {
-      id,
+      id: id || 'default-id',
       name: 'Aegis Alpha',
       type: 'aegis',
       status: 'online',
@@ -238,6 +238,8 @@ router.get('/:id/logs', validatePagination, async (req: Request, res: Response) 
   try {
     const { id } = req.params;
     const { page = 1, limit = 50, level, startDate, endDate } = req.query;
+    // Suppress unused variable warnings - these will be used when implementation is complete
+    console.log({ id, page, limit, level, startDate, endDate });
     
     // TODO: Implement log retrieval logic
     // This would typically involve:

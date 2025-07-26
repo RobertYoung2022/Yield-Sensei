@@ -112,7 +112,7 @@ export class VaultManager {
     const secretId = this.generateSecretId(name);
     const version = this.generateVersion();
     
-    const fullMetadata: SecretMetadata = {
+    const fullMetadata: Partial<SecretMetadata> = {
       id: secretId,
       name,
       description: metadata.description || '',
@@ -120,7 +120,6 @@ export class VaultManager {
       environment: metadata.environment || 'all',
       created: new Date(),
       lastRotated: new Date(),
-      expiresAt: metadata.expiresAt || undefined,
       rotationPolicy: metadata.rotationPolicy || {
         enabled: false,
         intervalDays: 90,
@@ -131,18 +130,20 @@ export class VaultManager {
       accessControl: metadata.accessControl || {
         roles: ['admin'],
         users: [],
-        permissions: ['read'],
-        ipRestrictions: undefined,
-        timeRestrictions: undefined
+        permissions: ['read']
       },
       tags: metadata.tags || []
     };
+
+    if (metadata.expiresAt !== undefined) {
+      fullMetadata.expiresAt = metadata.expiresAt;
+    }
 
     const secretValue: SecretValue = {
       value: this.encryptValue(value),
       version,
       encrypted: true,
-      metadata: fullMetadata
+      metadata: fullMetadata as SecretMetadata
     };
 
     await this.saveSecret(secretId, secretValue);
@@ -314,7 +315,7 @@ export class VaultManager {
   }
 
   private encryptValue(value: string): string {
-    if (this.config.type !== 'local') {
+    if (this.config.type !== 'local' || !this.encryptionKey) {
       return value; // Backend handles encryption
     }
     
@@ -330,7 +331,7 @@ export class VaultManager {
   }
 
   private decryptValue(encryptedValue: string): string {
-    if (this.config.type !== 'local') {
+    if (this.config.type !== 'local' || !this.encryptionKey) {
       return encryptedValue; // Backend handles decryption
     }
     
@@ -340,6 +341,9 @@ export class VaultManager {
     }
     
     const [ivHex, authTagHex, encrypted] = parts;
+    if (!ivHex || !authTagHex || !encrypted) {
+      throw new Error('Invalid encrypted value format - missing parts');
+    }
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
     

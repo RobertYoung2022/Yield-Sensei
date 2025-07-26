@@ -6,10 +6,10 @@
  */
 
 import { EventEmitter } from 'events';
-import { ConfigValidator, ValidationResult, ConfigSnapshot } from './config-validator';
+import { ConfigValidator, ValidationResult } from './config-validator';
 import { DriftDetector, DriftDetectionConfig, DriftReport, DriftEvent } from './drift-detector';
 import { loadConfiguration, LoadedConfig } from '../config-loader';
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import * as cron from 'node-cron';
 
@@ -101,7 +101,7 @@ export class ConfigMonitor extends EventEmitter {
         config: channel.config
       })),
       autoCorrect: false,
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env['NODE_ENV'] || 'development'
     };
     
     this.driftDetector = new DriftDetector(driftConfig, this.validator);
@@ -347,7 +347,7 @@ export class ConfigMonitor extends EventEmitter {
   /**
    * Generate scheduled report
    */
-  private async generateScheduledReport(config?: any): Promise<void> {
+  private async generateScheduledReport(_config?: any): Promise<void> {
     const report = await this.generateReport();
     
     const filename = `config-report-${new Date().toISOString().split('T')[0]}.md`;
@@ -391,7 +391,7 @@ export class ConfigMonitor extends EventEmitter {
   /**
    * Clean old backups
    */
-  private async cleanOldBackups(backupPath: string): Promise<void> {
+  private async cleanOldBackups(_backupPath: string): Promise<void> {
     // Implementation would scan directory and remove old files
     console.log(`🧹 Cleaning backups older than ${this.config.persistence.retentionDays} days`);
   }
@@ -467,7 +467,7 @@ export class ConfigMonitor extends EventEmitter {
         break;
         
       case 'file':
-        const alertPath = channel.config.path || './alerts';
+        const alertPath = channel.config['path'] || './alerts';
         const filename = `alert-${alert.timestamp.getTime()}.json`;
         mkdirSync(alertPath, { recursive: true });
         writeFileSync(join(alertPath, filename), JSON.stringify(alert, null, 2));
@@ -475,12 +475,12 @@ export class ConfigMonitor extends EventEmitter {
         
       case 'webhook':
         // Implementation would send HTTP POST
-        console.log(`🔔 Webhook alert would be sent to: ${channel.config.url}`);
+        console.log(`🔔 Webhook alert would be sent to: ${channel.config['url']}`);
         break;
         
       case 'slack':
         // Implementation would use Slack API
-        console.log(`💬 Slack alert would be sent to: ${channel.config.channel}`);
+        console.log(`💬 Slack alert would be sent to: ${channel.config['channel']}`);
         break;
         
       case 'pagerduty':
@@ -527,7 +527,7 @@ export class ConfigMonitor extends EventEmitter {
   async generateReport(): Promise<string> {
     let report = `# Configuration Monitor Report\n\n`;
     report += `**Generated:** ${new Date().toISOString()}\n`;
-    report += `**Environment:** ${process.env.NODE_ENV || 'development'}\n`;
+    report += `**Environment:** ${process.env['NODE_ENV'] || 'development'}\n`;
     report += `**Status:** ${this.status.running ? '🟢 Running' : '🔴 Stopped'}\n`;
     report += `**Uptime:** ${Math.floor(this.status.uptime / 1000 / 60)} minutes\n\n`;
     
@@ -585,7 +585,7 @@ export class ConfigMonitor extends EventEmitter {
    * Validate specific configuration
    */
   async validateConfig(config: Record<string, any>): Promise<ValidationResult> {
-    return this.validator.validate(config, process.env.NODE_ENV);
+    return this.validator.validate(config, process.env['NODE_ENV']);
   }
 
   /**

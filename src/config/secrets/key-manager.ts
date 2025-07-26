@@ -6,8 +6,10 @@
  * and RotationManager for automatic key rotation.
  */
 
-import { randomBytes, scryptSync, createHmac, generateKeyPair, createCipheriv, createDecipheriv } from 'crypto';
-import { VaultManager, SecretMetadata, RotationPolicy } from './vault-manager';
+import { randomBytes, scryptSync, createHmac, generateKeyPair } from 'crypto';
+// Removed unused: createCipheriv, createDecipheriv
+import { VaultManager, SecretMetadata } from './vault-manager';
+// Removed unused: RotationPolicy
 import { RotationManager } from './rotation-manager';
 import { AccessControlManager } from './access-control';
 
@@ -62,7 +64,7 @@ export class KeyManager {
   private vaultManager: VaultManager;
   private rotationManager: RotationManager;
   private accessControl: AccessControlManager;
-  private masterKeyCache: Map<string, Buffer> = new Map();
+  // Removed unused masterKeyCache property
 
   constructor(
     vaultManager: VaultManager,
@@ -77,9 +79,9 @@ export class KeyManager {
   /**
    * Generate a new cryptographic key based on specifications
    */
-  async generateKey(spec: KeySpec, userId: string, metadata?: Partial<SecretMetadata>): Promise<GeneratedKey> {
+  async generateKey(spec: KeySpec, _userId: string, metadata?: Partial<SecretMetadata>): Promise<GeneratedKey> {
     // Check permissions
-    const permission = this.accessControl.checkPermission(userId, 'secret', 'create');
+    const permission = this.accessControl.checkPermission(_userId, 'secret', 'create');
     if (!permission.granted) {
       throw new Error(`Access denied: ${permission.reason}`);
     }
@@ -107,14 +109,14 @@ export class KeyManager {
     }
 
     // Store the key in the vault
-    await this.storeKey(generatedKey, userId, metadata);
+    await this.storeKey(generatedKey, _userId, metadata);
 
     // Schedule automatic rotation if enabled
     if (metadata?.rotationPolicy?.enabled) {
       await this.rotationManager.scheduleRotation(
         keyId,
         metadata.rotationPolicy,
-        userId
+        _userId
       );
     }
 
@@ -130,15 +132,21 @@ export class KeyManager {
     const symmetricKey = randomBytes(keySize / 8).toString('base64');
     const fingerprint = this.generateFingerprint(symmetricKey);
 
-    return {
+    const key: GeneratedKey = {
       id: keyId,
       spec,
       symmetricKey,
       fingerprint,
       created: new Date(),
-      version,
-      expiresAt: this.calculateExpiration(spec)
+      version
     };
+    
+    const expiration = this.calculateExpiration(spec);
+    if (expiration !== undefined) {
+      key.expiresAt = expiration;
+    }
+    
+    return key;
   }
 
   /**
@@ -162,16 +170,22 @@ export class KeyManager {
         throw new Error(`Unsupported asymmetric algorithm: ${spec.algorithm}`);
     }
 
-    return {
+    const key: GeneratedKey = {
       id: keyId,
       spec,
       publicKey: keyPair.publicKey,
       privateKey: keyPair.privateKey,
       fingerprint: keyPair.fingerprint,
       created: new Date(),
-      version,
-      expiresAt: this.calculateExpiration(spec)
+      version
     };
+    
+    const expiration = this.calculateExpiration(spec);
+    if (expiration !== undefined) {
+      key.expiresAt = expiration;
+    }
+    
+    return key;
   }
 
   /**
@@ -183,15 +197,21 @@ export class KeyManager {
       const signingKey = randomBytes(32).toString('base64');
       const fingerprint = this.generateFingerprint(signingKey);
 
-      return {
+      const key: GeneratedKey = {
         id: keyId,
         spec,
         symmetricKey: signingKey,
         fingerprint,
         created: new Date(),
-        version,
-        expiresAt: this.calculateExpiration(spec)
+        version
       };
+      
+      const expiration = this.calculateExpiration(spec);
+      if (expiration !== undefined) {
+        key.expiresAt = expiration;
+      }
+      
+      return key;
     } else {
       // Generate asymmetric signing key
       return this.generateAsymmetricKey(keyId, spec, version);
@@ -207,7 +227,7 @@ export class KeyManager {
     const iterations = 100000;
     const fingerprint = this.generateFingerprint(masterKey + salt);
 
-    return {
+    const key: GeneratedKey = {
       id: keyId,
       spec,
       symmetricKey: masterKey,
@@ -218,9 +238,15 @@ export class KeyManager {
       },
       fingerprint,
       created: new Date(),
-      version,
-      expiresAt: this.calculateExpiration(spec)
+      version
     };
+    
+    const expiration = this.calculateExpiration(spec);
+    if (expiration !== undefined) {
+      key.expiresAt = expiration;
+    }
+    
+    return key;
   }
 
   /**
@@ -555,7 +581,7 @@ export class KeyManager {
 
   private async storeKey(
     key: GeneratedKey,
-    userId: string,
+    _userId: string,
     metadata?: Partial<SecretMetadata>
   ): Promise<void> {
     const keyData = JSON.stringify(key);
@@ -564,10 +590,13 @@ export class KeyManager {
       description: `${key.spec.type} ${key.spec.purpose} key`,
       type: key.spec.purpose as any,
       environment: key.spec.environment,
-      expiresAt: key.expiresAt,
       tags: [`key-type:${key.spec.type}`, `purpose:${key.spec.purpose}`],
       ...metadata
     };
+
+    if (key.expiresAt !== undefined) {
+      secretMetadata.expiresAt = key.expiresAt;
+    }
 
     await this.vaultManager.storeSecret(key.id, keyData, secretMetadata);
   }

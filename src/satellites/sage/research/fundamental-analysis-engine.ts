@@ -62,6 +62,10 @@ class ProtocolAnalysisModel {
     this.config = config;
   }
 
+  public getIsTraining(): boolean {
+    return this.isTraining;
+  }
+
   async initialize(): Promise<void> {
     try {
       logger.info('Initializing protocol analysis ML model...');
@@ -240,9 +244,7 @@ class ProtocolAnalysisModel {
     return this.performance;
   }
 
-  isTraining(): boolean {
-    return this.isTraining;
-  }
+  // Method removed to fix duplicate method name with getter
 }
 
 /**
@@ -337,7 +339,7 @@ export class FundamentalAnalysisEngine extends EventEmitter {
 
       // Get ML prediction if enabled
       let mlScore = 0.5; // Default neutral score
-      if (this.config.enableMLModels && !this.mlModel.isTraining()) {
+      if (this.config.enableMLModels && !this.mlModel.getIsTraining()) {
         try {
           const prediction = await this.mlModel.predict(features);
           mlScore = prediction.output;
@@ -864,7 +866,7 @@ export class FundamentalAnalysisEngine extends EventEmitter {
       isRunning: this.isRunning,
       cacheSize: this.analysisCache.size,
       mlModelPerformance: this.mlModel.getPerformance(),
-      isTraining: this.mlModel.isTraining()
+      isTraining: this.mlModel.getIsTraining()
     };
   }
 } 

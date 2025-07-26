@@ -3,6 +3,7 @@
  * Main orchestrator for cross-chain operations and arbitrage
  */
 
+import { EventEmitter } from 'events';
 import Logger from '../../shared/logging/logger';
 import { CrossChainArbitrageEngine } from './arbitrage/cross-chain-arbitrage-engine';
 import { BridgeRiskAssessment } from './safety/bridge-risk-assessment';
@@ -102,7 +103,7 @@ export const DEFAULT_BRIDGE_CONFIG: BridgeSatelliteConfig = {
   },
 };
 
-class BridgeSatelliteAgent {
+class BridgeSatelliteAgent extends EventEmitter {
   private arbitrageEngine: CrossChainArbitrageEngine;
   private riskAssessment: BridgeRiskAssessment;
   private bridgeMonitoring: BridgeMonitoringService;
@@ -115,9 +116,10 @@ class BridgeSatelliteAgent {
   private opportunityEvaluator: OpportunityEvaluator;
   private config: BridgeSatelliteConfig;
   private isRunning = false;
-  private monitoringInterval?: NodeJS.Timeout;
+  private monitoringInterval?: NodeJS.Timeout | undefined;
 
   constructor(config: Partial<BridgeSatelliteConfig> = {}) {
+    super();
     this.config = { ...DEFAULT_BRIDGE_CONFIG, ...config };
     
     // Initialize core components
@@ -814,4 +816,4 @@ class BridgeSatelliteAgent {
 }
 
 export { BridgeSatelliteAgent };
-export type { BridgeSatelliteConfig };
+// BridgeSatelliteConfig already exported above

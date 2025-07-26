@@ -88,18 +88,18 @@ export class HistoricalAnalyzer {
   private lastAnalysisUpdate: number = 0;
 
   constructor() {
-    this.clickhouse = new ClickHouseManager({
-      host: process.env.CLICKHOUSE_HOST || 'localhost',
-      port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
-      username: process.env.CLICKHOUSE_USER || 'default',
-      password: process.env.CLICKHOUSE_PASSWORD || '',
+    this.clickhouse = ClickHouseManager.getInstance({
+      host: process.env['CLICKHOUSE_HOST'] || 'localhost',
+      port: parseInt(process.env['CLICKHOUSE_PORT'] || '8123'),
+      username: process.env['CLICKHOUSE_USER'] || 'default',
+      password: process.env['CLICKHOUSE_PASSWORD'] || '',
       database: 'arbitrage_analytics',
     });
   }
 
   async initialize(): Promise<void> {
     try {
-      await this.clickhouse.connect();
+      await this.clickhouse.initialize();
       await this.createTables();
       await this.loadHistoricalPatterns();
       
@@ -244,7 +244,7 @@ export class HistoricalAnalyzer {
       // Process results to build patterns
       const patternMap = new Map<string, any>();
       
-      for (const row of results) {
+      for (const row of results.data) {
         const key = `${row.asset_id}:${row.source_chain}:${row.target_chain}`;
         
         if (!patternMap.has(key)) {
@@ -322,11 +322,12 @@ export class HistoricalAnalyzer {
       `;
 
       const results = await this.clickhouse.query(query);
-      if (results.length === 0 || results[0].total === 0) {
+      if (results.data.length === 0 || results.data[0]?.total === 0) {
         return 0;
       }
 
-      return results[0].completed / results[0].total;
+      const firstResult = results.data[0];
+      return firstResult ? firstResult.completed / firstResult.total : 0;
     } catch (error) {
       logger.error('Failed to get success rate:', error);
       return 0;

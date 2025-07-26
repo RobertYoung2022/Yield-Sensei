@@ -210,7 +210,7 @@ export class VersioningService {
   /**
    * Version middleware for Express
    */
-  public versionMiddleware(): (req: Request, res: Response, next: NextFunction) => void {
+  public versionMiddleware() {
     return (req: Request, res: Response, next: NextFunction) => {
       try {
         const version = this.extractVersion(req);
@@ -555,7 +555,7 @@ export class VersioningService {
     const newer = v1Num > v2Num ? version1 : version2;
     const older = v1Num > v2Num ? version2 : version1;
     const newerInfo = v1Num > v2Num ? v1 : v2;
-    const olderInfo = v1Num > v2Num ? v2 : v1;
+    const _olderInfo = v1Num > v2Num ? v2 : v1;
 
     return {
       newer,

@@ -39,8 +39,8 @@ export interface CDCMessage {
   id: string;
   table: string;
   operation: 'INSERT' | 'UPDATE' | 'DELETE';
-  oldRecord?: Record<string, any>;
-  newRecord?: Record<string, any>;
+  oldRecord?: Record<string, any> | undefined;
+  newRecord?: Record<string, any> | undefined;
   timestamp: Date;
   transactionId: string;
   metadata: {
@@ -613,8 +613,8 @@ export class CDCManager extends EventEmitter {
         id: crypto.randomUUID(),
         table: change.table,
         operation: change.operation,
-        oldRecord: change.oldRecord || undefined,
-        newRecord: change.newRecord || undefined,
+        oldRecord: change.oldRecord,
+        newRecord: change.newRecord,
         timestamp: change.timestamp,
         transactionId: change.transactionId,
         metadata: {

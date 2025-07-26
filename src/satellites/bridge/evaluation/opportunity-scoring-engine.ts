@@ -84,9 +84,9 @@ export class OpportunityScoringEngine {
   private featureStats: { mean: number[]; std: number[] } | null = null;
 
   constructor() {
-    this.redis = new RedisManager({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
+    this.redis = RedisManager.getInstance({
+      host: process.env['REDIS_HOST'] || 'localhost',
+      port: parseInt(process.env['REDIS_PORT'] || '6379'),
       keyPrefix: 'scoring-engine:',
     });
 

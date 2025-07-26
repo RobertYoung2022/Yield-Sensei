@@ -35,7 +35,7 @@ async function runWebSocketDemo() {
     console.log(`📡 User ${connection.userId} subscribed to channel: ${channelId}`);
   });
 
-  wsServer.on('message_broadcast', (channelId, message, sentCount) => {
+  wsServer.on('message_broadcast', (channelId, _message, sentCount) => {
     console.log(`📢 Message broadcast to channel ${channelId}, sent to ${sentCount} subscribers`);
   });
 
@@ -276,7 +276,7 @@ async function demoMessageQueue(wsServer: WebSocketServer) {
 
     // Queue message for offline user
     const mockUserId = 'offline-user-456';
-    const queuedMessage = wsServer.queueMessage(mockUserId, 'notifications', message, 1);
+    wsServer.queueMessage(mockUserId, 'notifications', message, 1);
     console.log(`📬 Queued message "${msg.title}" for offline user ${mockUserId}`);
 
     await new Promise(resolve => setTimeout(resolve, 1000));

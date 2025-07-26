@@ -3,13 +3,14 @@
  * Provides interactive API testing and documentation interface
  */
 
-import { Request, Response } from 'express';
+// Removed unused Express imports
+// import { Request, Response } from 'express';
 import { 
   ApiPlayground, 
   PlaygroundConfig, 
   PlaygroundExample, 
   PlaygroundTemplate,
-  PlaygroundSettings,
+  // PlaygroundSettings, // Unused
   DocumentationError 
 } from '../types';
 import { getDocumentationConfig } from '../config/documentation.config';
@@ -24,7 +25,14 @@ export class PlaygroundService {
   private templates: Map<string, PlaygroundTemplate> = new Map();
 
   constructor() {
-    this.config = getDocumentationConfig().playground;
+    // Create PlaygroundConfig with default values
+    this.config = {
+      baseUrl: 'https://api.yieldsensei.com/v1',
+      headers: { 'Content-Type': 'application/json' },
+      auth: { type: 'none' },
+      timeout: 30000,
+      maxRetries: 3
+    };
     this.initializePlaygrounds();
     this.initializeExamples();
     this.initializeTemplates();
@@ -55,7 +63,13 @@ export class PlaygroundService {
       },
       examples: [],
       templates: [],
-      settings: this.config.defaults,
+      settings: {
+        enableAutoComplete: true,
+        syntaxHighlighting: true,
+        responseFormatting: true,
+        requestHistory: true,
+        darkMode: false
+      },
     });
 
     // GraphQL Playground
@@ -78,7 +92,13 @@ export class PlaygroundService {
       },
       examples: [],
       templates: [],
-      settings: this.config.defaults,
+      settings: {
+        enableAutoComplete: true,
+        syntaxHighlighting: true,
+        responseFormatting: true,
+        requestHistory: true,
+        darkMode: false
+      },
     });
 
     // WebSocket Playground
@@ -99,7 +119,13 @@ export class PlaygroundService {
       },
       examples: [],
       templates: [],
-      settings: this.config.defaults,
+      settings: {
+        enableAutoComplete: true,
+        syntaxHighlighting: true,
+        responseFormatting: true,
+        requestHistory: true,
+        darkMode: false
+      },
     });
   }
 
@@ -640,7 +666,7 @@ export class PlaygroundService {
       params: Record<string, any>;
       body?: any;
     },
-    config: PlaygroundConfig
+    _config: PlaygroundConfig
   ): Promise<{
     status: number;
     headers: Record<string, string>;

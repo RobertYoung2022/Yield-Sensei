@@ -105,7 +105,7 @@ export class Cache<T = any> extends EventEmitter {
       size,
       accessCount: 1,
       lastAccessTime: new Date(),
-      metadata
+      ...(metadata !== undefined && { metadata })
     };
 
     // Remove old entry if exists

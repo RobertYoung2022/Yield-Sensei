@@ -172,18 +172,18 @@ export class PriceAggregationProcessor implements StreamProcessor {
 
   private calculateTWAP(prices: { price: number; timestamp: number }[]): number {
     if (prices.length === 0) return 0;
-    if (prices.length === 1) return prices[0].price;
+    if (prices.length === 1) return prices[0]!.price;
 
     let weightedSum = 0;
     let totalWeight = 0;
 
     for (let i = 1; i < prices.length; i++) {
-      const weight = prices[i].timestamp - prices[i - 1].timestamp;
-      weightedSum += prices[i - 1].price * weight;
+      const weight = prices[i]!.timestamp - prices[i - 1]!.timestamp;
+      weightedSum += prices[i - 1]!.price * weight;
       totalWeight += weight;
     }
 
-    return totalWeight > 0 ? weightedSum / totalWeight : prices[prices.length - 1].price;
+    return totalWeight > 0 ? weightedSum / totalWeight : prices[prices.length - 1]!.price;
   }
 
   private calculateVolatility(prices: { price: number }[]): number {
@@ -205,7 +205,7 @@ export class RiskAssessmentProcessor implements StreamProcessor {
   private kafkaManager: KafkaManager;
   private logger: Logger;
   private running = false;
-  private positionCache: Map<string, any> = new Map();
+  private _positionCache: Map<string, any> = new Map();
 
   constructor(kafkaManager: KafkaManager) {
     this.kafkaManager = kafkaManager;
@@ -354,7 +354,7 @@ export class RiskAssessmentProcessor implements StreamProcessor {
     }
   }
 
-  private async calculatePositionRisk(userId: string, protocolId: string, amount: number, type: string): Promise<{
+  private async calculatePositionRisk(userId: string, _protocolId: string, amount: number, type: string): Promise<{
     score: number;
     severity: 'low' | 'medium' | 'high' | 'critical';
     reason: string;
@@ -421,7 +421,7 @@ export class RiskAssessmentProcessor implements StreamProcessor {
     };
   }
 
-  private async findUsersWithToken(tokenAddress: string): Promise<string[]> {
+  private async findUsersWithToken(_tokenAddress: string): Promise<string[]> {
     // Mock implementation - would query database
     return ['user-1', 'user-2']; // Mock users
   }
@@ -504,7 +504,7 @@ export class CrossChainArbitrageProcessor implements StreamProcessor {
   }
 
      private async processCrossChainEvent(eventData: any): Promise<void> {
-     const { type, chainId, tokenAddress } = eventData;
+     const { type, chainId: _chainId, tokenAddress } = eventData;
      
      if (type === 'bridge_update' || type === 'liquidity_update') {
        // Trigger arbitrage check for affected token
@@ -519,8 +519,8 @@ export class CrossChainArbitrageProcessor implements StreamProcessor {
     // Compare prices across all chain pairs
     for (let i = 0; i < chains.length; i++) {
       for (let j = i + 1; j < chains.length; j++) {
-        const chain1 = chains[i];
-        const chain2 = chains[j];
+        const chain1 = chains[i]!;
+        const chain2 = chains[j]!;
         
         const price1 = this.pricesByChain.get(chain1)?.get(tokenAddress);
         const price2 = this.pricesByChain.get(chain2)?.get(tokenAddress);

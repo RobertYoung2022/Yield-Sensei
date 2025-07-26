@@ -10,6 +10,7 @@ import { integrationTestService } from '../services/integration-test.service';
 import { securityTestService } from '../services/security-test.service';
 import { performanceTestService } from '../services/performance-test.service';
 import Logger from '../../shared/logging/logger';
+import { markUnused } from '../../utils/type-safety.js';
 
 const logger = Logger.getLogger('TestingRoutes');
 const router = Router();
@@ -22,7 +23,7 @@ const router = Router();
 /**
  * Health check endpoint
  */
-router.get('/health', (req: Request, res: Response) => {
+router.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -38,7 +39,7 @@ router.get('/health', (req: Request, res: Response) => {
 /**
  * Run all tests
  */
-router.post('/run/all', async (req: Request, res: Response) => {
+router.post('/run/all', async (_req: Request, res: Response) => {
   try {
     logger.info('Starting comprehensive test run');
     const report = await testRunnerService.runAllTests();
@@ -128,6 +129,14 @@ router.post('/run/suites', async (req: Request, res: Response) => {
 router.get('/runs/:runId', (req: Request, res: Response) => {
   try {
     const { runId } = req.params;
+    
+    if (!runId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Run ID parameter is required',
+      });
+    }
+    
     const testRun = testRunnerService.getTestRun(runId);
     
     if (!testRun) {
@@ -154,7 +163,7 @@ router.get('/runs/:runId', (req: Request, res: Response) => {
 /**
  * Get all test runs
  */
-router.get('/runs', (req: Request, res: Response) => {
+router.get('/runs', (_req: Request, res: Response) => {
   try {
     const testRuns = testRunnerService.getAllTestRuns();
     
@@ -178,6 +187,14 @@ router.get('/runs', (req: Request, res: Response) => {
 router.get('/reports/:reportId', (req: Request, res: Response) => {
   try {
     const { reportId } = req.params;
+    
+    if (!reportId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Report ID parameter is required',
+      });
+    }
+    
     const report = testRunnerService.getTestReport(reportId);
     
     if (!report) {
@@ -204,7 +221,7 @@ router.get('/reports/:reportId', (req: Request, res: Response) => {
 /**
  * Get all test reports
  */
-router.get('/reports', (req: Request, res: Response) => {
+router.get('/reports', (_req: Request, res: Response) => {
   try {
     const reports = testRunnerService.getAllTestReports();
     
@@ -225,7 +242,7 @@ router.get('/reports', (req: Request, res: Response) => {
 /**
  * Get latest test report
  */
-router.get('/reports/latest', (req: Request, res: Response) => {
+router.get('/reports/latest', (_req: Request, res: Response) => {
   try {
     const report = testRunnerService.getLatestTestReport();
     
@@ -258,6 +275,13 @@ router.get('/reports/:reportId/export', (req: Request, res: Response) => {
     const { reportId } = req.params;
     const { format = 'json' } = req.query;
     
+    if (!reportId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Report ID parameter is required',
+      });
+    }
+    
     const exportData = testRunnerService.exportReport(reportId, format as 'json' | 'html' | 'xml' | 'junit');
     
     if (format === 'html') {
@@ -289,7 +313,7 @@ router.get('/reports/:reportId/export', (req: Request, res: Response) => {
 /**
  * Run all unit tests
  */
-router.post('/unit/run', async (req: Request, res: Response) => {
+router.post('/unit/run', async (_req: Request, res: Response) => {
   try {
     logger.info('Running all unit tests');
     const results = await unitTestService.runAllTests();
@@ -356,7 +380,7 @@ router.post('/unit/suites/:suiteName', async (req: Request, res: Response) => {
 /**
  * Run all integration tests
  */
-router.post('/integration/run', async (req: Request, res: Response) => {
+router.post('/integration/run', async (_req: Request, res: Response) => {
   try {
     logger.info('Running all integration tests');
     const results = await integrationTestService.runAllTests();
@@ -423,7 +447,7 @@ router.post('/integration/suites/:suiteName', async (req: Request, res: Response
 /**
  * Run all security tests
  */
-router.post('/security/run', async (req: Request, res: Response) => {
+router.post('/security/run', async (_req: Request, res: Response) => {
   try {
     logger.info('Running all security tests');
     const results = await securityTestService.runAllTests();
@@ -496,7 +520,7 @@ router.post('/security/suites/:suiteName', async (req: Request, res: Response) =
 /**
  * Get security vulnerabilities
  */
-router.get('/security/vulnerabilities', (req: Request, res: Response) => {
+router.get('/security/vulnerabilities', (_req: Request, res: Response) => {
   try {
     const vulnerabilities = securityTestService.getSecurityVulnerabilities();
     const securityScore = securityTestService.generateSecurityScore();
@@ -527,7 +551,7 @@ router.get('/security/vulnerabilities', (req: Request, res: Response) => {
 /**
  * Run all performance tests
  */
-router.post('/performance/run', async (req: Request, res: Response) => {
+router.post('/performance/run', async (_req: Request, res: Response) => {
   try {
     logger.info('Running all performance tests');
     const results = await performanceTestService.runAllTests();
@@ -598,7 +622,7 @@ router.post('/performance/suites/:suiteName', async (req: Request, res: Response
 /**
  * Get performance metrics
  */
-router.get('/performance/metrics', (req: Request, res: Response) => {
+router.get('/performance/metrics', (_req: Request, res: Response) => {
   try {
     const metrics = performanceTestService.getMetrics();
     const report = performanceTestService.generatePerformanceReport();
@@ -627,7 +651,7 @@ router.get('/performance/metrics', (req: Request, res: Response) => {
 /**
  * Clear test history
  */
-router.delete('/history', (req: Request, res: Response) => {
+router.delete('/history', (_req: Request, res: Response) => {
   try {
     testRunnerService.clearHistory();
     
@@ -648,7 +672,7 @@ router.delete('/history', (req: Request, res: Response) => {
 /**
  * Get testing statistics
  */
-router.get('/stats', (req: Request, res: Response) => {
+router.get('/stats', (_req: Request, res: Response) => {
   try {
     const testRuns = testRunnerService.getAllTestRuns();
     const reports = testRunnerService.getAllTestReports();

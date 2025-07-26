@@ -505,7 +505,7 @@ export class RedisManager extends EventEmitter {
   /**
    * Get Redis info
    */
-  public async getInfo(section?: string): Promise<string | null> {
+  public async getInfo(_section?: string): Promise<string | null> {
     return `# In-Memory Cache Info
 cache_size:${this.cache.size}
 connected:${this.isConnected}
@@ -517,7 +517,7 @@ hit_rate:${this.stats.hitRate.toFixed(3)}`;
   /**
    * Execute a custom Redis command (limited support)
    */
-  public async executeCommand(command: string, ...args: any[]): Promise<any> {
+  public async executeCommand(command: string, ..._args: any[]): Promise<any> {
     this.logger.warn(`Custom command '${command}' not supported in simplified mode`);
     return null;
   }
@@ -561,16 +561,6 @@ hit_rate:${this.stats.hitRate.toFixed(3)}`;
     this.stats.hitRate = total > 0 ? this.stats.hits / total : 0;
   }
 
-  /**
-   * Simple pattern matching for pub/sub
-   */
-  private matchPattern(pattern: string, channel: string): boolean {
-    const regexPattern = pattern
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
-    
-    return new RegExp(`^${regexPattern}$`).test(channel);
-  }
 
   /**
    * Check if Redis is connected
@@ -600,11 +590,44 @@ hit_rate:${this.stats.hitRate.toFixed(3)}`;
   }
 
   /**
+   * Get all keys matching a pattern
+   */
+  public async keys(pattern: string): Promise<string[]> {
+    const keyPrefix = this.config.keyPrefix || '';
+    const fullPattern = keyPrefix + pattern;
+    const matchingKeys: string[] = [];
+    
+    for (const key of this.cache.keys()) {
+      if (this.matchPattern(fullPattern, key)) {
+        // Remove prefix before returning
+        matchingKeys.push(key.replace(keyPrefix, ''));
+      }
+    }
+    
+    return matchingKeys;
+  }
+
+  /**
+   * Simple pattern matching for Redis-like patterns
+   */
+  private matchPattern(pattern: string, str: string): boolean {
+    // Convert Redis pattern to regex
+    const regexPattern = pattern
+      .replace(/\*/g, '.*')
+      .replace(/\?/g, '.')
+      .replace(/\[/g, '\\[')
+      .replace(/\]/g, '\\]');
+    
+    const regex = new RegExp(`^${regexPattern}$`);
+    return regex.test(str);
+  }
+
+  /**
    * Delete a hash field
    */
   public async hdel(key: string, field: string): Promise<number> {
     try {
-      const hashKey = this.buildKey(`${key}:${field}`);
+      const hashKey = this.sanitizeKey(`${key}:${field}`);
       const existed = this.cache.has(hashKey);
       this.cache.delete(hashKey);
       
@@ -624,7 +647,7 @@ hit_rate:${this.stats.hitRate.toFixed(3)}`;
    */
   public async hset(key: string, field: string, value: any): Promise<number> {
     try {
-      const hashKey = this.buildKey(`${key}:${field}`);
+      const hashKey = this.sanitizeKey(`${key}:${field}`);
       const existed = this.cache.has(hashKey);
       
       await this.set(hashKey, value);
@@ -641,7 +664,7 @@ hit_rate:${this.stats.hitRate.toFixed(3)}`;
    */
   public async hget(key: string, field: string): Promise<any> {
     try {
-      const hashKey = this.buildKey(`${key}:${field}`);
+      const hashKey = this.sanitizeKey(`${key}:${field}`);
       return this.get(hashKey);
     } catch (error) {
       this.logger.error('Redis HGET error:', error);

@@ -123,9 +123,9 @@ export class RiskAssessmentEngine {
   private historicalData: Map<string, any> = new Map();
 
   constructor() {
-    this.redis = new RedisManager({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
+    this.redis = RedisManager.getInstance({
+      host: process.env['REDIS_HOST'] || 'localhost',
+      port: parseInt(process.env['REDIS_PORT'] || '6379'),
       keyPrefix: 'risk-assessment:',
     });
   }

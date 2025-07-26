@@ -262,7 +262,7 @@ export const portfolioResolvers: IResolvers = {
         return {
           portfolio: null,
           errors: [{
-            message: error.message,
+            message: error instanceof Error ? error.message : 'Unknown error occurred',
             code: 'PORTFOLIO_CREATION_FAILED',
           }],
         };
@@ -282,7 +282,7 @@ export const portfolioResolvers: IResolvers = {
         return {
           portfolio: null,
           errors: [{
-            message: error.message,
+            message: error instanceof Error ? error.message : 'Unknown error occurred',
             code: 'PORTFOLIO_UPDATE_FAILED',
           }],
         };
@@ -302,7 +302,7 @@ export const portfolioResolvers: IResolvers = {
         return {
           success: false,
           errors: [{
-            message: error.message,
+            message: error instanceof Error ? error.message : 'Unknown error occurred',
             code: 'PORTFOLIO_DELETION_FAILED',
           }],
         };

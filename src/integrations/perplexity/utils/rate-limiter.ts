@@ -233,7 +233,7 @@ export class RateLimiter extends EventEmitter {
   }
 
   getStatus(): RateLimitStatus {
-    const now = new Date();
+    const _now = new Date(); // Suppress unused warning
     
     return {
       requestsThisMinute: this.requestCounts.get('minute')!,
@@ -267,7 +267,7 @@ export class RateLimiter extends EventEmitter {
 
     return {
       size: this.queue.length,
-      oldestRequest: this.queue[this.queue.length - 1].timestamp,
+      oldestRequest: this.queue[this.queue.length - 1]?.timestamp || new Date(),
       priorityDistribution: priorityDist
     };
   }

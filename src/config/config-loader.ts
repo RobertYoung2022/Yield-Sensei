@@ -6,9 +6,10 @@
  */
 
 import { config as baseConfig } from './environment';
-import { validateEnvironment, validateEnvironmentOrThrow, generateEnvironmentReport } from './environment-validator';
-import { developmentConfig, developmentValidationRules, developmentSecurityChecklist } from './environments/development';
-import { productionConfig, productionValidationRules, productionSecurityChecklist, validateProductionEnvironment } from './environments/production';
+import { validateEnvironment, generateEnvironmentReport } from './environment-validator';
+import { developmentConfig, developmentSecurityChecklist } from './environments/development';
+import { productionConfig, productionSecurityChecklist, validateProductionEnvironment } from './environments/production';
+// Removed unused imports: validateEnvironmentOrThrow, developmentValidationRules, productionValidationRules
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 

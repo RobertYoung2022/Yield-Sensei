@@ -391,6 +391,28 @@ export class DatabaseManager extends EventEmitter {
   }
 
   /**
+   * Get PostgreSQL connection from pool
+   */
+  async getPostgresConnection() {
+    if (!this.postgresPool) {
+      throw new Error('PostgreSQL pool not initialized');
+    }
+    return this.postgresPool.connect();
+  }
+
+  /**
+   * Execute a PostgreSQL query
+   */
+  async executePostgresQuery(query: string, values?: any[]) {
+    const client = await this.getPostgresConnection();
+    try {
+      return await client.query(query, values);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Get partition information
    */
   async getPartitionInfo() {

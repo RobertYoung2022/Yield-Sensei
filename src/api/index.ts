@@ -12,7 +12,8 @@ import { createGraphQLServer } from '../graphql/server';
 // Import middleware
 import { errorHandler } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
-import { rateLimiter } from './middleware/rate-limiter';
+// rateLimiter not used - removed to fix TS error
+// import { rateLimiter } from './middleware/rate-limiter';
 import { validateEnv } from './middleware/validate-env';
 
 // Import routes
@@ -95,7 +96,7 @@ async function startServer() {
       await dbManager.initialize();
       logger.info('✅ Database connections initialized successfully');
     } catch (error) {
-      logger.warn('⚠️  Database connections failed - API will run with limited functionality:', error.message);
+      logger.warn('⚠️  Database connections failed - API will run with limited functionality:', (error as Error).message);
     }
     
     // Initialize Redis
@@ -112,7 +113,7 @@ async function startServer() {
       graphQLServer = await createGraphQLServer(app);
       logger.info('✅ GraphQL server initialized successfully');
     } catch (error) {
-      logger.warn('⚠️  GraphQL server initialization failed - REST API will still work:', error.message);
+      logger.warn('⚠️  GraphQL server initialization failed - REST API will still work:', (error as Error).message);
     }
     
     // Start HTTP server

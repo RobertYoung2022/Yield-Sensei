@@ -18,7 +18,7 @@ export class MFAService {
   /**
    * Generate TOTP secret for a user
    */
-  async generateTOTPSecret(userId: string, userEmail: string): Promise<{
+  async generateTOTPSecret(_userId: string, userEmail: string): Promise<{
     secret: string;
     otpauthUrl: string;
     qrCode: string;
@@ -26,7 +26,7 @@ export class MFAService {
     const secret = speakeasy.generateSecret({
       name: `${this.config.mfa.totp.issuer}:${userEmail}`,
       issuer: this.config.mfa.totp.issuer,
-      digits: this.config.mfa.totp.digits,
+      length: 32
     });
 
     const otpauthUrl = secret.otpauth_url!;
@@ -50,9 +50,6 @@ export class MFAService {
       encoding: 'base32',
       token,
       window: 2, // Allow 2 time steps before and after
-      algorithm: this.config.mfa.totp.algorithm,
-      digits: this.config.mfa.totp.digits,
-      period: this.config.mfa.totp.period,
     });
   }
 
@@ -141,7 +138,7 @@ export class MFAService {
   }> {
     switch (mfaType) {
       case MFAType.TOTP:
-        const totpData = this.generateTOTPSecret(userId, userEmail);
+        const totpData = await this.generateTOTPSecret(userId, userEmail);
         const backupCodes = this.generateBackupCodes();
         
         return {

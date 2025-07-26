@@ -21,7 +21,20 @@ export class SdkGeneratorService {
   private generatedSdks: Map<string, any> = new Map();
 
   constructor() {
-    this.config = getDocumentationConfig().sdk;
+    const sdkConfig = getDocumentationConfig().sdk;
+    // Transform the config to match SdkConfig interface
+    this.config = {
+      name: sdkConfig.metadata.name,
+      version: sdkConfig.metadata.version,
+      description: sdkConfig.metadata.description,
+      author: sdkConfig.metadata.author,
+      license: sdkConfig.metadata.license,
+      repository: sdkConfig.metadata.repository,
+      homepage: sdkConfig.metadata.homepage,
+      keywords: sdkConfig.metadata.keywords,
+      languages: sdkConfig.languages,
+      targets: sdkConfig.targets
+    };
     this.initializeTemplates();
   }
 
@@ -751,7 +764,7 @@ For detailed documentation, visit: {{packageHomepage}}
   private async generateFromOpenApi(
     file: SdkTemplateFile,
     openApiSpec: any,
-    config: Record<string, any>
+    _config: Record<string, any>
   ): Promise<string> {
     // This is a placeholder for actual OpenAPI to code generation
     // In a real implementation, you'd use libraries like openapi-generator-cli
@@ -889,7 +902,7 @@ ${file.content}`;
   private getGeneratedByLanguageStats(): Record<string, number> {
     const stats: Record<string, number> = {};
     
-    for (const [language, sdk] of this.generatedSdks) {
+    for (const [language, _sdk] of this.generatedSdks) {
       stats[language] = (stats[language] || 0) + 1;
     }
 

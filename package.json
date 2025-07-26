@@ -5,7 +5,9 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc && npm run build:rust",
+    "build": "npm run build:ts && npm run build:rust",
+    "build:ts": "tsc --project tsconfig.build.json",
+    "build:ts:watch": "tsc --project tsconfig.build.json --watch",
     "build:rust": "cd src/satellites/forge && cargo build --release",
     "build:wasm": "cd src/core/orchestration/state && wasm-pack build --target web",
     "test": "jest",
@@ -14,6 +16,13 @@
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "typecheck": "tsc --noEmit",
+    "typecheck:strict": "tsc --project tsconfig.typecheck.json",
+    "typecheck:build": "tsc --project tsconfig.build.json --noEmit",
+    "type-validate": "tsx scripts/type-validation.ts",
+    "type-validate:progressive": "tsx scripts/type-validation.ts --mode=progressive",
+    "type-validate:report": "tsx scripts/type-validation.ts --report",
+    "type-coverage": "type-coverage --detail",
+    "type-coverage:check": "type-coverage --at-least 85",
     "db:migrate": "knex migrate:latest",
     "db:seed": "knex seed:run",
     "docker:up": "docker-compose up -d",
@@ -66,7 +75,12 @@
     "packages:update:selective": "tsx scripts/selective-package-update.ts",
     "packages:update:security-only": "tsx scripts/selective-package-update.ts --security-only",
     "packages:audit": "tsx scripts/security-package-audit.ts",
-    "security:packages": "npm run packages:audit && npm run packages:update:security"
+    "security:packages": "npm run packages:audit && npm run packages:update:security",
+    "type-report": "tsx scripts/type-error-reporter.ts",
+    "type-report:trends": "tsx scripts/type-error-reporter.ts --trends",
+    "type-report:trends-only": "tsx scripts/type-error-reporter.ts --trends-only",
+    "ci:type-safety": "npm run typecheck && npm run type-coverage:check && npm run type-report",
+    "prepare": "husky"
   },
   "keywords": [
     "defi",
@@ -87,6 +101,7 @@
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.52.0",
     "@opentelemetry/sdk-node": "^0.52.0",
     "@tensorflow/tfjs-node": "^4.14.0",
+    "@types/ioredis": "^4.28.10",
     "@types/socket.io": "^3.0.1",
     "apollo-server-core": "^3.13.0",
     "apollo-server-express": "^3.13.0",
@@ -113,6 +128,7 @@
     "graphql-tools": "^9.0.20",
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
+    "ioredis": "^5.6.1",
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
     "kafkajs": "^2.2.0",
@@ -156,12 +172,15 @@
     "eslint": "^8.52.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.0",
+    "husky": "^9.1.7",
     "jest": "^29.7.0",
     "knex": "^3.0.0",
+    "lint-staged": "^16.1.2",
     "prettier": "^3.0.0",
     "rimraf": "^6.0.1",
     "ts-jest": "^29.1.0",
     "tsx": "^4.20.3",
+    "type-coverage": "^2.29.7",
     "typedoc": "^0.25.0",
     "typescript": "^5.4.5",
     "wasm-pack": "^0.0.0"
@@ -177,5 +196,19 @@
   "bugs": {
     "url": "https://github.com/yourusername/yield-sensei/issues"
   },
-  "homepage": "https://github.com/yourusername/yield-sensei#readme"
+  "homepage": "https://github.com/yourusername/yield-sensei#readme",
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write",
+      "bash -c 'npm run typecheck'"
+    ],
+    "*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
 }

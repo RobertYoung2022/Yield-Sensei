@@ -5,7 +5,7 @@
  * and monitoring capabilities for the YieldSensei platform.
  */
 
-import { ConfigValidator, ValidationResult, ConfigSnapshot } from './config-validator';
+import { ConfigValidator, ValidationResult } from './config-validator';
 import { DriftDetector, DriftDetectionConfig, DriftReport } from './drift-detector';
 import { ConfigMonitor, MonitorConfig } from './config-monitor';
 import { loadConfiguration } from '../config-loader';
@@ -19,7 +19,7 @@ export * from './config-monitor';
  * Default monitor configuration
  */
 export function createDefaultMonitorConfig(): MonitorConfig {
-  const environment = process.env.NODE_ENV || 'development';
+  const environment = process.env['NODE_ENV'] || 'development';
   const baseDir = process.cwd();
 
   return {

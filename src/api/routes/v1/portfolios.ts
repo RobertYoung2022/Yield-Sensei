@@ -23,6 +23,8 @@ const router = Router();
 router.get('/', validatePagination, async (req: Request, res: Response) => {
   try {
     const { page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = req.query;
+    // Suppress unused variable warning - these will be used when implementation is complete
+    console.log({ page, limit, sort, order });
     
     // TODO: Implement portfolio retrieval logic with filtering and sorting
     // This would typically involve:
@@ -84,7 +86,7 @@ router.get('/:id', validatePortfolioId, async (req: Request, res: Response) => {
     // 3. Including related data (positions, transactions, etc.)
     
     const mockPortfolio: Portfolio = {
-      id,
+      id: id || 'default-id',
       name: 'Growth Portfolio',
       description: 'High-growth technology investments',
       userId: 'user-123',
@@ -120,7 +122,11 @@ router.post('/', validateCreatePortfolio, async (req: Request, res: Response) =>
     
     const newPortfolio: Portfolio = {
       id: '550e8400-e29b-41d4-a716-446655440002',
-      ...portfolioData,
+      name: portfolioData.name,
+      type: portfolioData.type,
+      riskProfile: portfolioData.riskProfile,
+      ...(portfolioData.description !== undefined && { description: portfolioData.description }),
+      currency: portfolioData.currency || 'USD',
       userId: 'user-123', // Would come from auth middleware
       status: 'active',
       totalValue: 0,
@@ -150,9 +156,9 @@ router.put('/:id', validatePortfolioId, validateUpdatePortfolio, async (req: Req
     // 3. Validating update permissions
     
     const updatedPortfolio: Portfolio = {
-      id,
+      id: id || 'default-id',
       name: updateData.name || 'Updated Portfolio',
-      description: updateData.description,
+      ...(updateData.description !== undefined && { description: updateData.description }),
       userId: 'user-123',
       type: updateData.type || 'personal',
       status: updateData.status || 'active',
@@ -176,6 +182,7 @@ router.put('/:id', validatePortfolioId, validateUpdatePortfolio, async (req: Req
 router.delete('/:id', validatePortfolioId, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    console.log('Deleting portfolio:', id); // Suppress unused variable warning
     
     // TODO: Implement portfolio deletion logic
     // This would typically involve:

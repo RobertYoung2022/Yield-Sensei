@@ -128,7 +128,7 @@ export function rateLimiter(
 
   limiter
     .consume(key)
-    .then((rateLimiterRes) => {
+    .then((rateLimiterRes: any) => {
       // Add rate limit headers
       res.setHeader('X-RateLimit-Limit', rateLimitConfigs[userTier].points);
       res.setHeader('X-RateLimit-Remaining', rateLimiterRes.remainingPoints);
@@ -136,7 +136,7 @@ export function rateLimiter(
 
       next();
     })
-    .catch((rateLimiterRes) => {
+    .catch((rateLimiterRes: any) => {
       // Rate limit exceeded
       const msBeforeNext = rateLimiterRes.msBeforeNext || 60000; // Default to 1 minute
       const retryAfter = Math.ceil(msBeforeNext / 1000);

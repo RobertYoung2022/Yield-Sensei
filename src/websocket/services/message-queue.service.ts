@@ -4,7 +4,6 @@ import {
   QueuedMessage, 
   MessageQueue, 
   WebSocketMessage, 
-  WebSocketConnection,
   WebSocketError,
   WebSocketErrorCode
 } from '../types';

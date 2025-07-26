@@ -269,21 +269,35 @@ export class CircuitBreaker extends EventEmitter {
     lastFailureTime?: Date;
     nextAttemptTime?: Date;
   } {
-    return {
+    const status: {
+      state: string;
+      failureCount: number;
+      successCount: number;
+      lastFailureTime?: Date;
+      nextAttemptTime?: Date;
+    } = {
       state: this.state,
       failureCount: this.failureCount,
-      successCount: this.successCount,
-      lastFailureTime: this.lastFailureTime,
-      nextAttemptTime: this.nextAttemptTime
+      successCount: this.successCount
     };
+    
+    if (this.lastFailureTime !== undefined) {
+      status.lastFailureTime = this.lastFailureTime;
+    }
+    
+    if (this.nextAttemptTime !== undefined) {
+      status.nextAttemptTime = this.nextAttemptTime;
+    }
+    
+    return status;
   }
 
   reset(): void {
     this.state = 'closed';
     this.failureCount = 0;
     this.successCount = 0;
-    this.lastFailureTime = undefined;
-    this.nextAttemptTime = undefined;
+    this.lastFailureTime = undefined as Date | undefined;
+    this.nextAttemptTime = undefined as Date | undefined;
     this.emit('state-change', { state: 'closed' });
     logger.info('Circuit breaker reset');
   }

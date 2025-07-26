@@ -5,7 +5,8 @@
  * for missing or invalid configuration values.
  */
 
-import { config } from './environment';
+// Removed unused config import
+// import { config } from './environment';
 
 export interface ValidationResult {
   isValid: boolean;

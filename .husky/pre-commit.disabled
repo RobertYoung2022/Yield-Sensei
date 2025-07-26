@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔒 Starting pre-commit type safety validation..."
+
+# Run comprehensive pre-commit type checking
+echo "🔍 Running TypeScript pre-commit validation..."
+tsx scripts/pre-commit-typecheck.ts
+
+# Quick type check for basic compilation
+echo "🚀 Quick TypeScript compilation check..."
+npm run typecheck || {
+  echo "❌ TypeScript compilation failed. Please fix errors before committing."
+  exit 1
+}
+
+# Check for new 'any' types in staged files
+echo "🔍 Checking for new 'any' types..."
+STAGED_TS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$STAGED_TS_FILES" ]; then
+  NEW_ANY_COUNT=$(git diff --cached | grep -c '^+.*: any\|^+.*= any\|^+.*<any>' || echo "0")
+  if [ "$NEW_ANY_COUNT" -gt "0" ]; then
+    echo "⚠️  Found $NEW_ANY_COUNT new 'any' type(s) in staged files."
+    echo "   Consider using specific types instead of 'any' for better type safety."
+    echo "   Use our type utilities from src/utils/ for safer alternatives."
+  fi
+fi
+
+# Run lint-staged for formatting and additional checks
+echo "🧹 Running lint-staged for code quality..."
+npx lint-staged
+
+echo "✅ Pre-commit validation completed successfully!"

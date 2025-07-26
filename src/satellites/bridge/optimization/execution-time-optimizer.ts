@@ -385,7 +385,7 @@ export class ExecutionTimeOptimizer {
       const step = allSteps[i];
       const stepId = `step-${i}`;
       
-      if (dependencies.includes(stepId)) {
+      if (dependencies.includes(stepId) && step) {
         latestDependencyTime = Math.max(latestDependencyTime, step.estimatedTime);
       }
     }
@@ -441,7 +441,7 @@ export class ExecutionTimeOptimizer {
       return null; // Already quite short
     }
 
-    const bridgeSteps = path.steps.filter(step => step.type === 'bridge');
+    const _bridgeSteps = path.steps.filter(step => step.type === 'bridge');
     const swapSteps = path.steps.filter(step => step.type === 'swap');
 
     // Check if we can combine some operations
@@ -457,7 +457,7 @@ export class ExecutionTimeOptimizer {
       swapsByChain.get(step.chainId)!.push(step);
     });
 
-    for (const [chainId, steps] of swapsByChain.entries()) {
+    for (const [_chainId, steps] of swapsByChain.entries()) {
       if (steps.length > 1) {
         const combinedTime = Math.max(...steps.map(s => s.estimatedTime)) + 10; // 10s combination overhead
         const separateTime = steps.reduce((sum, s) => sum + s.estimatedTime, 0);
@@ -497,7 +497,7 @@ export class ExecutionTimeOptimizer {
     let totalSavings = 0;
     let totalCost = 0;
 
-    for (const [chainId, steps] of sameChainSteps.entries()) {
+    for (const [_chainId, steps] of sameChainSteps.entries()) {
       if (steps.length >= 3) { // Need at least 3 operations to batch
         const individualTime = steps.reduce((sum, step) => sum + step.estimatedTime, 0);
         const batchTime = Math.max(...steps.map(s => s.estimatedTime)) + 20; // 20s batch overhead
@@ -582,7 +582,7 @@ export class ExecutionTimeOptimizer {
         return {
           ...step,
           estimatedTime: Math.floor(step.estimatedTime * speedupFactor),
-          estimatedGas: BigInt(Math.floor(Number(step.estimatedGas) * this.config.gasPriceSpeedTradeoff)),
+          estimatedGas: Math.floor(Number(step.estimatedGas) * this.config.gasPriceSpeedTradeoff),
         };
       }
       
@@ -598,7 +598,7 @@ export class ExecutionTimeOptimizer {
     while (i < steps.length) {
       const currentStep = steps[i];
       
-      if (currentStep.type === 'swap') {
+      if (currentStep && currentStep.type === 'swap') {
         // Look for consecutive swaps on the same chain
         const consecutiveSwaps = [currentStep];
         let j = i + 1;

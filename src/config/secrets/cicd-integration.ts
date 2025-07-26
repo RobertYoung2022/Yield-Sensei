@@ -7,11 +7,12 @@
  */
 
 import { SecretManager } from './index';
-import { KeyManager, KeySpec } from './key-manager';
+import { KeyManager } from './key-manager';
 import { VaultManager } from './vault-manager';
 import { AccessControlManager } from './access-control';
 import { createHash, randomBytes } from 'crypto';
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
+// Removed unused imports: KeySpec, readFileSync, existsSync
 import { join } from 'path';
 
 export interface CICDConfig {
@@ -42,7 +43,7 @@ export interface PipelineSecret {
   description: string;
   value: string;
   isEncrypted: boolean;
-  scope: string;
+  scope: 'environment' | 'repository' | 'organization';
   environments: string[];
   rotationPolicy?: {
     enabled: boolean;
@@ -72,7 +73,6 @@ export interface RotationEvent {
 
 export class CICDIntegration {
   private config: CICDConfig;
-  private secretManager: SecretManager;
   private keyManager: KeyManager;
   private vaultManager: VaultManager;
   private accessControl: AccessControlManager;
@@ -80,7 +80,6 @@ export class CICDIntegration {
 
   constructor(config: CICDConfig, secretManager: SecretManager) {
     this.config = config;
-    this.secretManager = secretManager;
     this.keyManager = secretManager.getKeyManager();
     this.vaultManager = secretManager.getVaultManager();
     this.accessControl = secretManager.getAccessControlManager();
@@ -141,13 +140,11 @@ export class CICDIntegration {
 
       // Record deployment history
       for (const secret of secrets) {
-        this.recordDeployment({
+        const deployment: SecretDeployment = {
           id: this.generateSecretId(),
           name: secret.name,
           value: this.config.encryptionEnabled ? this.encryptValue(secret.value) : secret.value,
           scope: secret.scope,
-          environment: targetEnvironment,
-          expiresAt: secret.rotationPolicy ? this.calculateExpiration(secret.rotationPolicy.intervalDays) : undefined,
           metadata: {
             deploymentId: result.deploymentId,
             platform: this.config.platform,
@@ -155,7 +152,17 @@ export class CICDIntegration {
           },
           deployedAt: new Date(),
           deployedBy: userId
-        });
+        };
+        
+        if (targetEnvironment) {
+          deployment.environment = targetEnvironment;
+        }
+        
+        if (secret.rotationPolicy) {
+          deployment.expiresAt = this.calculateExpiration(secret.rotationPolicy.intervalDays);
+        }
+        
+        this.recordDeployment(deployment);
       }
 
       result.success = result.errors.length === 0;
@@ -245,18 +252,23 @@ export class CICDIntegration {
       for (const secret of environmentSecrets) {
         const secretValue = await this.vaultManager.getSecret(secret.name, userId);
         
-        pipelineSecrets.push({
+        const pipelineSecret: PipelineSecret = {
           name: secret.name,
           description: secret.description,
           value: secretValue,
           isEncrypted: this.config.encryptionEnabled,
           scope: this.config.secretsScope,
           environments: [environment],
-          rotationPolicy: secret.rotationPolicy.enabled ? {
+        };
+        
+        if (secret.rotationPolicy.enabled) {
+          pipelineSecret.rotationPolicy = {
             enabled: true,
             intervalDays: secret.rotationPolicy.intervalDays
-          } : undefined
-        });
+          };
+        }
+        
+        pipelineSecrets.push(pipelineSecret);
       }
 
       return this.deploySecrets(pipelineSecrets, environment, userId);
@@ -833,7 +845,7 @@ stages:
   ): Promise<boolean> {
     try {
       // Platform-specific secret update logic would go here
-      console.log(`🔄 Updating ${secretName} in ${this.config.platform} for ${environment}`);
+      console.log(`🔄 Updating ${secretName} with value length ${newValue.length} in ${this.config.platform} for ${environment}`);
       return true;
     } catch (error) {
       console.error(`Failed to update ${secretName} in pipeline:`, error);
@@ -841,7 +853,7 @@ stages:
     }
   }
 
-  private async generateSecretValue(secretName: string): Promise<string> {
+  private async generateSecretValue(_secretName: string): Promise<string> {
     // Generate a new secure random value
     return randomBytes(32).toString('base64');
   }

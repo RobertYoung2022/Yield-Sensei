@@ -2,6 +2,12 @@
  * Core type definitions for YieldSensei
  */
 
+// Re-export common types and utilities
+export * from './common.js';
+
+// Re-export database schema types
+export * from './database-schemas.js';
+
 // Agent Types
 export type AgentId = string;
 export type AgentType = 'sage' | 'forge' | 'pulse' | 'aegis' | 'echo' | 'fuel' | 'bridge' | 'oracle';
@@ -12,7 +18,7 @@ export interface AgentConfig {
   name: string;
   version: string;
   implementation: 'custom' | 'elizaos' | 'hybrid';
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 export interface AgentStatus {
@@ -51,7 +57,7 @@ export interface Message {
   from: AgentId;
   to: AgentId | 'broadcast';
   timestamp: Date;
-  payload: any;
+  payload: Record<string, unknown>;
   correlationId?: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   ttl?: number; // Time to live in milliseconds
@@ -79,7 +85,7 @@ export interface ProtocolConfig {
 // State Management Types
 export interface AgentState {
   id: AgentId;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   version: number;
   lastModified: Date;
   locks: string[];
@@ -88,7 +94,7 @@ export interface AgentState {
 export interface StateUpdate {
   agentId: AgentId;
   key: string;
-  value: any;
+  value: unknown;
   version: number;
   operation: 'set' | 'delete' | 'increment' | 'append';
 }
@@ -98,7 +104,7 @@ export interface LifecycleEvent {
   type: 'created' | 'started' | 'stopped' | 'error' | 'heartbeat' | 'config_updated';
   agentId: AgentId;
   timestamp: Date;
-  data?: any;
+  data?: unknown;
 }
 
 // Error Types

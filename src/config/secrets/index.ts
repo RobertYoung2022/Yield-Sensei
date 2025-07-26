@@ -31,7 +31,7 @@ export class SecretManager {
   private rotationManager: RotationManager;
   private accessControl: AccessControlManager;
   private keyManager: KeyManager;
-  private rotationInterval?: NodeJS.Timeout;
+  private rotationInterval: NodeJS.Timeout | undefined;
 
   constructor(config: SecretManagerConfig) {
     // Initialize components
@@ -255,12 +255,12 @@ export class SecretManager {
     // Check vault connectivity
     try {
       const secrets = await this.vaultManager.listSecrets('system');
-      checks.vault = {
+      checks['vault'] = {
         status: 'pass',
         message: `Vault accessible, ${secrets.length} secrets found`
       };
     } catch (error) {
-      checks.vault = {
+      checks['vault'] = {
         status: 'fail',
         message: `Vault inaccessible: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
@@ -270,23 +270,23 @@ export class SecretManager {
     try {
       const needsRotation = await this.vaultManager.checkRotationNeeded();
       if (needsRotation.length === 0) {
-        checks.rotation = {
+        checks['rotation'] = {
           status: 'pass',
           message: 'No keys need immediate rotation'
         };
       } else if (needsRotation.length <= 5) {
-        checks.rotation = {
+        checks['rotation'] = {
           status: 'warning',
           message: `${needsRotation.length} keys need rotation`
         };
       } else {
-        checks.rotation = {
+        checks['rotation'] = {
           status: 'fail',
           message: `${needsRotation.length} keys urgently need rotation`
         };
       }
     } catch (error) {
-      checks.rotation = {
+      checks['rotation'] = {
         status: 'fail',
         message: `Cannot check rotation status: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
@@ -296,12 +296,12 @@ export class SecretManager {
     try {
       const roles = this.accessControl.listRoles();
       const users = this.accessControl.listUsers();
-      checks.access_control = {
+      checks['access_control'] = {
         status: 'pass',
         message: `Access control operational: ${roles.length} roles, ${users.length} users`
       };
     } catch (error) {
-      checks.access_control = {
+      checks['access_control'] = {
         status: 'fail',
         message: `Access control error: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
@@ -313,18 +313,18 @@ export class SecretManager {
       const expiredKeys = keys.filter(key => key.expiresAt && key.expiresAt < new Date());
       
       if (expiredKeys.length === 0) {
-        checks.key_integrity = {
+        checks['key_integrity'] = {
           status: 'pass',
           message: `${keys.length} keys managed, none expired`
         };
       } else {
-        checks.key_integrity = {
+        checks['key_integrity'] = {
           status: 'warning',
           message: `${keys.length} keys managed, ${expiredKeys.length} expired`
         };
       }
     } catch (error) {
-      checks.key_integrity = {
+      checks['key_integrity'] = {
         status: 'fail',
         message: `Key integrity check failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
@@ -357,14 +357,14 @@ export class SecretManager {
 
 // Default configuration factory
 export function createDefaultSecretManagerConfig(): SecretManagerConfig {
-  const environment = process.env.NODE_ENV || 'development';
+  const environment = process.env['NODE_ENV'] || 'development';
   
   return {
     vault: {
       type: 'local',
       localConfig: {
-        vaultPath: process.env.VAULT_PATH || './data/secrets',
-        encryptionKey: process.env.VAULT_ENCRYPTION_KEY || 'default-dev-key-change-in-production'
+        vaultPath: process.env['VAULT_PATH'] || './data/secrets',
+        encryptionKey: process.env['VAULT_ENCRYPTION_KEY'] || 'default-dev-key-change-in-production'
       }
     },
     defaultRotationPolicy: {

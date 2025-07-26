@@ -198,7 +198,7 @@ export class IntegrationTestService {
           status: validationResult.passed ? 'passed' : 'failed',
           expected: step.expectedResponse,
           actual: response,
-          message: validationResult.message,
+          ...(validationResult.message && { message: validationResult.message }),
         });
 
         // Update session data if response contains relevant data

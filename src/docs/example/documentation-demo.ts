@@ -67,41 +67,28 @@ export class DocumentationDemo {
       summary: 'User Login',
       description: 'Authenticate a user and get access token',
       tags: ['Authentication'],
-      parameters: [
-        {
-          name: 'email',
-          in: 'body',
-          description: 'User email address',
-          required: true,
-          schema: { type: 'string', format: 'email' },
-        },
-        {
-          name: 'password',
-          in: 'body',
-          description: 'User password',
-          required: true,
-          schema: { type: 'string', minLength: 8 },
-        },
-      ],
       requestBody: {
-        description: 'Login credentials',
         required: true,
         content: {
           'application/json': {
             schema: {
               type: 'object',
               properties: {
-                email: { type: 'string', format: 'email' },
-                password: { type: 'string', minLength: 8 },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  description: 'User email address'
+                },
+                password: {
+                  type: 'string',
+                  minLength: 8,
+                  description: 'User password'
+                }
               },
-              required: ['email', 'password'],
-            },
-            example: {
-              email: 'user@example.com',
-              password: 'password123',
-            },
-          },
-        },
+              required: ['email', 'password']
+            }
+          }
+        }
       },
       responses: {
         '200': {

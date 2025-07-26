@@ -9,6 +9,7 @@ import { Message, MessageType, AgentId, ProtocolConfig, MessageError } from '@/t
 import Logger from '@/shared/logging/logger';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
+import { MessageValidator } from './message-validator';
 
 const logger = Logger.getLogger('protocol');
 
@@ -225,28 +226,29 @@ export class MessageSerializer {
    * Validate message structure and content
    */
   private validateMessage(message: Message): void {
-    // Basic structure validation
-    if (!message.id || !message.type || !message.from || !message.to || !message.timestamp) {
-      throw new MessageError('Message missing required fields', message.id || 'unknown', 'INVALID_MESSAGE');
+    // Use type guard for basic validation
+    if (!MessageValidator.isValidMessage(message)) {
+      throw new MessageError('Invalid message structure', message.id || 'unknown', 'INVALID_MESSAGE');
     }
 
-    // Type-specific validation
+    // Validate payload using enhanced validator
+    const validation = MessageValidator.validateMessagePayload(message.type, message.payload);
+    if (!validation.valid) {
+      throw new MessageError(
+        `Invalid message payload: ${validation.errors.join(', ')}`,
+        message.id,
+        'INVALID_PAYLOAD'
+      );
+    }
+
+    // Additional schema-based validation for backward compatibility
     const schema = MESSAGE_SCHEMAS[message.type];
-    if (!schema) {
-      throw new MessageError(`Unknown message type: ${message.type}`, message.id, 'INVALID_MESSAGE_TYPE');
-    }
-
-    // Check required fields
-    for (const field of schema.required) {
-      if (!(field in message.payload)) {
-        throw new MessageError(`Missing required field: ${field}`, message.id, 'MISSING_FIELD');
-      }
-    }
-
-    // Run field validation
-    for (const [field, validator] of Object.entries(schema.validation)) {
-      if (field in message.payload && !validator(message.payload[field])) {
-        throw new MessageError(`Invalid field value: ${field}`, message.id, 'INVALID_FIELD');
+    if (schema) {
+      // Check optional fields with validation
+      for (const [field, validator] of Object.entries(schema.validation)) {
+        if (field in message.payload && !validator(message.payload[field])) {
+          throw new MessageError(`Invalid field value: ${field}`, message.id, 'INVALID_FIELD');
+        }
       }
     }
   }
@@ -281,15 +283,17 @@ export class MessageSerializer {
     const algorithm = 'aes-256-gcm';
     const key = Buffer.from(config.encryptionKey, 'hex');
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
     
-    let encrypted = cipher.update(data, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
+    const encrypted = Buffer.concat([
+      cipher.update(data),
+      cipher.final()
+    ]);
     
     const authTag = cipher.getAuthTag();
     
     // Return IV + AuthTag + EncryptedData
-    return Buffer.concat([iv, authTag, Buffer.from(encrypted, 'hex')]);
+    return Buffer.concat([iv, authTag, encrypted]);
   }
 
   /**
@@ -311,13 +315,15 @@ export class MessageSerializer {
     const authTag = data.slice(16, 32);
     const encryptedData = data.slice(32);
     
-    const decipher = crypto.createDecipher(algorithm, key);
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
     decipher.setAuthTag(authTag);
     
-    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
+    const decrypted = Buffer.concat([
+      decipher.update(encryptedData),
+      decipher.final()
+    ]);
     
-    return Buffer.from(decrypted, 'utf8');
+    return decrypted;
   }
 }
 
@@ -350,22 +356,19 @@ export class ProtocolManager extends EventEmitter {
       ttl?: number;
     } = {}
   ): Message {
-    const message: Message = {
-      id: randomUUID(),
+    // Use validated message creation
+    const message = MessageValidator.createValidatedMessage(
       type,
       from,
       to,
-      timestamp: new Date(),
       payload,
-      priority: options.priority || 'medium',
-    };
-
-    if (options.correlationId) {
-      message.correlationId = options.correlationId;
-    }
-    if (options.ttl) {
-      message.ttl = options.ttl;
-    }
+      {
+        id: randomUUID(),
+        priority: options.priority,
+        correlationId: options.correlationId,
+        ttl: options.ttl
+      }
+    );
 
     // Store in history
     this.messageHistory.set(message.id, message);

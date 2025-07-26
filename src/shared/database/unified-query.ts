@@ -8,12 +8,8 @@
  * - Vector DB (similarity search queries)
  */
 
-import { Pool } from 'pg';
 import Logger from '@/shared/logging/logger';
 import { DatabaseManager } from './manager';
-import { ClickHouseManager } from './clickhouse-manager';
-import { RedisManager } from './redis-manager-simple';
-import { VectorManager } from './vector-manager';
 
 const logger = Logger.getLogger('unified-query');
 
@@ -250,7 +246,9 @@ export class UnifiedQueryManager {
 
     try {
       const searchParams = this.parseVectorQuery(request.query);
-      const results = await vector.search(searchParams);
+      // Default to 'documents' collection if not specified
+      const collectionName = searchParams.collection || 'documents';
+      const results = await vector.search(collectionName, searchParams);
 
       return {
         data: results,
@@ -284,7 +282,7 @@ export class UnifiedQueryManager {
             return await this.executeTransactionalQuery({
               ...request,
               query: query.query,
-              parameters: query.parameters
+              ...(query.parameters && { parameters: query.parameters })
             });
           case 'clickhouse':
             return await this.executeAnalyticsQuery({
@@ -373,7 +371,11 @@ export class UnifiedQueryManager {
       aggregation = 'merge';
     }
 
-    return { queries, aggregation, joinKey };
+    return { 
+      queries, 
+      aggregation, 
+      ...(joinKey && { joinKey })
+    };
   }
 
   /**
@@ -385,7 +387,7 @@ export class UnifiedQueryManager {
     joinKey?: string
   ): any[] {
     if (dataArrays.length === 0) return [];
-    if (dataArrays.length === 1) return dataArrays[0];
+    if (dataArrays.length === 1) return dataArrays[0] || [];
 
     switch (aggregation) {
       case 'union':
@@ -428,13 +430,18 @@ export class UnifiedQueryManager {
     }
 
     const primaryArray = dataArrays[0];
+    if (!primaryArray) {
+      return [];
+    }
     const result: any[] = [];
 
     for (const primaryItem of primaryArray) {
       const joinedItem = { ...primaryItem };
 
       for (let i = 1; i < dataArrays.length; i++) {
-        const matchingItem = dataArrays[i].find(item => 
+        const secondaryArray = dataArrays[i];
+        if (!secondaryArray) continue;
+        const matchingItem = secondaryArray.find(item => 
           item[joinKey] === primaryItem[joinKey]
         );
         if (matchingItem) {
@@ -486,8 +493,11 @@ export class UnifiedQueryManager {
     const matches = query.match(/(\w+):\s*([^\s,]+)/g);
     if (matches) {
       for (const match of matches) {
-        const [key, value] = match.split(':').map(s => s.trim());
-        params[key] = value;
+        const parts = match.split(':').map(s => s.trim());
+        if (parts.length >= 2) {
+          const [key, value] = parts;
+          params[key!] = value;
+        }
       }
     }
     
@@ -621,7 +631,8 @@ export class UnifiedQueryManager {
   async getMarketData(symbol: string, timeframe: string): Promise<QueryResult> {
     return this.executeQuery({
       query: `SELECT * FROM price_data_${timeframe} WHERE asset_id = '{symbol:String}' ORDER BY timestamp DESC LIMIT 1000`,
-      type: 'analytics'
+      type: 'analytics',
+      parameters: { symbol }
     });
   }
 

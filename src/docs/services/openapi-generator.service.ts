@@ -3,10 +3,12 @@
  * Generates comprehensive OpenAPI documentation from route definitions
  */
 
-import { Request, Response, NextFunction } from 'express';
+// Removed unused Express imports
+// import { Request, Response, NextFunction } from 'express';
 import { OpenApiConfig, ApiEndpoint, ApiSchema, DocumentationError } from '../types';
 import { getDocumentationConfig } from '../config/documentation.config';
-import { logger } from '../../shared/logging/logger';
+import Logger from '../../shared/logging/logger';
+const logger = Logger.getLogger('openapi-generator');
 
 export class OpenApiGeneratorService {
   private config: OpenApiConfig;
@@ -250,7 +252,7 @@ export class OpenApiGeneratorService {
   private generatePaths(): Record<string, any> {
     const paths: Record<string, any> = {};
 
-    for (const [key, endpoint] of this.endpoints) {
+    for (const [_key, endpoint] of this.endpoints) {
       const path = endpoint.path;
       
       if (!paths[path]) {
@@ -540,7 +542,7 @@ export class OpenApiGeneratorService {
   private async generatePdf(spec: any): Promise<Buffer> {
     // In a real implementation, you'd use a library like 'puppeteer'
     // to convert HTML to PDF
-    const html = await this.generateHtml(spec);
+    const _html = await this.generateHtml(spec);
     
     // This is a placeholder - in reality you'd use puppeteer or similar
     throw new DocumentationError(
@@ -593,8 +595,11 @@ export class OpenApiGeneratorService {
     const methods: Record<string, number> = {};
     
     for (const [key] of this.endpoints) {
-      const method = key.split(':')[0];
-      methods[method] = (methods[method] || 0) + 1;
+      const parts = key.split(':');
+      const method = parts[0];
+      if (method) {
+        methods[method] = (methods[method] || 0) + 1;
+      }
     }
 
     return methods;

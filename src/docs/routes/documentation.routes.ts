@@ -10,6 +10,7 @@ import PlaygroundService from '../services/playground.service';
 import SdkGeneratorService from '../services/sdk-generator.service';
 import { getDocumentationConfig } from '../config/documentation.config';
 import Logger from '../../shared/logging/logger';
+import { markUnused } from '../../utils/type-safety.js';
 
 const logger = Logger.getLogger('DocumentationRoutes');
 const router = Router();
@@ -28,7 +29,7 @@ const sdkGenerator = new SdkGeneratorService();
  * GET /docs/openapi
  * Get OpenAPI specification in JSON format
  */
-router.get('/openapi', async (req: Request, res: Response) => {
+router.get('/openapi', async (_req: Request, res: Response) => {
   try {
     const spec = openApiGenerator.generateSpec();
     res.json(spec);
@@ -47,7 +48,7 @@ router.get('/openapi', async (req: Request, res: Response) => {
  * GET /docs/openapi.yaml
  * Get OpenAPI specification in YAML format
  */
-router.get('/openapi.yaml', async (req: Request, res: Response) => {
+router.get('/openapi.yaml', async (_req: Request, res: Response) => {
   try {
     const yaml = await openApiGenerator.exportSpec('yaml');
     res.set('Content-Type', 'application/x-yaml');
@@ -67,7 +68,7 @@ router.get('/openapi.yaml', async (req: Request, res: Response) => {
  * GET /docs/openapi.html
  * Get interactive OpenAPI documentation
  */
-router.get('/openapi.html', async (req: Request, res: Response) => {
+router.get('/openapi.html', async (_req: Request, res: Response) => {
   try {
     const html = await openApiGenerator.exportSpec('html');
     res.set('Content-Type', 'text/html');
@@ -87,7 +88,7 @@ router.get('/openapi.html', async (req: Request, res: Response) => {
  * GET /docs/openapi.pdf
  * Get OpenAPI specification as PDF
  */
-router.get('/openapi.pdf', async (req: Request, res: Response) => {
+router.get('/openapi.pdf', async (_req: Request, res: Response) => {
   try {
     const pdf = await openApiGenerator.exportSpec('pdf');
     res.set('Content-Type', 'application/pdf');
@@ -107,7 +108,7 @@ router.get('/openapi.pdf', async (req: Request, res: Response) => {
  * GET /docs/stats
  * Get documentation statistics
  */
-router.get('/stats', (req: Request, res: Response) => {
+router.get('/stats', (_req: Request, res: Response) => {
   try {
     const openApiStats = openApiGenerator.getStats();
     const versioningStats = versioningService.getVersionStats();
@@ -143,7 +144,7 @@ router.get('/stats', (req: Request, res: Response) => {
  * GET /docs/versions
  * Get all API versions
  */
-router.get('/versions', (req: Request, res: Response) => {
+router.get('/versions', (_req: Request, res: Response) => {
   try {
     const versions = versioningService.getAllVersions();
     const supportedVersions = versioningService.getSupportedVersions();
@@ -176,6 +177,16 @@ router.get('/versions', (req: Request, res: Response) => {
 router.get('/versions/:version', (req: Request, res: Response) => {
   try {
     const { version } = req.params;
+    
+    if (!version) {
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_VERSION_PARAMETER',
+          message: 'Version parameter is required',
+        },
+      });
+    }
+    
     const versionInfo = versioningService.getVersion(version);
 
     if (!versionInfo) {
@@ -221,6 +232,16 @@ router.get('/versions/:version', (req: Request, res: Response) => {
 router.get('/versions/:version1/compare/:version2', (req: Request, res: Response) => {
   try {
     const { version1, version2 } = req.params;
+    
+    if (!version1 || !version2) {
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_VERSION_PARAMETERS',
+          message: 'Both version1 and version2 parameters are required',
+        },
+      });
+    }
+    
     const comparison = versioningService.compareVersions(version1, version2);
 
     res.json({
@@ -314,6 +335,16 @@ router.get('/playgrounds', (req: Request, res: Response) => {
 router.get('/playgrounds/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_ID_PARAMETER',
+          message: 'Playground ID parameter is required',
+        },
+      });
+    }
+    
     const playground = playgroundService.getPlayground(id);
 
     if (!playground) {
@@ -386,6 +417,16 @@ router.get('/examples', (req: Request, res: Response) => {
 router.get('/examples/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_ID_PARAMETER',
+          message: 'Example ID parameter is required',
+        },
+      });
+    }
+    
     const example = playgroundService.getExample(id);
 
     if (!example) {
@@ -422,6 +463,16 @@ router.get('/examples/:id', (req: Request, res: Response) => {
 router.post('/playgrounds/:id/execute', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_ID_PARAMETER',
+          message: 'Playground ID parameter is required',
+        },
+      });
+    }
+    
     const { method, path, headers, params, body } = req.body;
 
     const result = await playgroundService.executeRequest(id, {

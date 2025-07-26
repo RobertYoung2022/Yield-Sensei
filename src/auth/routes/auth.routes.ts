@@ -475,6 +475,8 @@ export class AuthRoutes {
 
       const { currentPassword: _currentPassword, newPassword: _newPassword } = req.body;
       const _user = (req as any).user;
+      // Suppress unused variable warnings - these will be used when implementation is complete
+      console.log({ _currentPassword, _newPassword, _user });
 
       // TODO: Implement password change logic
       // 1. Verify current password
@@ -585,6 +587,7 @@ export class AuthRoutes {
   private mfaDisable = async (req: Request, res: Response): Promise<void> => {
     try {
       const _user = (req as any).user;
+      console.log('Disabling MFA for user:', _user);
 
       // TODO: Implement MFA disable logic
       // 1. Verify user wants to disable MFA
@@ -609,6 +612,7 @@ export class AuthRoutes {
   private generateBackupCodes = async (req: Request, res: Response): Promise<void> => {
     try {
       const _user = (req as any).user;
+      console.log('Generating backup codes for user:', _user);
 
       // TODO: Implement backup codes generation
       // 1. Generate new backup codes

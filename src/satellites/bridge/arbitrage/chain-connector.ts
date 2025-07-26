@@ -46,7 +46,7 @@ export class ChainConnectorService {
 
   constructor(
     private chainConfigs: ChainConfig[],
-    private dexes: DEXConfig[]
+    dexes: DEXConfig[]
   ) {
     // Initialize DEX configs
     for (const dex of dexes) {
@@ -75,7 +75,7 @@ export class ChainConnectorService {
       const provider = new ethers.JsonRpcProvider(config.rpcUrl);
       
       // Test connection
-      const network = await provider.getNetwork();
+      await provider.getNetwork();
       const blockNumber = await provider.getBlockNumber();
       const feeData = await provider.getFeeData();
 
@@ -229,8 +229,8 @@ export class ChainConnectorService {
       return {
         chainId,
         gasPrice,
-        baseFee: feeData.maxFeePerGas,
-        priorityFee: feeData.maxPriorityFeePerGas,
+        baseFee: feeData.maxFeePerGas || BigInt(0),
+        priorityFee: feeData.maxPriorityFeePerGas || BigInt(0),
         estimatedCost,
         timestamp: Date.now(),
       };
@@ -280,7 +280,7 @@ export class ChainConnectorService {
     return new ethers.Contract(address, abi, provider);
   }
 
-  private getRouterABI(dexType: string): any[] {
+  private getRouterABI(_dexType: string): any[] {
     // Simplified ABI for common DEX router functions
     return [
       'function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts)',
@@ -292,7 +292,7 @@ export class ChainConnectorService {
     ];
   }
 
-  private getFactoryABI(dexType: string): any[] {
+  private getFactoryABI(_dexType: string): any[] {
     // Simplified ABI for factory functions
     return [
       'function getPair(address tokenA, address tokenB) external view returns (address pair)',
@@ -311,8 +311,8 @@ export class ChainConnectorService {
       const factory = await this.getDEXContract(chainId, dexName, 'factory');
       if (!factory) return null;
 
-      const pairAddress = await factory.getPair(tokenA, tokenB);
-      if (pairAddress === ethers.ZeroAddress) {
+      const pairAddress = await factory['getPair']?.(tokenA, tokenB);
+      if (!pairAddress || pairAddress === ethers.ZeroAddress) {
         return null;
       }
 
@@ -330,9 +330,9 @@ export class ChainConnectorService {
       );
 
       const [reserves, token0, token1] = await Promise.all([
-        pairContract.getReserves(),
-        pairContract.token0(),
-        pairContract.token1(),
+        pairContract['getReserves']?.(),
+        pairContract['token0']?.(),
+        pairContract['token1']?.(),
       ]);
 
       return {
@@ -390,7 +390,7 @@ export class ChainConnectorService {
   getSupportedDEXs(chainId: ChainID): DEXConfig[] {
     const dexes: DEXConfig[] = [];
     
-    for (const [key, dex] of this.dexConfigs) {
+    for (const [_key, dex] of this.dexConfigs) {
       if (dex.chainId === chainId) {
         dexes.push(dex);
       }

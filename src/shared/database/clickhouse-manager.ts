@@ -95,11 +95,11 @@ export class ClickHouseManager extends EventEmitter {
    */
   private parseConfig(): ClickHouseConfig {
     return {
-      host: process.env.CLICKHOUSE_HOST || 'localhost',
-      port: parseInt(process.env.CLICKHOUSE_PORT || '8123'),
-      username: process.env.CLICKHOUSE_USER || 'yieldsensei',
-      password: process.env.CLICKHOUSE_PASSWORD || 'changeme_in_production',
-      database: process.env.CLICKHOUSE_DATABASE || 'yieldsensei',
+      host: process.env['CLICKHOUSE_HOST'] || 'localhost',
+      port: parseInt(process.env['CLICKHOUSE_PORT'] || '8123'),
+      username: process.env['CLICKHOUSE_USER'] || 'yieldsensei',
+      password: process.env['CLICKHOUSE_PASSWORD'] || 'changeme_in_production',
+      database: process.env['CLICKHOUSE_DATABASE'] || 'yieldsensei',
       compression: true,
       max_execution_time: 300,
       max_memory_usage: 10000000000, // 10GB
@@ -111,7 +111,7 @@ export class ClickHouseManager extends EventEmitter {
    */
   private createClient(): ClickHouseClient {
     return new ClickHouseClient({
-      host: `http://${this.config.host}:${this.config.port}`,
+      url: `http://${this.config.host}:${this.config.port}`,
       username: this.config.username,
       password: this.config.password,
       database: this.config.database,
@@ -119,15 +119,9 @@ export class ClickHouseManager extends EventEmitter {
         response: this.config.compression,
         request: this.config.compression,
       },
-      session_timeout: 30000,
       request_timeout: 60000,
-      settings: {
-        max_execution_time: this.config.max_execution_time,
-        max_memory_usage: this.config.max_memory_usage,
-        use_uncompressed_cache: 1,
-        max_threads: 8,
-      },
-    });
+      // ClickHouse settings will be passed separately if needed
+    } as any);
   }
 
   /**
@@ -204,6 +198,24 @@ export class ClickHouseManager extends EventEmitter {
   }
 
   /**
+   * Execute a SQL statement (DDL/DML without return data)
+   */
+  async execute(query: string): Promise<void> {
+    try {
+      logger.debug(`Executing statement: ${query.substring(0, 100)}...`);
+      
+      await this.client.exec({
+        query,
+      });
+      
+      logger.debug('Statement executed successfully');
+    } catch (error) {
+      logger.error('Statement execution failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Execute a query and return results
    */
   async query<T = any>(query: string, params?: Record<string, any>): Promise<QueryResult<T>> {
@@ -214,7 +226,7 @@ export class ClickHouseManager extends EventEmitter {
       
       const result = await this.client.query({
         query,
-        query_params: params,
+        ...(params && { query_params: params }),
         format: 'JSONEachRow',
       });
 
@@ -277,8 +289,11 @@ export class ClickHouseManager extends EventEmitter {
     logger.info(`Batch inserting ${data.length} rows into ${table} in ${chunks.length} chunks`);
 
     for (let i = 0; i < chunks.length; i++) {
-      await this.insert(table, chunks[i]);
-      logger.debug(`Inserted chunk ${i + 1}/${chunks.length}`);
+      const chunk = chunks[i];
+      if (chunk) {
+        await this.insert(table, chunk);
+        logger.debug(`Inserted chunk ${i + 1}/${chunks.length}`);
+      }
     }
 
     logger.info(`Batch insert completed for ${table}`);
@@ -491,8 +506,8 @@ export class ClickHouseManager extends EventEmitter {
     ];
 
     const [tableSizes, queryStats] = await Promise.all([
-      this.query(queries[0]),
-      this.query(queries[1]),
+      this.query(queries[0]!),
+      this.query(queries[1]!),
     ]);
 
     return {

@@ -18,7 +18,7 @@ import {
 import { BridgeSatelliteConfig } from '../bridge-satellite';
 import { PriceFeedManager, PriceFeedConfig } from './price-feed-manager';
 import { ChainConnectorService, DEXConfig } from './chain-connector';
-import { ExecutionPathOptimizer, OptimizedPath } from '../optimization/execution-path-optimizer';
+import { ExecutionPathOptimizer } from '../optimization/execution-path-optimizer';
 import { GasOptimizer } from '../optimization/gas-optimizer';
 import { BridgeFeeOptimizer } from '../optimization/bridge-fee-optimizer';
 import { ExecutionTimeOptimizer } from '../optimization/execution-time-optimizer';
@@ -70,10 +70,10 @@ export class CrossChainArbitrageEngine extends EventEmitter {
 
   // Path optimization components
   private pathOptimizer: ExecutionPathOptimizer;
-  private gasOptimizer: GasOptimizer;
-  private bridgeFeeOptimizer: BridgeFeeOptimizer;
-  private timeOptimizer: ExecutionTimeOptimizer;
-  private slippageMinimizer: SlippageMinimizer;
+  private _gasOptimizer: GasOptimizer;
+  private _bridgeFeeOptimizer: BridgeFeeOptimizer;
+  private _timeOptimizer: ExecutionTimeOptimizer;
+  private _slippageMinimizer: SlippageMinimizer;
 
   constructor(config: BridgeSatelliteConfig) {
     super();
@@ -95,9 +95,9 @@ export class CrossChainArbitrageEngine extends EventEmitter {
     this.chainConnector = new ChainConnectorService(config.chains, dexConfigs);
 
     // Initialize Redis
-    this.redis = new RedisManager({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
+    this.redis = RedisManager.getInstance({
+      host: process.env['REDIS_HOST'] || 'localhost',
+      port: parseInt(process.env['REDIS_PORT'] || '6379'),
       keyPrefix: 'arbitrage:',
     });
 
@@ -120,7 +120,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
       config.bridges
     );
 
-    this.gasOptimizer = new GasOptimizer(
+    this._gasOptimizer = new GasOptimizer(
       {
         maxGasPrice: this.buildMaxGasPrices(),
         gasEstimationBuffer: 1.2,
@@ -131,7 +131,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
       config.chains
     );
 
-    this.bridgeFeeOptimizer = new BridgeFeeOptimizer(
+    this._bridgeFeeOptimizer = new BridgeFeeOptimizer(
       {
         maxFeeThreshold: 0.02,
         preferredBridges: ['hop-protocol', 'stargate', 'across-protocol'],
@@ -142,7 +142,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
       config.bridges
     );
 
-    this.timeOptimizer = new ExecutionTimeOptimizer(
+    this._timeOptimizer = new ExecutionTimeOptimizer(
       {
         maxAcceptableDelay: 300,
         parallelExecutionThreshold: 3,
@@ -153,7 +153,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
       config.chains
     );
 
-    this.slippageMinimizer = new SlippageMinimizer({
+    this._slippageMinimizer = new SlippageMinimizer({
       maxAcceptableSlippage: 0.02,
       dynamicSlippageEnabled: true,
       liquidityThreshold: 100000,
@@ -211,7 +211,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
         name: 'coingecko',
         type: 'rest',
         endpoint: 'https://api.coingecko.com/api/v3/simple/price',
-        apiKey: process.env.COINGECKO_API_KEY,
+        apiKey: process.env['COINGECKO_API_KEY'],
         chains: ['all'],
         priority: 2,
         rateLimit: 10000, // 10 seconds
@@ -372,7 +372,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
     const lowestPrice = sortedPrices[0];
     const highestPrice = sortedPrices[sortedPrices.length - 1];
 
-    const priceDiff = (highestPrice.price - lowestPrice.price) / lowestPrice.price;
+    const priceDiff = (highestPrice?.price || 0) - (lowestPrice?.price || 0) / (lowestPrice?.price || 1);
     
     if (priceDiff > this.config.arbitrage.minProfitThreshold) {
       // Potential opportunity found, run full analysis
@@ -514,7 +514,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
               cost: bridgeCost,
               time: bridge.avgProcessingTime,
               protocol: bridge.name,
-              contractAddress: bridge.contractAddresses[sourceChain],
+              ...(bridge.contractAddresses[sourceChain] && { contractAddress: bridge.contractAddresses[sourceChain] }),
             });
 
             graph.edges.set(nodeId, edges);
@@ -659,12 +659,12 @@ export class CrossChainArbitrageEngine extends EventEmitter {
 
     // Calculate profit through the cycle
     for (let i = 0; i < path.length; i++) {
-      const fromNode = graph.nodes.get(path[i]);
-      const toNode = graph.nodes.get(path[(i + 1) % path.length]);
+      const fromNode = graph.nodes.get(path[i]!);
+      const toNode = graph.nodes.get(path[(i + 1) % path.length]!);
       
       if (!fromNode || !toNode) return null;
 
-      const edges = graph.edges.get(path[i]) || [];
+      const edges = graph.edges.get(path[i]!) || [];
       const edge = edges.find(e => e.to === path[(i + 1) % path.length]);
       
       if (!edge) return null;
@@ -699,8 +699,8 @@ export class CrossChainArbitrageEngine extends EventEmitter {
   ): Promise<ArbitrageOpportunity | null> {
     if (cycle.path.length < 3) return null;
 
-    const startNode = graph.nodes.get(cycle.path[0]);
-    const endNode = graph.nodes.get(cycle.path[cycle.path.length - 1]);
+    const startNode = graph.nodes.get(cycle.path[0]!);
+    const endNode = graph.nodes.get(cycle.path[cycle.path.length - 1]!);
     
     if (!startNode || !endNode) return null;
 
@@ -711,13 +711,13 @@ export class CrossChainArbitrageEngine extends EventEmitter {
       const fromNodeId = cycle.path[i];
       const toNodeId = cycle.path[(i + 1) % cycle.path.length];
       
-      const edges = graph.edges.get(fromNodeId) || [];
+      const edges = graph.edges.get(fromNodeId!) || [];
       const edge = edges.find(e => e.to === toNodeId);
       
       if (!edge) continue;
 
-      const fromNode = graph.nodes.get(fromNodeId);
-      const toNode = graph.nodes.get(toNodeId);
+      const fromNode = graph.nodes.get(fromNodeId!);
+      const toNode = graph.nodes.get(toNodeId!);
       
       if (!fromNode || !toNode) continue;
 
@@ -726,7 +726,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
         chainId: fromNode.chainId,
         protocol: edge.protocol,
         contractAddress: edge.contractAddress || '',
-        estimatedGas: BigInt(Math.floor(edge.cost * 1e18 / 30)), // Rough gas estimate
+        estimatedGas: Math.floor(edge.cost * 1e18 / 30), // Rough gas estimate
         estimatedTime: edge.time,
         dependencies: i > 0 ? [`step-${i-1}`] : [],
       });
@@ -822,7 +822,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
 
     const execution: ArbitrageExecution = {
       opportunityId,
-      executionPathId: opportunity.executionPaths[0].id,
+      executionPathId: opportunity.executionPaths[0]!.id,
       status: 'initiated',
       transactions: [],
       startTime: Date.now(),
@@ -834,7 +834,7 @@ export class CrossChainArbitrageEngine extends EventEmitter {
       logger.info(`Executing arbitrage opportunity: ${opportunityId}`, {
         asset: opportunity.assetId,
         profit: opportunity.netProfit,
-        path: opportunity.executionPaths[0].steps.map(s => `${s.chainId}:${s.type}`),
+        path: opportunity.executionPaths[0]!.steps.map(s => `${s.chainId}:${s.type}`),
       });
 
       // TODO: Implement actual execution logic

@@ -10,11 +10,38 @@ import { createDataLoaders } from './dataloaders';
 import { createDataSources } from './datasources';
 import { createContext } from './context';
 
+/**
+ * GraphQL context interface with proper typing
+ * Eliminates any types in favor of specific interfaces
+ */
 export interface GraphQLContext {
-  user?: any;
-  dataSources: any;
-  dataLoaders: any;
-  pubsub: any;
+  /** Currently authenticated user */
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    permissions: string[];
+  };
+  /** Data sources for external API connections */
+  dataSources: {
+    portfolioAPI: unknown;
+    marketDataAPI: unknown;
+    analyticsAPI: unknown;
+    [key: string]: unknown;
+  };
+  /** DataLoader instances for batching and caching */
+  dataLoaders: {
+    userLoader: unknown;
+    portfolioLoader: unknown;
+    transactionLoader: unknown;
+    [key: string]: unknown;
+  };
+  /** Pub/Sub instance for real-time subscriptions */
+  pubsub: {
+    publish: (eventName: string, payload: Record<string, unknown>) => Promise<void>;
+    subscribe: (eventName: string) => AsyncIterator<unknown>;
+    [key: string]: unknown;
+  };
 }
 
 export async function createGraphQLServer(app: Express): Promise<ApolloServer> {
@@ -31,7 +58,7 @@ export async function createGraphQLServer(app: Express): Promise<ApolloServer> {
       return: async () => ({ value: undefined, done: true }),
       throw: async () => ({ value: undefined, done: true }),
     }),
-    publish: (eventName: string, payload: any) => {
+    publish: (eventName: string, payload: Record<string, unknown>) => {
       // TODO: Implement real-time publishing
       console.log(`Publishing to ${eventName}:`, payload);
     },

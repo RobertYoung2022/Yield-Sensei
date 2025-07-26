@@ -434,7 +434,7 @@ export class RegulatoryMonitoringService extends EventEmitter {
         return_citations: true
       };
 
-      const response = await this.client.chat(request);
+      const response = await this.client.chat(perplexityRequest);
       return this.parseComplianceCheck(response);
     } catch (error) {
       logger.error('Failed to check compliance:', error);

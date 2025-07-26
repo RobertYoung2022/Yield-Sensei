@@ -167,7 +167,8 @@ export interface ApiLink {
 }
 
 export interface ApiSchema {
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
+  type?: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
+  $ref?: string;
   format?: string;
   description?: string;
   example?: any;

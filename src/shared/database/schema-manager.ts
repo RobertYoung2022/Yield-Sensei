@@ -3,7 +3,7 @@
  * Handles schema migrations, partition management, and database setup
  */
 
-import { Pool, PoolClient } from 'pg';
+import { PoolClient } from 'pg';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import Logger from '@/shared/logging/logger';
@@ -315,7 +315,7 @@ export class PostgreSQLSchemaManager {
       ORDER BY size_bytes DESC;
     `);
     
-    return result;
+    return result.rows;
   }
 
   /**
@@ -432,6 +432,6 @@ export class PostgreSQLSchemaManager {
         (SELECT COUNT(*) FROM pg_tables WHERE tablename LIKE '%_2024_%' OR tablename LIKE '%_2025_%') as partition_count
     `);
 
-    return stats[0];
+    return stats.rows[0];
   }
 } 

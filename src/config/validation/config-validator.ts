@@ -283,12 +283,18 @@ export class ConfigValidator {
         if (rule.severity === 'error') {
           errors.push(...issues);
         } else {
-          warnings.push(...issues.map(issue => ({
-            path: issue.path,
-            message: issue.message,
-            suggestion: this.getSuggestion(issue.type, issue.value),
-            timestamp: issue.timestamp
-          })));
+          warnings.push(...issues.map(issue => {
+            const suggestion = this.getSuggestion(issue.type, issue.value);
+            const warning: any = {
+              path: issue.path,
+              message: issue.message,
+              timestamp: issue.timestamp
+            };
+            if (suggestion) {
+              warning.suggestion = suggestion;
+            }
+            return warning;
+          }));
         }
       } else {
         passedChecks++;
@@ -366,8 +372,8 @@ export class ConfigValidator {
     }
 
     // Check for weak encryption
-    if (config.security?.encryption?.key) {
-      const keyLength = config.security.encryption.key.length;
+    if (config['security']?.encryption?.key) {
+      const keyLength = config['security'].encryption.key.length;
       if (keyLength < 32) {
         errors.push({
           path: 'security.encryption.key',
@@ -380,7 +386,7 @@ export class ConfigValidator {
     }
 
     // Check for insecure CORS
-    if (config.security?.cors?.origin === '*') {
+    if (config['security']?.cors?.origin === '*') {
       warnings.push({
         path: 'security.cors.origin',
         message: 'CORS origin set to wildcard (*) is insecure',
@@ -390,7 +396,7 @@ export class ConfigValidator {
     }
 
     // Check SSL/TLS requirements
-    if (config['database']?.postgres?.ssl === false && config.nodeEnv === 'production') {
+    if (config['database']?.postgres?.ssl === false && config['nodeEnv'] === 'production') {
       errors.push({
         path: 'database.postgres.ssl',
         message: 'SSL must be enabled for PostgreSQL in production',
@@ -420,7 +426,7 @@ export class ConfigValidator {
   /**
    * Get suggestion for validation issue
    */
-  private getSuggestion(type: string, value?: any): string | undefined {
+  private getSuggestion(type: string, _value?: any): string | undefined {
     const suggestions: Record<string, string> = {
       'number.port': 'Use a valid port number between 1 and 65535',
       'string.hostname': 'Use a valid hostname or IP address',
@@ -444,7 +450,7 @@ export class ConfigValidator {
 
     return {
       timestamp: new Date(),
-      environment: config.nodeEnv || process.env.NODE_ENV || 'unknown',
+      environment: config['nodeEnv'] || process.env['NODE_ENV'] || 'unknown',
       hash,
       config: JSON.parse(configString), // Deep clone
       metadata: metadata || {}
