@@ -536,7 +536,7 @@ export class TransactionCaseManager extends EventEmitter {
       await this.persistCase(case_);
 
       // Trigger alert for escalation
-      await this.alertManager.triggerAlert({
+      const alertData: any = {
         id: `escalation_${caseId}_${Date.now()}`,
         type: 'audit-requirement',
         severity: this.mapPriorityToSeverity(case_.priority),
@@ -548,13 +548,19 @@ export class TransactionCaseManager extends EventEmitter {
         triggeredAt: new Date(),
         status: 'open',
         escalationLevel: case_.escalationLevel,
-        assignedTo: case_.assignedTo || undefined,
         metadata: {
           escalationLevel: case_.escalationLevel,
           reason,
           escalatedBy
         }
-      });
+      };
+      
+      // Only include assignedTo if it has a value
+      if (case_.assignedTo) {
+        alertData.assignedTo = case_.assignedTo;
+      }
+      
+      await this.alertManager.triggerAlert(alertData);
 
       logger.info('Case escalated', { caseId, previousLevel, newLevel: case_.escalationLevel, reason });
       this.emit('caseEscalated', { caseId, previousLevel, newLevel: case_.escalationLevel, reason });
@@ -885,7 +891,7 @@ export class TransactionCaseManager extends EventEmitter {
     narrative += `The case was classified as ${case_.caseType} with a priority level of ${case_.priority}. `;
     narrative += `Risk score: ${case_.riskScore}/100. `;
     
-    if (case_.investigationNotes.length > 0) {
+    if (case_.investigationNotes.length > 0 && case_.investigationNotes[0]) {
       narrative += `Investigation notes indicate: ${case_.investigationNotes[0].content}`;
     }
     

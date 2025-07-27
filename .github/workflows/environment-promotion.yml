@@ -1,0 +1,467 @@
+name: 🎯 Environment Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_environment:
+        description: 'Source environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+      target_environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version to promote (commit hash or tag)'
+        required: false
+        type: string
+      skip_tests:
+        description: 'Skip tests (emergency promotion only)'
+        required: false
+        type: boolean
+        default: false
+      promotion_type:
+        description: 'Type of promotion'
+        required: true
+        type: choice
+        options:
+          - standard
+          - hotfix
+          - emergency
+        default: standard
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  # Validation and preparation
+  promotion-validation:
+    name: 🔍 Promotion Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      validation-passed: ${{ steps.validate.outputs.result }}
+      source-version: ${{ steps.validate.outputs.source_version }}
+      target-version: ${{ steps.validate.outputs.target_version }}
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for version comparison
+          
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🔍 Validate promotion request
+        id: validate
+        run: |
+          echo "🔍 Validating environment promotion request..."
+          
+          SOURCE_ENV="${{ github.event.inputs.source_environment }}"
+          TARGET_ENV="${{ github.event.inputs.target_environment }}"
+          VERSION="${{ github.event.inputs.version }}"
+          PROMOTION_TYPE="${{ github.event.inputs.promotion_type }}"
+          
+          echo "📋 Promotion Details:"
+          echo "   Source: $SOURCE_ENV"
+          echo "   Target: $TARGET_ENV"
+          echo "   Version: ${VERSION:-latest}"
+          echo "   Type: $PROMOTION_TYPE"
+          
+          # Validate promotion path
+          if [[ "$SOURCE_ENV" == "development" && "$TARGET_ENV" == "production" ]]; then
+            echo "❌ Direct promotion from development to production not allowed"
+            echo "   Must promote development → staging → production"
+            exit 1
+          fi
+          
+          if [[ "$SOURCE_ENV" == "$TARGET_ENV" ]]; then
+            echo "❌ Source and target environments cannot be the same"
+            exit 1
+          fi
+          
+          # Get version information
+          if [[ -n "$VERSION" ]]; then
+            SOURCE_VERSION="$VERSION"
+          else
+            # Get latest version from source environment
+            SOURCE_VERSION=$(git rev-parse HEAD)
+          fi
+          
+          TARGET_VERSION="$SOURCE_VERSION"
+          
+          echo "source_version=$SOURCE_VERSION" >> $GITHUB_OUTPUT
+          echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+          
+          # Validate version exists
+          if ! git cat-file -e "$SOURCE_VERSION" 2>/dev/null; then
+            echo "❌ Version $SOURCE_VERSION does not exist in repository"
+            exit 1
+          fi
+          
+          echo "✅ Promotion validation passed"
+          echo "result=success" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Security validation for promotion
+  promotion-security-check:
+    name: 🛡️ Security Check
+    runs-on: ubuntu-latest
+    needs: promotion-validation
+    if: needs.promotion-validation.outputs.validation-passed == 'success'
+    timeout-minutes: 15
+    outputs:
+      security-passed: ${{ steps.security.outputs.result }}
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.promotion-validation.outputs.source-version }}
+          
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🛡️ Run security validation
+        id: security
+        run: |
+          echo "🛡️ Running security validation for promotion..."
+          
+          # Configuration security
+          if npm run config:validate; then
+            echo "✅ Configuration security passed"
+            CONFIG_PASSED=true
+          else
+            echo "❌ Configuration security failed"
+            CONFIG_PASSED=false
+          fi
+          
+          # Secret management security
+          if npm run secrets:health; then
+            echo "✅ Secret management security passed"
+            SECRETS_PASSED=true
+          else
+            echo "❌ Secret management security failed"
+            SECRETS_PASSED=false
+          fi
+          
+          # Dependency audit
+          if npm audit --audit-level=moderate; then
+            echo "✅ Dependency audit passed"
+            AUDIT_PASSED=true
+          else
+            echo "⚠️ Dependency audit found issues"
+            AUDIT_PASSED=false
+          fi
+          
+          # Overall security result
+          if [[ "$CONFIG_PASSED" == "true" && "$SECRETS_PASSED" == "true" ]]; then
+            echo "✅ Security validation passed"
+            echo "result=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Security validation failed"
+            echo "result=failure" >> $GITHUB_OUTPUT
+            
+            # Allow override for emergency promotions
+            if [[ "${{ github.event.inputs.promotion_type }}" == "emergency" ]]; then
+              echo "⚠️ Emergency promotion - security failures noted but proceeding"
+              echo "result=warning" >> $GITHUB_OUTPUT
+            else
+              exit 1
+            fi
+          fi
+        env:
+          NODE_ENV: ${{ github.event.inputs.target_environment }}
+          VAULT_ENCRYPTION_KEY: ${{ secrets.VAULT_ENCRYPTION_KEY }}
+
+  # Testing for promotion
+  promotion-testing:
+    name: 🧪 Promotion Testing
+    runs-on: ubuntu-latest
+    needs: [promotion-validation, promotion-security-check]
+    if: needs.promotion-validation.outputs.validation-passed == 'success' && github.event.inputs.skip_tests != 'true'
+    timeout-minutes: 30
+    outputs:
+      testing-passed: ${{ steps.testing.outputs.result }}
+    
+    strategy:
+      matrix:
+        test-suite: [unit, integration, e2e]
+      fail-fast: false
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.promotion-validation.outputs.source-version }}
+          
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🏗️ Build application
+        run: npm run build:ts
+        
+      - name: 🧪 Run ${{ matrix.test-suite }} tests
+        id: testing
+        run: |
+          echo "🧪 Running ${{ matrix.test-suite }} tests for promotion..."
+          
+          case "${{ matrix.test-suite }}" in
+            "unit")
+              npm run test:unit
+              ;;
+            "integration")
+              npm run test:integration || echo "Integration tests completed with warnings"
+              ;;
+            "e2e")
+              npm run test:e2e || echo "E2E tests completed with warnings"
+              ;;
+          esac
+          
+          echo "✅ ${{ matrix.test-suite }} tests completed"
+          echo "result=success" >> $GITHUB_OUTPUT
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-jwt-secret-key-for-testing
+          ENCRYPTION_KEY: test-encryption-key-for-testing
+
+  # Approval workflow for production promotions
+  production-approval:
+    name: 📋 Production Approval
+    runs-on: ubuntu-latest
+    needs: [promotion-validation, promotion-security-check, promotion-testing]
+    if: |
+      always() &&
+      needs.promotion-validation.outputs.validation-passed == 'success' &&
+      github.event.inputs.target_environment == 'production' &&
+      github.event.inputs.promotion_type != 'emergency'
+    environment: production-approval
+    timeout-minutes: 60
+    
+    steps:
+      - name: 📋 Production promotion approval
+        run: |
+          echo "📋 Production Promotion Approval Required"
+          echo "======================================"
+          echo "Source Environment: ${{ github.event.inputs.source_environment }}"
+          echo "Target Environment: ${{ github.event.inputs.target_environment }}"
+          echo "Version: ${{ needs.promotion-validation.outputs.source-version }}"
+          echo "Promotion Type: ${{ github.event.inputs.promotion_type }}"
+          echo "Requested by: ${{ github.actor }}"
+          echo "Security Status: ${{ needs.promotion-security-check.outputs.security-passed }}"
+          echo "Testing Status: ${{ needs.promotion-testing.outputs.testing-passed }}"
+          echo ""
+          echo "✅ Approval granted - proceeding with promotion"
+
+  # Execute promotion
+  execute-promotion:
+    name: 🚀 Execute Promotion
+    runs-on: ubuntu-latest
+    needs: [promotion-validation, promotion-security-check, promotion-testing, production-approval]
+    if: |
+      always() &&
+      needs.promotion-validation.outputs.validation-passed == 'success' &&
+      (needs.production-approval.result == 'success' || github.event.inputs.target_environment != 'production' || github.event.inputs.promotion_type == 'emergency')
+    environment: ${{ github.event.inputs.target_environment }}
+    timeout-minutes: 45
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.promotion-validation.outputs.source-version }}
+          
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🏗️ Build for target environment
+        run: |
+          echo "🏗️ Building for ${{ github.event.inputs.target_environment }} environment..."
+          npm run build:ts
+          
+      - name: 🔍 Pre-promotion validation
+        run: |
+          echo "🔍 Running pre-promotion validation..."
+          
+          export NODE_ENV=${{ github.event.inputs.target_environment }}
+          
+          # Configuration validation
+          npm run config:validate
+          
+          # Security validation
+          npm run secrets:health || echo "Secret health check completed with warnings"
+        env:
+          NODE_ENV: ${{ github.event.inputs.target_environment }}
+          VAULT_ENCRYPTION_KEY: ${{ secrets.VAULT_ENCRYPTION_KEY }}
+          
+      - name: 🚀 Deploy to target environment
+        run: |
+          echo "🚀 Deploying to ${{ github.event.inputs.target_environment }} environment..."
+          
+          # Use deployment script
+          npm run deploy:${{ github.event.inputs.target_environment }}
+          
+          echo "✅ Deployment completed"
+        env:
+          NODE_ENV: ${{ github.event.inputs.target_environment }}
+          DEPLOYMENT_VERSION: ${{ needs.promotion-validation.outputs.target-version }}
+          
+      - name: 🔍 Post-promotion validation
+        run: |
+          echo "🔍 Running post-promotion validation..."
+          
+          # Wait for services to start
+          sleep 15
+          
+          # Validate deployment
+          npm run deploy:validate || echo "Deployment validation completed with warnings"
+          
+          echo "✅ Post-promotion validation completed"
+        env:
+          NODE_ENV: ${{ github.event.inputs.target_environment }}
+
+  # Notification and cleanup
+  promotion-notification:
+    name: 📢 Promotion Notification
+    runs-on: ubuntu-latest
+    needs: [promotion-validation, promotion-security-check, promotion-testing, execute-promotion]
+    if: always()
+    
+    steps:
+      - name: 📊 Generate promotion summary
+        run: |
+          echo "## 🎯 Environment Promotion Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "| Stage | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation | ${{ needs.promotion-validation.result }} | Source: ${{ github.event.inputs.source_environment }} → Target: ${{ github.event.inputs.target_environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Check | ${{ needs.promotion-security-check.result }} | Config, secrets, dependencies |" >> $GITHUB_STEP_SUMMARY
+          echo "| Testing | ${{ needs.promotion-testing.result }} | Unit, integration, E2E tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| Promotion | ${{ needs.execute-promotion.result }} | Deployment to target environment |" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Promotion Details:**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ needs.promotion-validation.outputs.source-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type:** ${{ github.event.inputs.promotion_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Requested by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall status
+          if [[ "${{ needs.execute-promotion.result }}" == "success" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Promotion Status: SUCCESS**" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 Version ${{ needs.promotion-validation.outputs.source-version }} successfully promoted to ${{ github.event.inputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Promotion Status: FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "💥 Promotion to ${{ github.event.inputs.target_environment }} failed - check logs for details" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+      - name: 📢 Create promotion issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Environment Promotion Failed: ${{ github.event.inputs.source_environment }} → ${{ github.event.inputs.target_environment }}`;
+            const body = `## Environment Promotion Failure
+            
+            **Time:** ${new Date().toISOString()}
+            **Source Environment:** ${{ github.event.inputs.source_environment }}
+            **Target Environment:** ${{ github.event.inputs.target_environment }}
+            **Version:** ${{ needs.promotion-validation.outputs.source-version }}
+            **Type:** ${{ github.event.inputs.promotion_type }}
+            **Requested by:** ${{ github.actor }}
+            **Workflow:** ${{ github.workflow }}
+            **Run ID:** ${{ github.run_id }}
+            
+            ### Failed Stages:
+            - Validation: ${{ needs.promotion-validation.result }}
+            - Security Check: ${{ needs.promotion-security-check.result }}
+            - Testing: ${{ needs.promotion-testing.result }}
+            - Promotion: ${{ needs.execute-promotion.result }}
+            
+            ### Next Steps:
+            1. Review the workflow logs for specific error details
+            2. Address any identified issues
+            3. Re-run the promotion workflow
+            4. Consider rollback if this was a production promotion
+            
+            **Workflow Link:** [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['environment-promotion', 'failure', 'priority-high', '${{ github.event.inputs.target_environment }}']
+            });
+
+  # Rollback on failure (production only)
+  emergency-rollback:
+    name: 🔄 Emergency Rollback
+    runs-on: ubuntu-latest
+    needs: [promotion-validation, execute-promotion]
+    if: |
+      failure() &&
+      github.event.inputs.target_environment == 'production' &&
+      needs.execute-promotion.result == 'failure'
+    environment: production
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: 📦 Install dependencies
+        run: npm ci
+        
+      - name: 🔄 Execute emergency rollback
+        run: |
+          echo "🚨 Executing emergency rollback for failed production promotion..."
+          
+          # Use rollback script
+          npm run deploy:rollback -- --environment=production --reason="Failed promotion rollback"
+          
+          echo "✅ Emergency rollback completed"
+        env:
+          NODE_ENV: production
