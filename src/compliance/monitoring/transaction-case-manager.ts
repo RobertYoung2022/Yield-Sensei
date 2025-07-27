@@ -13,214 +13,232 @@ import {
   Transaction,
   User,
   ComplianceViolation,
-  Jurisdiction
+  Jurisdiction,
+  RiskLevel
 } from '../types';
 
 const logger = Logger.getLogger('transaction-case-manager');
 
+// Case Management Types
 export interface TransactionCase {
   id: string;
   transactionId: string;
   userId: string;
-  caseType: 'suspicious_activity' | 'aml_violation' | 'sanctions_hit' | 'velocity_breach' | 'pattern_detection';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  status: 'open' | 'investigating' | 'escalated' | 'resolved' | 'closed' | 'sar_filed';
+  caseType: CaseType;
+  priority: CasePriority;
+  status: CaseStatus;
   riskScore: number;
-  
-  // Case details
   title: string;
   description: string;
   flaggedAt: Date;
   jurisdiction: Jurisdiction;
-  
-  // Investigation workflow
-  investigator?: string;
-  assignedAt?: Date;
   escalationLevel: number;
-  escalationHistory: EscalationRecord[];
-  
-  // Evidence and findings
+  escalatedAt?: Date;
+  assignedTo?: string;
+  assignedAt?: Date;
+  resolvedAt?: Date;
+  resolution?: string;
+  sarFiled: boolean;
+  sarNumber?: string;
+  sarFiledAt?: Date;
+  violations: string[]; // violation IDs
   evidence: CaseEvidence[];
-  findings: string[];
   investigationNotes: InvestigationNote[];
-  
-  // Actions and outcomes
-  actions: CaseAction[];
-  resolution?: CaseResolution;
-  closedAt?: Date;
-  closedBy?: string;
-  
-  // Regulatory filing
-  sarFiling?: SARFiling;
-  
-  // Metadata
-  metadata: Record<string, any>;
+  escalationHistory: EscalationRecord[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface EscalationRecord {
   id: string;
+  caseId: string;
   fromLevel: number;
   toLevel: number;
   reason: string;
   escalatedBy: string;
   escalatedAt: Date;
-  approvedBy?: string;
-  approvedAt?: Date;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  outcome?: string;
 }
 
 export interface CaseEvidence {
   id: string;
-  type: 'transaction_data' | 'user_profile' | 'pattern_analysis' | 'external_data' | 'document';
-  title: string;
+  caseId: string;
+  type: EvidenceType;
   description: string;
-  data: any;
   source: string;
   collectedBy: string;
   collectedAt: Date;
   verified: boolean;
+  verifiedBy?: string;
+  verifiedAt?: Date;
+  metadata: Record<string, any>;
 }
 
 export interface InvestigationNote {
   id: string;
+  caseId: string;
   content: string;
-  investigator: string;
+  investigatorId: string;
   createdAt: Date;
-  tags: string[];
-  isPrivate: boolean;
+  sensitive: boolean;
+  category: 'analysis' | 'external_contact' | 'decision' | 'documentation';
 }
 
 export interface CaseAction {
   id: string;
-  type: 'investigation' | 'escalation' | 'user_contact' | 'transaction_block' | 'sar_filing' | 'case_closure';
-  description: string;
+  caseId: string;
+  action: ActionType;
   performedBy: string;
   performedAt: Date;
+  details: Record<string, any>;
   result?: string;
-  metadata: Record<string, any>;
 }
 
 export interface CaseResolution {
-  outcome: 'false_positive' | 'confirmed_suspicious' | 'regulatory_violation' | 'customer_error' | 'system_error';
-  justification: string;
-  recommendedActions: string[];
-  preventiveMeasures: string[];
+  caseId: string;
+  outcome: ResolutionOutcome;
+  reason: string;
   resolvedBy: string;
   resolvedAt: Date;
+  followUpRequired: boolean;
+  followUpDate?: Date;
+  regulatoryFiling?: string;
 }
 
 export interface SARFiling {
   id: string;
-  sarNumber?: string;
-  filingStatus: 'pending' | 'submitted' | 'accepted' | 'rejected';
-  filedAt?: Date;
+  caseId: string;
+  sarNumber: string;
+  filingStatus: SARStatus;
+  filedAt: Date;
   filedBy: string;
-  regulatoryResponse?: string;
+  jurisdiction: Jurisdiction;
+  documentPath: string;
+  acknowledgmentReceived: boolean;
+  acknowledgmentDate?: Date;
   followUpRequired: boolean;
-  documents: SARDocument[];
+  followUpDate?: Date;
 }
 
 export interface SARDocument {
-  id: string;
-  type: 'sar_form' | 'supporting_evidence' | 'narrative' | 'attachment';
-  title: string;
-  content: string;
+  caseId: string;
+  sarNumber: string;
+  suspiciousActivity: string;
+  explanation: string;
+  filingInstitution: string;
+  subjectInformation: Record<string, any>;
+  transactionInformation: Record<string, any>;
+  narrativeDescription: string;
+  attachments: string[];
   generatedAt: Date;
-  submittedAt?: Date;
+  generatedBy: string;
 }
 
+// Enums
+export type CaseType = 'money_laundering' | 'terrorist_financing' | 'sanctions_violation' | 
+                      'unusual_activity' | 'velocity_violation' | 'geographic_risk' | 'other';
+
+export type CasePriority = 'low' | 'medium' | 'high' | 'critical';
+
+export type CaseStatus = 'open' | 'in_progress' | 'pending_review' | 'escalated' | 
+                        'resolved' | 'closed' | 'false_positive';
+
+export type EvidenceType = 'transaction_data' | 'blockchain_analysis' | 'external_source' | 
+                          'investigation_finding' | 'regulatory_guidance' | 'communication';
+
+export type ActionType = 'case_created' | 'assigned' | 'note_added' | 'evidence_collected' | 
+                        'escalated' | 'sar_filed' | 'resolved' | 'closed';
+
+export type ResolutionOutcome = 'suspicious_confirmed' | 'false_positive' | 'insufficient_evidence' | 
+                              'regulatory_filing' | 'customer_exited' | 'ongoing_monitoring';
+
+export type SARStatus = 'draft' | 'pending_review' | 'filed' | 'acknowledged' | 'rejected';
+
+// Search and Analytics Interfaces
 export interface CaseSearchCriteria {
-  status?: TransactionCase['status'][];
-  caseType?: TransactionCase['caseType'][];
-  priority?: TransactionCase['priority'][];
-  jurisdiction?: Jurisdiction;
-  investigator?: string;
-  riskScoreMin?: number;
-  riskScoreMax?: number;
-  dateFrom?: Date;
-  dateTo?: Date;
-  hasUnfiledSAR?: boolean;
+  status?: CaseStatus[];
+  priority?: CasePriority[];
+  caseType?: CaseType[];
+  jurisdiction?: Jurisdiction[];
+  assignedTo?: string;
+  dateRange?: {
+    startDate: Date;
+    endDate: Date;
+  };
+  riskScoreRange?: {
+    min: number;
+    max: number;
+  };
+  sarFiled?: boolean;
+  textSearch?: string;
 }
 
 export interface CaseStatistics {
   totalCases: number;
-  casesByStatus: Record<TransactionCase['status'], number>;
-  casesByType: Record<TransactionCase['caseType'], number>;
-  casesByPriority: Record<TransactionCase['priority'], number>;
+  casesByStatus: Record<CaseStatus, number>;
+  casesByPriority: Record<CasePriority, number>;
+  casesByType: Record<CaseType, number>;
   averageResolutionTime: number;
   escalationRate: number;
   sarFilingRate: number;
   falsePositiveRate: number;
+  casesByJurisdiction: Record<Jurisdiction, number>;
+  monthlyTrends: Array<{
+    month: string;
+    totalCases: number;
+    resolvedCases: number;
+    sarsFiled: number;
+  }>;
 }
 
 export class TransactionCaseManager extends EventEmitter {
-  private databaseManager: DatabaseManager;
+  private dbManager: DatabaseManager;
   private auditTrail: AuditTrail;
   private alertManager: AlertManager;
   private isInitialized = false;
-  
-  // In-memory case storage (in production, this would be database-backed)
   private cases: Map<string, TransactionCase> = new Map();
   private casesByTransaction: Map<string, string> = new Map();
   private casesByUser: Map<string, string[]> = new Map();
-  
-  // Configuration
-  private config = {
-    escalationThresholds: {
-      riskScore: { level1: 75, level2: 85, level3: 95 },
-      timeouts: { level1: 24, level2: 8, level3: 2 }, // hours
-    },
-    autoSARThreshold: 90,
-    investigatorAssignment: {
-      workloadBalancing: true,
-      skillBasedRouting: true,
-      maxCasesPerInvestigator: 20
-    }
-  };
-
-  // Performance tracking
-  private stats = {
-    casesCreated: 0,
-    casesResolved: 0,
-    casesEscalated: 0,
-    sarsFiledAutomatically: 0,
-    averageInvestigationTime: 0
-  };
+  private escalationConfig: Record<string, any> = {};
+  private sarFilingConfig: Record<string, any> = {};
 
   constructor(
-    databaseManager: DatabaseManager,
+    dbManager: DatabaseManager,
     auditTrail: AuditTrail,
     alertManager: AlertManager
   ) {
     super();
-    this.databaseManager = databaseManager;
+    this.dbManager = dbManager;
     this.auditTrail = auditTrail;
     this.alertManager = alertManager;
+    
+    logger.info('TransactionCaseManager initialized');
   }
 
   /**
-   * Initialize the case manager
+   * Initialize the case management system
    */
   async initialize(): Promise<void> {
     try {
-      logger.info('Initializing Transaction Case Manager');
+      logger.info('Initializing TransactionCaseManager');
+
+      // Load existing cases
+      await this.loadExistingCases();
       
-      // Load existing cases from database
-      await this.loadCasesFromDatabase();
+      // Initialize escalation configuration
+      this.initializeEscalationConfig();
       
-      // Set up monitoring intervals
-      this.setupEscalationMonitoring();
-      this.setupAutoSARFiling();
+      // Initialize SAR filing configuration
+      this.initializeSARFilingConfig();
       
       this.isInitialized = true;
-      this.emit('initialized');
+      logger.info('TransactionCaseManager initialization completed');
       
-      logger.info('Transaction Case Manager initialized successfully', {
-        casesLoaded: this.cases.size
-      });
+      this.emit('initialized');
     } catch (error) {
-      logger.error('Failed to initialize Transaction Case Manager', { error });
+      logger.error('Failed to initialize TransactionCaseManager', { error });
       throw error;
     }
   }
@@ -232,15 +250,13 @@ export class TransactionCaseManager extends EventEmitter {
     transaction: Transaction,
     user: User,
     violation: ComplianceViolation,
-    createdBy: string
-  ): Promise<TransactionCase> {
+    createdBy: string = 'system'
+  ): Promise<string> {
     try {
-      this.validateInitialized();
-      
       logger.info('Creating new transaction case', {
         transactionId: transaction.id,
         userId: user.id,
-        violationType: violation.type,
+        violationType: violation.category,
         createdBy
       });
 
@@ -253,7 +269,7 @@ export class TransactionCaseManager extends EventEmitter {
         return await this.addViolationToCase(existingCase.id, violation, createdBy);
       }
 
-      const caseId = this.generateCaseId(transaction.jurisdiction);
+      const caseId = this.generateCaseId(user.jurisdiction);
       
       const newCase: TransactionCase = {
         id: caseId,
@@ -262,176 +278,183 @@ export class TransactionCaseManager extends EventEmitter {
         caseType: this.mapViolationToCaseType(violation),
         priority: this.calculateCasePriority(violation, transaction, user),
         status: 'open',
-        riskScore: violation.riskScore || 0,
-        title: `${violation.type} - ${transaction.type} Transaction`,
+        riskScore: this.getSeverityScore(violation.severity),
+        title: `${violation.category} - ${transaction.type} Transaction`,
         description: violation.description,
         flaggedAt: new Date(),
         jurisdiction: user.jurisdiction,
         escalationLevel: 0,
-        escalationHistory: [],
-        evidence: await this.collectInitialEvidence(transaction, user, violation),
-        findings: [],
+        sarFiled: false,
+        violations: [violation.id],
+        evidence: [],
         investigationNotes: [],
-        actions: [],
-        metadata: {
-          originalViolation: violation,
-          transactionAmount: transaction.amount,
-          transactionCurrency: transaction.currency,
-          flaggingSystem: createdBy
-        },
+        escalationHistory: [],
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
-      // Auto-assign investigator
-      await this.assignInvestigator(newCase);
-
       // Store case
-      await this.storeCase(newCase);
-      this.cases.set(newCase.id, newCase);
-      this.casesByTransaction.set(transaction.id, newCase.id);
+      this.cases.set(caseId, newCase);
+      this.casesByTransaction.set(transaction.id, caseId);
       
-      // Update user case mapping
-      if (!this.casesByUser.has(user.id)) {
-        this.casesByUser.set(user.id, []);
-      }
-      this.casesByUser.get(user.id)!.push(newCase.id);
+      // Update user case index
+      const userCases = this.casesByUser.get(user.id) || [];
+      userCases.push(caseId);
+      this.casesByUser.set(user.id, userCases);
 
-      // Auto-escalate if high risk
-      if (newCase.riskScore >= this.config.escalationThresholds.riskScore.level1) {
-        await this.escalateCase(newCase.id, 'High risk score detected', 'system');
-      }
-
-      // Auto-file SAR if threshold exceeded
-      if (newCase.riskScore >= this.config.autoSARThreshold) {
-        await this.initiateSARFiling(newCase.id, 'system');
-      }
+      // Persist to database
+      await this.persistCase(newCase);
 
       // Log audit trail
       await this.auditTrail.recordAction({
         entityType: 'transaction_case',
-        entityId: newCase.id,
-        action: 'case_created',
+        entityId: caseId,
+        action: `Case created for ${violation.category} violation`,
         userId: createdBy,
+        jurisdiction: user.jurisdiction,
         compliance: true
       });
 
-      this.stats.casesCreated++;
-      this.emit('caseCreated', newCase);
-      
-      logger.info('Transaction case created successfully', {
-        caseId: newCase.id,
-        transactionId: transaction.id,
-        priority: newCase.priority,
-        riskScore: newCase.riskScore
-      });
+      // Check for automatic escalation
+      if (this.shouldAutoEscalate(newCase)) {
+        await this.escalateCase(caseId, 'automatic_escalation', createdBy);
+      }
 
-      return newCase;
+      logger.info('Transaction case created successfully', { caseId });
+      this.emit('caseCreated', newCase);
+
+      return caseId;
     } catch (error) {
-      logger.error('Failed to create transaction case', { 
-        transactionId: transaction.id, 
-        error 
-      });
+      logger.error('Failed to create transaction case', { error, transactionId: transaction.id });
       throw error;
     }
   }
 
   /**
-   * Get case by ID
+   * Get case details
    */
-  getCase(caseId: string): TransactionCase | null {
-    this.validateInitialized();
-    return this.cases.get(caseId) || null;
+  async getCase(caseId: string): Promise<TransactionCase | null> {
+    try {
+      let case_ = this.cases.get(caseId);
+      
+      if (!case_) {
+        // Try loading from database
+        case_ = await this.loadCaseFromDatabase(caseId);
+        if (case_) {
+          this.cases.set(caseId, case_);
+        }
+      }
+      
+      return case_ || null;
+    } catch (error) {
+      logger.error('Failed to get case', { error, caseId });
+      throw error;
+    }
   }
 
   /**
-   * Search cases by criteria
+   * Search cases based on criteria
    */
-  searchCases(criteria: CaseSearchCriteria): TransactionCase[] {
-    this.validateInitialized();
-    
-    const cases = Array.from(this.cases.values());
-    
-    return cases.filter(case_ => {
-      if (criteria.status && !criteria.status.includes(case_.status)) return false;
-      if (criteria.caseType && !criteria.caseType.includes(case_.caseType)) return false;
-      if (criteria.priority && !criteria.priority.includes(case_.priority)) return false;
-      if (criteria.jurisdiction && case_.jurisdiction !== criteria.jurisdiction) return false;
-      if (criteria.investigator && case_.investigator !== criteria.investigator) return false;
-      if (criteria.riskScoreMin && case_.riskScore < criteria.riskScoreMin) return false;
-      if (criteria.riskScoreMax && case_.riskScore > criteria.riskScoreMax) return false;
-      if (criteria.dateFrom && case_.flaggedAt < criteria.dateFrom) return false;
-      if (criteria.dateTo && case_.flaggedAt > criteria.dateTo) return false;
-      if (criteria.hasUnfiledSAR !== undefined) {
-        const hasUnfiledSAR = case_.sarFiling && case_.sarFiling.filingStatus === 'pending';
-        if (criteria.hasUnfiledSAR !== hasUnfiledSAR) return false;
+  async searchCases(criteria: CaseSearchCriteria): Promise<TransactionCase[]> {
+    try {
+      logger.debug('Searching cases', { criteria });
+      
+      let results = Array.from(this.cases.values());
+      
+      // Apply filters
+      if (criteria.status?.length) {
+        results = results.filter(case_ => criteria.status!.includes(case_.status));
       }
       
-      return true;
-    });
+      if (criteria.priority?.length) {
+        results = results.filter(case_ => criteria.priority!.includes(case_.priority));
+      }
+      
+      if (criteria.caseType?.length) {
+        results = results.filter(case_ => criteria.caseType!.includes(case_.caseType));
+      }
+      
+      if (criteria.jurisdiction?.length) {
+        results = results.filter(case_ => criteria.jurisdiction!.includes(case_.jurisdiction));
+      }
+      
+      if (criteria.assignedTo) {
+        results = results.filter(case_ => case_.assignedTo === criteria.assignedTo);
+      }
+      
+      if (criteria.dateRange) {
+        results = results.filter(case_ => 
+          case_.flaggedAt >= criteria.dateRange!.startDate &&
+          case_.flaggedAt <= criteria.dateRange!.endDate
+        );
+      }
+      
+      if (criteria.riskScoreRange) {
+        results = results.filter(case_ => 
+          case_.riskScore >= criteria.riskScoreRange!.min &&
+          case_.riskScore <= criteria.riskScoreRange!.max
+        );
+      }
+      
+      if (criteria.sarFiled !== undefined) {
+        results = results.filter(case_ => case_.sarFiled === criteria.sarFiled);
+      }
+      
+      if (criteria.textSearch) {
+        const searchTerm = criteria.textSearch.toLowerCase();
+        results = results.filter(case_ => 
+          case_.title.toLowerCase().includes(searchTerm) ||
+          case_.description.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      return results.sort((a, b) => b.flaggedAt.getTime() - a.flaggedAt.getTime());
+    } catch (error) {
+      logger.error('Failed to search cases', { error, criteria });
+      throw error;
+    }
   }
 
   /**
    * Update case status
    */
   async updateCaseStatus(
-    caseId: string, 
-    newStatus: TransactionCase['status'], 
-    reason: string,
-    updatedBy: string
-  ): Promise<TransactionCase> {
+    caseId: string,
+    newStatus: CaseStatus,
+    updatedBy: string,
+    reason?: string
+  ): Promise<void> {
     try {
-      this.validateInitialized();
-      
-      const case_ = this.cases.get(caseId);
+      const case_ = await this.getCase(caseId);
       if (!case_) {
         throw new Error(`Case not found: ${caseId}`);
       }
 
-      const oldStatus = case_.status;
+      const previousStatus = case_.status;
       case_.status = newStatus;
       case_.updatedAt = new Date();
 
-      // Add action record
-      case_.actions.push({
-        id: this.generateActionId(),
-        type: 'investigation',
-        description: `Status updated from ${oldStatus} to ${newStatus}: ${reason}`,
-        performedBy: updatedBy,
-        performedAt: new Date(),
-        metadata: { oldStatus, newStatus, reason }
-      });
-
-      // Handle status-specific logic
-      if (newStatus === 'closed' || newStatus === 'resolved') {
-        case_.closedAt = new Date();
-        case_.closedBy = updatedBy;
-        this.stats.casesResolved++;
+      if (newStatus === 'resolved' || newStatus === 'closed') {
+        case_.resolvedAt = new Date();
       }
 
-      await this.storeCase(case_);
+      // Persist changes
+      await this.persistCase(case_);
 
       // Log audit trail
       await this.auditTrail.recordAction({
         entityType: 'transaction_case',
         entityId: caseId,
-        action: 'status_updated',
+        action: `Status updated from ${previousStatus} to ${newStatus}`,
         userId: updatedBy,
+        jurisdiction: case_.jurisdiction,
         compliance: true
       });
 
-      this.emit('caseStatusUpdated', case_, oldStatus);
-      
-      logger.info('Case status updated', {
-        caseId,
-        oldStatus,
-        newStatus,
-        updatedBy
-      });
-
-      return case_;
+      logger.info('Case status updated', { caseId, previousStatus, newStatus, updatedBy });
+      this.emit('caseStatusUpdated', { caseId, previousStatus, newStatus, updatedBy });
     } catch (error) {
-      logger.error('Failed to update case status', { caseId, newStatus, error });
+      logger.error('Failed to update case status', { error, caseId, newStatus });
       throw error;
     }
   }
@@ -442,41 +465,36 @@ export class TransactionCaseManager extends EventEmitter {
   async addInvestigationNote(
     caseId: string,
     content: string,
-    investigator: string,
-    tags: string[] = [],
-    isPrivate: boolean = false
+    investigatorId: string,
+    category: 'analysis' | 'external_contact' | 'decision' | 'documentation' = 'analysis',
+    sensitive: boolean = false
   ): Promise<void> {
     try {
-      this.validateInitialized();
-      
-      const case_ = this.cases.get(caseId);
+      const case_ = await this.getCase(caseId);
       if (!case_) {
         throw new Error(`Case not found: ${caseId}`);
       }
 
       const note: InvestigationNote = {
-        id: this.generateNoteId(),
+        id: `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        caseId,
         content,
-        investigator,
+        investigatorId,
         createdAt: new Date(),
-        tags,
-        isPrivate
+        sensitive,
+        category
       };
 
       case_.investigationNotes.push(note);
       case_.updatedAt = new Date();
 
-      await this.storeCase(case_);
+      // Persist changes
+      await this.persistCase(case_);
 
-      this.emit('investigationNoteAdded', case_, note);
-      
-      logger.debug('Investigation note added', {
-        caseId,
-        investigator,
-        noteLength: content.length
-      });
+      logger.info('Investigation note added', { caseId, investigatorId, category });
+      this.emit('investigationNoteAdded', { caseId, noteId: note.id, investigatorId });
     } catch (error) {
-      logger.error('Failed to add investigation note', { caseId, error });
+      logger.error('Failed to add investigation note', { error, caseId });
       throw error;
     }
   }
@@ -484,129 +502,124 @@ export class TransactionCaseManager extends EventEmitter {
   /**
    * Escalate case to higher level
    */
-  async escalateCase(caseId: string, reason: string, escalatedBy: string): Promise<void> {
+  async escalateCase(
+    caseId: string,
+    reason: string,
+    escalatedBy: string
+  ): Promise<void> {
     try {
-      this.validateInitialized();
-      
-      const case_ = this.cases.get(caseId);
+      const case_ = await this.getCase(caseId);
       if (!case_) {
         throw new Error(`Case not found: ${caseId}`);
       }
 
-      const newLevel = case_.escalationLevel + 1;
-      
+      const previousLevel = case_.escalationLevel;
+      case_.escalationLevel += 1;
+      case_.escalatedAt = new Date();
+      case_.status = 'escalated';
+      case_.updatedAt = new Date();
+
+      // Create escalation record
       const escalationRecord: EscalationRecord = {
-        id: this.generateEscalationId(),
-        fromLevel: case_.escalationLevel,
-        toLevel: newLevel,
+        id: `escalation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        caseId,
+        fromLevel: previousLevel,
+        toLevel: case_.escalationLevel,
         reason,
         escalatedBy,
         escalatedAt: new Date()
       };
 
-      case_.escalationLevel = newLevel;
       case_.escalationHistory.push(escalationRecord);
-      case_.status = 'escalated';
-      case_.priority = this.escalatePriority(case_.priority);
-      case_.updatedAt = new Date();
 
-      // Add action record
-      case_.actions.push({
-        id: this.generateActionId(),
-        type: 'escalation',
-        description: `Case escalated to level ${newLevel}: ${reason}`,
-        performedBy: escalatedBy,
-        performedAt: new Date(),
-        metadata: { escalationLevel: newLevel, reason }
-      });
+      // Persist changes
+      await this.persistCase(case_);
 
-      await this.storeCase(case_);
-
-      // Trigger high-priority alert
-      await this.alertManager.createAlert({
-        type: 'case_escalation',
-        severity: newLevel >= 3 ? 'critical' : 'high',
-        title: `Case Escalated to Level ${newLevel}`,
-        description: `Transaction case ${caseId} has been escalated: ${reason}`,
+      // Trigger alert for escalation
+      await this.alertManager.triggerAlert({
+        id: `escalation_${caseId}_${Date.now()}`,
+        type: 'audit-requirement',
+        severity: this.mapPriorityToSeverity(case_.priority),
+        title: `Case Escalated to Level ${case_.escalationLevel}`,
+        description: `Transaction case ${caseId} has been escalated. Reason: ${reason}`,
+        entityType: 'transaction',
         entityId: caseId,
-        metadata: { escalationLevel: newLevel, reason },
-        timestamp: new Date()
+        jurisdiction: case_.jurisdiction,
+        triggeredAt: new Date(),
+        status: 'open',
+        escalationLevel: case_.escalationLevel,
+        assignedTo: case_.assignedTo || undefined,
+        metadata: {
+          escalationLevel: case_.escalationLevel,
+          reason,
+          escalatedBy
+        }
       });
 
-      this.stats.casesEscalated++;
-      this.emit('caseEscalated', case_, escalationRecord);
-      
-      logger.warn('Case escalated', {
-        caseId,
-        newLevel,
-        reason,
-        escalatedBy
-      });
+      logger.info('Case escalated', { caseId, previousLevel, newLevel: case_.escalationLevel, reason });
+      this.emit('caseEscalated', { caseId, previousLevel, newLevel: case_.escalationLevel, reason });
     } catch (error) {
-      logger.error('Failed to escalate case', { caseId, reason, error });
+      logger.error('Failed to escalate case', { error, caseId });
       throw error;
     }
   }
 
   /**
-   * Initiate SAR filing for a case
+   * Initiate SAR filing for case
    */
-  async initiateSARFiling(caseId: string, initiatedBy: string): Promise<SARFiling> {
+  async initiateSARFiling(
+    caseId: string,
+    filedBy: string,
+    additionalInfo?: Record<string, any>
+  ): Promise<string> {
     try {
-      this.validateInitialized();
-      
-      const case_ = this.cases.get(caseId);
+      const case_ = await this.getCase(caseId);
       if (!case_) {
         throw new Error(`Case not found: ${caseId}`);
       }
 
-      if (case_.sarFiling && case_.sarFiling.filingStatus !== 'rejected') {
-        throw new Error(`SAR already filed or pending for case: ${caseId}`);
+      if (case_.sarFiled) {
+        throw new Error(`SAR already filed for case: ${caseId}`);
       }
 
-      logger.info('Initiating SAR filing', {
-        caseId,
-        initiatedBy
-      });
+      // Generate SAR number
+      const sarNumber = this.generateSARNumber(case_.jurisdiction);
 
-      // Generate SAR documents
-      const sarDocuments = await this.generateSARDocuments(case_);
-      
-      const sarFiling: SARFiling = {
-        id: this.generateSARId(),
-        filingStatus: 'pending',
-        filedBy: initiatedBy,
-        followUpRequired: case_.riskScore >= 95,
-        documents: sarDocuments
-      };
+      // Create SAR document
+      const sarDocument = await this.generateSARDocument(case_, sarNumber, additionalInfo);
 
-      case_.sarFiling = sarFiling;
-      case_.status = 'sar_filed';
+      // Update case
+      case_.sarFiled = true;
+      case_.sarNumber = sarNumber;
+      case_.sarFiledAt = new Date();
       case_.updatedAt = new Date();
 
-      // Add action record
-      case_.actions.push({
-        id: this.generateActionId(),
-        type: 'sar_filing',
-        description: 'SAR filing initiated',
-        performedBy: initiatedBy,
-        performedAt: new Date(),
-        metadata: { sarId: sarFiling.id }
-      });
+      // Persist changes
+      await this.persistCase(case_);
 
-      await this.storeCase(case_);
+      // Store SAR filing record
+      const sarFiling: SARFiling = {
+        id: `sar_${sarNumber}`,
+        caseId,
+        sarNumber,
+        filingStatus: 'filed',
+        filedAt: new Date(),
+        filedBy,
+        jurisdiction: case_.jurisdiction,
+        documentPath: `/sar-documents/${sarNumber}.pdf`,
+        acknowledgmentReceived: false,
+        followUpRequired: true,
+        followUpDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+      };
 
-      // Auto-submit if enabled
-      if (this.shouldAutoSubmitSAR(case_)) {
-        await this.submitSAR(caseId);
-      }
+      await this.persistSARFiling(sarFiling);
 
-      this.stats.sarsFiledAutomatically++;
-      this.emit('sarFilingInitiated', case_, sarFiling);
-      
-      return sarFiling;
+      logger.info('SAR filing initiated', { caseId, sarNumber, filedBy });
+      this.emit('sarFiled', { caseId, sarNumber, filedBy });
+
+      return sarNumber;
     } catch (error) {
-      logger.error('Failed to initiate SAR filing', { caseId, error });
+      logger.error('Failed to initiate SAR filing', { error, caseId });
       throw error;
     }
   }
@@ -614,323 +627,336 @@ export class TransactionCaseManager extends EventEmitter {
   /**
    * Get case statistics
    */
-  getCaseStatistics(): CaseStatistics {
-    this.validateInitialized();
-    
-    const cases = Array.from(this.cases.values());
-    
-    const casesByStatus = cases.reduce((acc, case_) => {
-      acc[case_.status] = (acc[case_.status] || 0) + 1;
-      return acc;
-    }, {} as Record<TransactionCase['status'], number>);
+  async getCaseStatistics(): Promise<CaseStatistics> {
+    try {
+      const allCases = Array.from(this.cases.values());
+      
+      const stats: CaseStatistics = {
+        totalCases: allCases.length,
+        casesByStatus: this.initializeStatusCounts(),
+        casesByPriority: this.initializePriorityCounts(),
+        casesByType: this.initializeTypeCounts(),
+        casesByJurisdiction: this.initializeJurisdictionCounts(),
+        averageResolutionTime: 0,
+        escalationRate: 0,
+        sarFilingRate: 0,
+        falsePositiveRate: 0,
+        monthlyTrends: []
+      };
 
-    const casesByType = cases.reduce((acc, case_) => {
-      acc[case_.caseType] = (acc[case_.caseType] || 0) + 1;
-      return acc;
-    }, {} as Record<TransactionCase['caseType'], number>);
+      // Calculate statistics
+      let totalResolutionTime = 0;
+      let resolvedCases = 0;
+      let escalatedCases = 0;
+      let sarFiledCases = 0;
+      let falsePositiveCases = 0;
 
-    const casesByPriority = cases.reduce((acc, case_) => {
-      acc[case_.priority] = (acc[case_.priority] || 0) + 1;
-      return acc;
-    }, {} as Record<TransactionCase['priority'], number>);
+      allCases.forEach(case_ => {
+        // Count by status
+        stats.casesByStatus[case_.status]++;
+        
+        // Count by priority
+        stats.casesByPriority[case_.priority]++;
+        
+        // Count by type
+        stats.casesByType[case_.caseType]++;
+        
+        // Count by jurisdiction
+        stats.casesByJurisdiction[case_.jurisdiction]++;
 
-    const closedCases = cases.filter(c => c.closedAt);
-    const avgResolutionTime = closedCases.length > 0 
-      ? closedCases.reduce((sum, c) => 
-          sum + (c.closedAt!.getTime() - c.flaggedAt.getTime()), 0) / closedCases.length
-      : 0;
+        // Resolution time calculation
+        if (case_.resolvedAt) {
+          const resolutionTime = case_.resolvedAt.getTime() - case_.flaggedAt.getTime();
+          totalResolutionTime += resolutionTime;
+          resolvedCases++;
+        }
 
-    const escalatedCases = cases.filter(c => c.escalationLevel > 0).length;
-    const escalationRate = cases.length > 0 ? escalatedCases / cases.length : 0;
+        // Escalation tracking
+        if (case_.escalationLevel > 0) {
+          escalatedCases++;
+        }
 
-    const sarCases = cases.filter(c => c.sarFiling).length;
-    const sarFilingRate = cases.length > 0 ? sarCases / cases.length : 0;
+        // SAR filing tracking
+        if (case_.sarFiled) {
+          sarFiledCases++;
+        }
 
-    const falsePositives = cases.filter(c => 
-      c.resolution?.outcome === 'false_positive'
-    ).length;
-    const falsePositiveRate = cases.length > 0 ? falsePositives / cases.length : 0;
+        // False positive tracking
+        if (case_.status === 'false_positive') {
+          falsePositiveCases++;
+        }
+      });
 
-    return {
-      totalCases: cases.length,
-      casesByStatus,
-      casesByType,
-      casesByPriority,
-      averageResolutionTime: avgResolutionTime / (1000 * 60 * 60), // Convert to hours
-      escalationRate,
-      sarFilingRate,
-      falsePositiveRate
-    };
+      // Calculate rates and averages
+      if (resolvedCases > 0) {
+        stats.averageResolutionTime = totalResolutionTime / resolvedCases / (1000 * 60 * 60); // Convert to hours
+      }
+
+      stats.escalationRate = allCases.length > 0 ? (escalatedCases / allCases.length) * 100 : 0;
+      stats.sarFilingRate = allCases.length > 0 ? (sarFiledCases / allCases.length) * 100 : 0;
+      stats.falsePositiveRate = allCases.length > 0 ? (falsePositiveCases / allCases.length) * 100 : 0;
+
+      return stats;
+    } catch (error) {
+      logger.error('Failed to get case statistics', { error });
+      throw error;
+    }
   }
 
   // Private helper methods
 
-  private validateInitialized(): void {
-    if (!this.isInitialized) {
-      throw new Error('TransactionCaseManager not initialized');
-    }
+  private async loadExistingCases(): Promise<void> {
+    // Implementation would load cases from database
+    logger.debug('Loading existing cases from database');
+  }
+
+  private initializeEscalationConfig(): void {
+    this.escalationConfig = {
+      autoEscalateThresholds: {
+        high_risk_score: 80,
+        critical_priority: true,
+        time_based: 24 * 60 * 60 * 1000 // 24 hours
+      }
+    };
+  }
+
+  private initializeSARFilingConfig(): void {
+    this.sarFilingConfig = {
+      thresholds: {
+        min_amount: 10000,
+        risk_score: 70
+      },
+      required_fields: [
+        'subject_information',
+        'transaction_details',
+        'suspicious_activity_description'
+      ]
+    };
   }
 
   private generateCaseId(jurisdiction: Jurisdiction): string {
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `CASE-${jurisdiction}-${timestamp}-${random}`;
+    const random = Math.random().toString(36).substr(2, 6).toUpperCase();
+    return `CASE_${jurisdiction}_${timestamp}_${random}`;
   }
 
-  private generateActionId(): string {
-    return `action-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  private generateSARNumber(jurisdiction: Jurisdiction): string {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 4).toUpperCase();
+    return `SAR_${jurisdiction}_${timestamp}_${random}`;
   }
 
-  private generateNoteId(): string {
-    return `note-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-  }
-
-  private generateEscalationId(): string {
-    return `esc-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-  }
-
-  private generateSARId(): string {
-    return `sar-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-  }
-
-  private mapViolationToCaseType(violation: ComplianceViolation): TransactionCase['caseType'] {
-    switch (violation.type) {
-      case 'aml-screening':
-        return 'aml_violation';
-      case 'sanctions-screening':
-        return 'sanctions_hit';
-      case 'velocity-check':
-        return 'velocity_breach';
-      case 'pattern-detection':
-        return 'pattern_detection';
+  private mapViolationToCaseType(violation: ComplianceViolation): CaseType {
+    switch (violation.category) {
+      case 'kyc-aml':
+        return 'money_laundering';
+      case 'securities':
+        return 'unusual_activity';
+      case 'sanctions':
+        return 'sanctions_violation';
       default:
-        return 'suspicious_activity';
+        return 'other';
     }
   }
 
   private calculateCasePriority(
-    violation: ComplianceViolation, 
-    transaction: Transaction, 
+    violation: ComplianceViolation,
+    transaction: Transaction,
     user: User
-  ): TransactionCase['priority'] {
-    const riskScore = violation.riskScore || 0;
+  ): CasePriority {
+    const riskScore = this.getSeverityScore(violation.severity);
     
-    if (riskScore >= 90) return 'critical';
-    if (riskScore >= 75) return 'high';
-    if (riskScore >= 50) return 'medium';
+    if (riskScore >= 90 || violation.severity === 'critical') {
+      return 'critical';
+    } else if (riskScore >= 70 || violation.severity === 'high') {
+      return 'high';
+    } else if (riskScore >= 40 || violation.severity === 'medium') {
+      return 'medium';
+    }
+    
     return 'low';
   }
 
-  private async collectInitialEvidence(
-    transaction: Transaction,
-    user: User,
-    violation: ComplianceViolation
-  ): Promise<CaseEvidence[]> {
-    const evidence: CaseEvidence[] = [];
-
-    // Transaction data evidence
-    evidence.push({
-      id: this.generateEvidenceId(),
-      type: 'transaction_data',
-      title: 'Transaction Details',
-      description: 'Complete transaction information',
-      data: transaction,
-      source: 'transaction_system',
-      collectedBy: 'system',
-      collectedAt: new Date(),
-      verified: true
-    });
-
-    // User profile evidence
-    evidence.push({
-      id: this.generateEvidenceId(),
-      type: 'user_profile',
-      title: 'User Profile',
-      description: 'User account and risk profile information',
-      data: {
-        id: user.id,
-        riskProfile: user.riskProfile,
-        jurisdiction: user.jurisdiction,
-        accountCreated: user.createdAt
-      },
-      source: 'user_system',
-      collectedBy: 'system',
-      collectedAt: new Date(),
-      verified: true
-    });
-
-    // Violation details evidence
-    evidence.push({
-      id: this.generateEvidenceId(),
-      type: 'pattern_analysis',
-      title: 'Compliance Violation Details',
-      description: 'Details of the compliance violation that triggered the case',
-      data: violation,
-      source: 'compliance_engine',
-      collectedBy: 'system',
-      collectedAt: new Date(),
-      verified: true
-    });
-
-    return evidence;
-  }
-
-  private generateEvidenceId(): string {
-    return `evidence-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-  }
-
-  private async assignInvestigator(case_: TransactionCase): Promise<void> {
-    // Simple assignment logic - in production, this would be more sophisticated
-    const investigators = ['inv001', 'inv002', 'inv003']; // Mock investigator IDs
-    const assignedInvestigator = investigators[Math.floor(Math.random() * investigators.length)];
-    
-    case_.investigator = assignedInvestigator;
-    case_.assignedAt = new Date();
-    case_.status = 'investigating';
-  }
-
-  private async loadCasesFromDatabase(): Promise<void> {
-    // Implementation would load cases from database
-    logger.info('Loading cases from database');
-  }
-
-  private async storeCase(case_: TransactionCase): Promise<void> {
-    // Implementation would store case to database
-    logger.debug('Storing case to database', { caseId: case_.id });
-  }
-
-  private setupEscalationMonitoring(): void {
-    // Set up monitoring for automatic escalation based on timeouts
-    setInterval(() => {
-      this.checkEscalationTimeouts();
-    }, 60 * 60 * 1000); // Check every hour
-  }
-
-  private setupAutoSARFiling(): void {
-    // Set up monitoring for automatic SAR filing
-    logger.info('Setting up auto SAR filing monitoring');
-  }
-
-  private async checkEscalationTimeouts(): Promise<void> {
-    const openCases = Array.from(this.cases.values()).filter(c => 
-      c.status === 'investigating' || c.status === 'open'
-    );
-
-    for (const case_ of openCases) {
-      const hoursOpen = (Date.now() - case_.flaggedAt.getTime()) / (1000 * 60 * 60);
-      const threshold = this.config.escalationThresholds.timeouts[`level${case_.escalationLevel + 1}` as keyof typeof this.config.escalationThresholds.timeouts];
-      
-      if (threshold && hoursOpen >= threshold) {
-        await this.escalateCase(case_.id, `Automatic escalation due to timeout (${hoursOpen} hours)`, 'system');
-      }
+  private getSeverityScore(severity: RiskLevel): number {
+    switch (severity) {
+      case 'critical':
+        return 95;
+      case 'high':
+        return 80;
+      case 'medium':
+        return 50;
+      case 'low':
+        return 25;
+      default:
+        return 0;
     }
   }
 
-  private escalatePriority(currentPriority: TransactionCase['priority']): TransactionCase['priority'] {
-    switch (currentPriority) {
-      case 'low': return 'medium';
-      case 'medium': return 'high';
-      case 'high': return 'critical';
-      case 'critical': return 'critical';
+  private shouldAutoEscalate(case_: TransactionCase): boolean {
+    return case_.priority === 'critical' || case_.riskScore >= 90;
+  }
+
+  private mapPriorityToSeverity(priority: CasePriority): RiskLevel {
+    switch (priority) {
+      case 'critical':
+        return 'critical';
+      case 'high':
+        return 'high';
+      case 'medium':
+        return 'medium';
+      case 'low':
+        return 'low';
+      default:
+        return 'low';
     }
   }
 
   private async addViolationToCase(
-    caseId: string, 
-    violation: ComplianceViolation, 
-    addedBy: string
-  ): Promise<TransactionCase> {
-    const case_ = this.cases.get(caseId)!;
-    
-    // Add new evidence
-    const newEvidence: CaseEvidence = {
-      id: this.generateEvidenceId(),
-      type: 'pattern_analysis',
-      title: `Additional Violation: ${violation.type}`,
-      description: violation.description,
-      data: violation,
+    caseId: string,
+    violation: ComplianceViolation,
+    updatedBy: string
+  ): Promise<string> {
+    const case_ = await this.getCase(caseId);
+    if (!case_) {
+      throw new Error(`Case not found: ${caseId}`);
+    }
+
+    case_.violations.push(violation.id);
+    case_.updatedAt = new Date();
+
+    // Add evidence for new violation
+    const evidence: CaseEvidence = {
+      id: `evidence_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      caseId,
+      type: 'investigation_finding',
+      description: `Additional Violation: ${violation.category}`,
       source: 'compliance_engine',
-      collectedBy: addedBy,
+      collectedBy: updatedBy,
       collectedAt: new Date(),
-      verified: true
+      verified: true,
+      metadata: { violationId: violation.id }
     };
 
-    case_.evidence.push(newEvidence);
+    case_.evidence.push(evidence);
+
+    // Update risk score if new violation is higher
+    const newRiskScore = this.getSeverityScore(violation.severity);
+    if (newRiskScore > case_.riskScore) {
+      case_.riskScore = newRiskScore;
+    }
+
+    await this.persistCase(case_);
+
+    logger.info('Violation added to existing case', { caseId, violationId: violation.id });
+    this.emit('violationAdded', { caseId, violationId: violation.id });
+
+    return caseId;
+  }
+
+  private async generateSARDocument(
+    case_: TransactionCase,
+    sarNumber: string,
+    additionalInfo?: Record<string, any>
+  ): Promise<SARDocument> {
+    return {
+      caseId: case_.id,
+      sarNumber,
+      suspiciousActivity: case_.title,
+      explanation: case_.description,
+      filingInstitution: 'YieldSensei',
+      subjectInformation: {
+        userId: case_.userId,
+        jurisdiction: case_.jurisdiction
+      },
+      transactionInformation: {
+        transactionId: case_.transactionId,
+        amount: 'TBD', // Would be populated from transaction details
+        currency: 'TBD'
+      },
+      narrativeDescription: this.generateNarrativeDescription(case_),
+      attachments: [],
+      generatedAt: new Date(),
+      generatedBy: 'system'
+    };
+  }
+
+  private generateNarrativeDescription(case_: TransactionCase): string {
+    let narrative = `Case ${case_.id} involves suspicious transaction activity flagged on ${case_.flaggedAt.toISOString()}. `;
+    narrative += `The case was classified as ${case_.caseType} with a priority level of ${case_.priority}. `;
+    narrative += `Risk score: ${case_.riskScore}/100. `;
     
-    // Update risk score to highest
-    if (violation.riskScore && violation.riskScore > case_.riskScore) {
-      case_.riskScore = violation.riskScore;
+    if (case_.investigationNotes.length > 0) {
+      narrative += `Investigation notes indicate: ${case_.investigationNotes[0].content}`;
     }
-
-    case_.updatedAt = new Date();
-    await this.storeCase(case_);
-
-    return case_;
+    
+    return narrative;
   }
 
-  private async generateSARDocuments(case_: TransactionCase): Promise<SARDocument[]> {
-    const documents: SARDocument[] = [];
-
-    // Generate main SAR form
-    documents.push({
-      id: `sar-form-${case_.id}`,
-      type: 'sar_form',
-      title: 'Suspicious Activity Report Form',
-      content: this.generateSARFormContent(case_),
-      generatedAt: new Date()
-    });
-
-    // Generate narrative
-    documents.push({
-      id: `sar-narrative-${case_.id}`,
-      type: 'narrative',
-      title: 'SAR Narrative',
-      content: this.generateSARNarrative(case_),
-      generatedAt: new Date()
-    });
-
-    return documents;
+  private async persistCase(case_: TransactionCase): Promise<void> {
+    // Implementation would persist to database
+    logger.debug('Persisting case to database', { caseId: case_.id });
   }
 
-  private generateSARFormContent(case_: TransactionCase): string {
-    // Generate structured SAR form content
-    return `SAR Filing for Case: ${case_.id}
-Transaction ID: ${case_.transactionId}
-User ID: ${case_.userId}
-Risk Score: ${case_.riskScore}
-Jurisdiction: ${case_.jurisdiction}
-Filing Date: ${new Date().toISOString()}`;
+  private async persistSARFiling(filing: SARFiling): Promise<void> {
+    // Implementation would persist SAR filing to database
+    logger.debug('Persisting SAR filing to database', { sarNumber: filing.sarNumber });
   }
 
-  private generateSARNarrative(case_: TransactionCase): string {
-    // Generate narrative description
-    return `This Suspicious Activity Report concerns ${case_.caseType} identified in transaction ${case_.transactionId}. 
-The transaction was flagged due to: ${case_.description}. 
-Risk assessment determined a score of ${case_.riskScore}. 
-Investigation findings: ${case_.findings.join('; ') || 'Pending investigation completion'}.`;
+  private async loadCaseFromDatabase(caseId: string): Promise<TransactionCase | undefined> {
+    // Implementation would load case from database
+    logger.debug('Loading case from database', { caseId });
+    return undefined;
   }
 
-  private shouldAutoSubmitSAR(case_: TransactionCase): boolean {
-    // Logic to determine if SAR should be auto-submitted
-    return case_.riskScore >= 95 && case_.jurisdiction === 'US';
+  private initializeStatusCounts(): Record<CaseStatus, number> {
+    return {
+      'open': 0,
+      'in_progress': 0,
+      'pending_review': 0,
+      'escalated': 0,
+      'resolved': 0,
+      'closed': 0,
+      'false_positive': 0
+    };
   }
 
-  private async submitSAR(caseId: string): Promise<void> {
-    const case_ = this.cases.get(caseId);
-    if (!case_ || !case_.sarFiling) {
-      throw new Error('Invalid case or SAR filing not found');
-    }
-
-    // Mock SAR submission - in production, this would integrate with regulatory APIs
-    case_.sarFiling.filingStatus = 'submitted';
-    case_.sarFiling.filedAt = new Date();
-    case_.sarFiling.sarNumber = `SAR-${Date.now()}`;
-
-    await this.storeCase(case_);
-
-    logger.info('SAR submitted successfully', {
-      caseId,
-      sarNumber: case_.sarFiling.sarNumber
-    });
+  private initializePriorityCounts(): Record<CasePriority, number> {
+    return {
+      'low': 0,
+      'medium': 0,
+      'high': 0,
+      'critical': 0
+    };
   }
-} 
+
+  private initializeTypeCounts(): Record<CaseType, number> {
+    return {
+      'money_laundering': 0,
+      'terrorist_financing': 0,
+      'sanctions_violation': 0,
+      'unusual_activity': 0,
+      'velocity_violation': 0,
+      'geographic_risk': 0,
+      'other': 0
+    };
+  }
+
+  private initializeJurisdictionCounts(): Record<Jurisdiction, number> {
+    return {
+      'US': 0,
+      'EU': 0,
+      'UK': 0,
+      'Singapore': 0,
+      'Switzerland': 0,
+      'Japan': 0,
+      'Canada': 0,
+      'Australia': 0,
+      'Dubai': 0,
+      'Hong Kong': 0,
+      'Cayman Islands': 0,
+      'BVI': 0
+    };
+  }
+}
+
+export default TransactionCaseManager; 
