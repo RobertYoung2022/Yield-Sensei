@@ -536,7 +536,8 @@ describe('RWA Opportunity Scoring System', () => {
       expect(scores).toHaveLength(5);
       
       // All scores should be identical (same input, cached)
-      const firstScore = scores[0].overallScore;
+      const firstScore = scores[0]?.overallScore;
+      expect(firstScore).toBeDefined();
       scores.forEach(score => {
         expect(score.overallScore).toBe(firstScore);
       });
