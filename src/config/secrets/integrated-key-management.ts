@@ -635,7 +635,7 @@ export class IntegratedKeyManagement extends EventEmitter {
 export const integratedKeyManagement = new IntegratedKeyManagement({
   vaultConfig: {
     provider: 'aws',
-    region: process.env.AWS_REGION || 'us-east-1'
+    region: process.env['AWS_REGION'] || 'us-east-1'
   },
   rotationConfig: {
     defaultIntervalDays: 90,

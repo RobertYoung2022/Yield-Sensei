@@ -238,11 +238,11 @@ export class TransactionMonitor extends EventEmitter {
       const flags: ComplianceFlag[] = [];
 
       // Check daily transaction count
-      if (metrics.dailyCount > velocityLimits.daily_transaction_count) {
+      if (metrics.dailyCount > velocityLimits['daily_transaction_count']) {
         flags.push({
           type: 'velocity-anomaly',
           severity: 'medium',
-          description: `Daily transaction count exceeded: ${metrics.dailyCount} > ${velocityLimits.daily_transaction_count}`,
+          description: `Daily transaction count exceeded: ${metrics.dailyCount} > ${velocityLimits['daily_transaction_count']}`,
           source: 'transaction-monitor',
           confidence: 0.9,
           timestamp: new Date(),

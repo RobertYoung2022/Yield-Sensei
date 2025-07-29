@@ -4,14 +4,14 @@
 
 describe('Deployment E2E Tests', () => {
   beforeAll(async () => {
-    process.env.NODE_ENV = 'test';
-    process.env.E2E_TEST = 'true';
+    process.env['NODE_ENV'] = 'test';
+    process.env['E2E_TEST'] = 'true';
   });
 
   describe('Environment Validation', () => {
     it('should validate test environment setup', async () => {
       // Basic environment validation
-      expect(process.env.NODE_ENV).toBe('test');
+      expect(process.env['NODE_ENV']).toBe('test');
       
       // Check that required test environment variables are set
       const requiredEnvVars = [
@@ -52,6 +52,6 @@ describe('Deployment E2E Tests', () => {
   });
 
   afterAll(async () => {
-    delete process.env.E2E_TEST;
+    delete process.env['E2E_TEST'];
   });
 });

@@ -327,8 +327,8 @@ SECURE_SECRET=a-very-long-and-secure-secret-key-that-is-definitely-not-weak
       const clientFile = join(clientDir, 'config.js');
       writeFileSync(clientFile, `
         const config = {
-          apiKey: process.env.SECRET_API_KEY,
-          jwt: process.env.JWT_SECRET
+          apiKey: process.env['SECRET_API_KEY'],
+          jwt: process.env['JWT_SECRET']
         };
         export default config;
       `);
@@ -349,8 +349,8 @@ SECURE_SECRET=a-very-long-and-secure-secret-key-that-is-definitely-not-weak
       writeFileSync(apiFile, `
         app.get('/config', (req, res) => {
           res.json({
-            environment: process.env.NODE_ENV,
-            secret: process.env.SECRET_KEY // This should not be exposed
+            environment: process.env['NODE_ENV'],
+            secret: process.env['SECRET_KEY'] // This should not be exposed
           });
         });
       `);
@@ -370,8 +370,8 @@ SECURE_SECRET=a-very-long-and-secure-secret-key-that-is-definitely-not-weak
       const debugFile = join(srcDir, 'debug.js');
       writeFileSync(debugFile, `
         console.log('Environment:', process.env);
-        console.log('JWT Secret:', process.env.JWT_SECRET);
-        logger.debug('Database URL:', process.env.DATABASE_URL);
+        console.log('JWT Secret:', process.env['JWT_SECRET']);
+        logger.debug('Database URL:', process.env['DATABASE_URL']);
       `);
 
       await validator['testDebuggingExposure']();
@@ -421,7 +421,7 @@ SECURE_SECRET=a-very-long-and-secure-secret-key-that-is-definitely-not-weak
       const srcDir = join(testDir, 'src');
       mkdirSync(srcDir, { recursive: true });
       
-      writeFileSync(join(srcDir, 'good.js'), 'const config = { port: process.env.PORT };');
+      writeFileSync(join(srcDir, 'good.js'), 'const config = { port: process.env["PORT"] };');
       writeFileSync(join(srcDir, 'bad.js'), 'const secret = "hardcoded-secret";');
 
       const summary = await validator.validateAll();

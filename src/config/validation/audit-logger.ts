@@ -233,7 +233,7 @@ export class ConfigurationAuditLogger extends EventEmitter {
       target: {
         type: 'secret',
         identifier: secretId,
-        environment: metadata.context?.environment
+        environment: metadata.context?.['environment']
       },
       action: `secret_${action}`,
       description: `Secret ${action} operation performed on ${secretId}`,
@@ -269,7 +269,7 @@ export class ConfigurationAuditLogger extends EventEmitter {
         type: 'key',
         identifier: keyId,
         category: keyType,
-        environment: metadata.context?.environment
+        environment: metadata.context?.['environment']
       },
       action: `key_${action}`,
       description: `Cryptographic key ${action} operation performed on ${keyType} key ${keyId}`,

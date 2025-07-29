@@ -259,9 +259,9 @@ describe('EncryptionValidationFramework', () => {
       } finally {
         // Restore original value
         if (originalTLS) {
-          process.env.TLS_MIN_VERSION = originalTLS;
+          process.env['TLS_MIN_VERSION'] = originalTLS;
         } else {
-          delete process.env.TLS_MIN_VERSION;
+          delete process.env['TLS_MIN_VERSION'];
         }
       }
     }, 10000);
@@ -383,11 +383,11 @@ describe('Integration with Environment Variables', () => {
   });
 
   it('should respect TLS configuration from environment', async () => {
-    const originalTLS = process.env.TLS_MIN_VERSION;
-    const originalCiphers = process.env.TLS_CIPHER_SUITES;
+    const originalTLS = process.env['TLS_MIN_VERSION'];
+    const originalCiphers = process.env['TLS_CIPHER_SUITES'];
     
-    process.env.TLS_MIN_VERSION = '1.3';
-    process.env.TLS_CIPHER_SUITES = 'TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256';
+    process.env['TLS_MIN_VERSION'] = '1.3';
+    process.env['TLS_CIPHER_SUITES'] = 'TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256';
 
     try {
       const report = await framework.runValidation('test');
@@ -397,20 +397,20 @@ describe('Integration with Environment Variables', () => {
       expect(tlsTest?.passed).toBe(true);
       expect(tlsTest?.score).toBeGreaterThan(80);
     } finally {
-      if (originalTLS) process.env.TLS_MIN_VERSION = originalTLS;
-      else delete process.env.TLS_MIN_VERSION;
+      if (originalTLS) process.env['TLS_MIN_VERSION'] = originalTLS;
+      else delete process.env['TLS_MIN_VERSION'];
       
-      if (originalCiphers) process.env.TLS_CIPHER_SUITES = originalCiphers;
-      else delete process.env.TLS_CIPHER_SUITES;
+      if (originalCiphers) process.env['TLS_CIPHER_SUITES'] = originalCiphers;
+      else delete process.env['TLS_CIPHER_SUITES'];
     }
   }, 10000);
 
   it('should respect database encryption settings', async () => {
-    const originalEncryption = process.env.DATABASE_ENCRYPTION;
-    const originalAlgorithm = process.env.DATABASE_ENCRYPTION_ALGORITHM;
+    const originalEncryption = process.env['DATABASE_ENCRYPTION'];
+    const originalAlgorithm = process.env['DATABASE_ENCRYPTION_ALGORITHM'];
     
-    process.env.DATABASE_ENCRYPTION = 'true';
-    process.env.DATABASE_ENCRYPTION_ALGORITHM = 'aes-256';
+    process.env['DATABASE_ENCRYPTION'] = 'true';
+    process.env['DATABASE_ENCRYPTION_ALGORITHM'] = 'aes-256';
 
     try {
       const report = await framework.runValidation('test');
@@ -420,11 +420,11 @@ describe('Integration with Environment Variables', () => {
       expect(dbTest?.passed).toBe(true);
       expect(dbTest?.score).toBe(100);
     } finally {
-      if (originalEncryption) process.env.DATABASE_ENCRYPTION = originalEncryption;
-      else delete process.env.DATABASE_ENCRYPTION;
+      if (originalEncryption) process.env['DATABASE_ENCRYPTION'] = originalEncryption;
+      else delete process.env['DATABASE_ENCRYPTION'];
       
-      if (originalAlgorithm) process.env.DATABASE_ENCRYPTION_ALGORITHM = originalAlgorithm;
-      else delete process.env.DATABASE_ENCRYPTION_ALGORITHM;
+      if (originalAlgorithm) process.env['DATABASE_ENCRYPTION_ALGORITHM'] = originalAlgorithm;
+      else delete process.env['DATABASE_ENCRYPTION_ALGORITHM'];
     }
   }, 10000);
 });

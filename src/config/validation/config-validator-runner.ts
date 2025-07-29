@@ -16,7 +16,7 @@ async function main() {
     const config = {
       security: {
         jwt: {
-          secret: process.env.JWT_SECRET || 'default-secret',
+          secret: process.env['JWT_SECRET'] || 'default-secret',
           expiresIn: '1h'
         },
         encryption: {
@@ -25,23 +25,23 @@ async function main() {
         }
       },
       database: {
-        ssl: process.env.NODE_ENV === 'production',
-        host: process.env.DB_HOST || 'localhost'
+        ssl: process.env['NODE_ENV'] === 'production',
+        host: process.env['DB_HOST'] || 'localhost'
       },
       api: {
         cors: {
-          origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+          origin: process.env['CORS_ORIGIN'] || 'http://localhost:3000'
         },
         rateLimit: {
-          windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-          max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100')
+          windowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000'),
+          max: parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '100')
         }
       }
     };
 
     // Validate configuration
     const result = await securityConfigValidator.validateSecurityConfiguration(
-      process.env.NODE_ENV || 'development'
+      process.env['NODE_ENV'] || 'development'
     );
     
     // Log validation attempt
@@ -51,7 +51,7 @@ async function main() {
       {
         type: 'configuration',
         identifier: 'system-config',
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env['NODE_ENV'] || 'development'
       },
       undefined,
       { validationResult: result.overallScore >= 80, violationCount: result.failedRules }

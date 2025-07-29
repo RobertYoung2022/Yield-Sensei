@@ -581,11 +581,11 @@ export class EnhancedAlertSystem extends EventEmitter {
     // Apply privacy-preserving filters to sensitive data
     if (alert.privacyLevel === 'maximum') {
       // Remove or obfuscate sensitive information
-      if (alert.metadata?.walletAddress) {
-        alert.metadata.walletAddress = alert.metadata.walletAddress.substring(0, 6) + '...';
+      if (alert.metadata?.['walletAddress']) {
+        alert.metadata['walletAddress'] = alert.metadata['walletAddress'].substring(0, 6) + '...';
       }
-      if (alert.metadata?.transactionAmount) {
-        alert.metadata.transactionAmount = 'redacted';
+      if (alert.metadata?.['transactionAmount']) {
+        alert.metadata['transactionAmount'] = 'redacted';
       }
     }
   }

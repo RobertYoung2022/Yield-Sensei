@@ -509,13 +509,13 @@ export class EnhancedDriftDetector extends EventEmitter {
     // Capture main application service
     snapshot.services.set('yieldsensei-api', {
       name: 'yieldsensei-api',
-      version: process.env.npm_package_version || '1.0.0',
+      version: process.env['npm_package_version'] || '1.0.0',
       configuration: {
-        port: process.env.PORT || 3000,
-        environment: process.env.NODE_ENV || 'development',
-        debug: process.env.DEBUG === 'true',
-        cors: process.env.CORS_ORIGIN,
-        rateLimit: process.env.RATE_LIMIT_MAX_REQUESTS
+        port: process.env['PORT'] || 3000,
+        environment: process.env['NODE_ENV'] || 'development',
+        debug: process.env['DEBUG'] === 'true',
+        cors: process.env['CORS_ORIGIN'],
+        rateLimit: process.env['RATE_LIMIT_MAX_REQUESTS']
       },
       dependencies: ['database', 'redis', 'external-api'],
       healthEndpoint: '/health',

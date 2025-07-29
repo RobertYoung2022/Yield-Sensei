@@ -426,8 +426,8 @@ export class ComprehensiveHealthChecker extends EventEmitter {
       // Additional configuration checks
       checks.push({
         name: 'Environment Variables',
-        status: process.env.NODE_ENV ? 'pass' : 'fail',
-        message: process.env.NODE_ENV ? `Environment: ${process.env.NODE_ENV}` : 'NODE_ENV not set',
+        status: process.env['NODE_ENV'] ? 'pass' : 'fail',
+        message: process.env['NODE_ENV'] ? `Environment: ${process.env['NODE_ENV']}` : 'NODE_ENV not set',
         impact: 'medium',
         category: 'configuration'
       });

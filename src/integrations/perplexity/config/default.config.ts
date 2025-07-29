@@ -5,7 +5,7 @@
 import { PerplexityConfig } from '../types';
 
 export const DEFAULT_PERPLEXITY_CONFIG: PerplexityConfig = {
-  apiKey: process.env.PERPLEXITY_API_KEY || '',
+  apiKey: process.env['PERPLEXITY_API_KEY'] || '',
   baseUrl: 'https://api.perplexity.ai',
   timeout: 30000,
   maxRetries: 3,

@@ -7,8 +7,8 @@ import { secretHealthChecker } from '../../src/config/validation/secret-health-c
 
 describe('Performance Tests', () => {
   beforeAll(async () => {
-    process.env.NODE_ENV = 'test';
-    process.env.PERFORMANCE_TEST = 'true';
+    process.env['NODE_ENV'] = 'test';
+    process.env['PERFORMANCE_TEST'] = 'true';
   });
 
   describe('Security Validator Performance', () => {
@@ -62,6 +62,6 @@ describe('Performance Tests', () => {
   });
 
   afterAll(async () => {
-    delete process.env.PERFORMANCE_TEST;
+    delete process.env['PERFORMANCE_TEST'];
   });
 });
