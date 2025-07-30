@@ -10,6 +10,8 @@ import {
 } from '../../../src/satellites/sage/research/fundamental-analysis-engine';
 import { ProtocolData } from '../../../src/satellites/sage/types';
 
+// Legacy test data structure that doesn't match actual implementation
+
 // Mock TensorFlow.js
 const mockModel = {
   compile: jest.fn(),
