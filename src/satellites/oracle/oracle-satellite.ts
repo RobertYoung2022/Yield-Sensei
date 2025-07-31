@@ -20,8 +20,10 @@ import {
 } from './types';
 import { OracleFeedValidator, OracleValidatorConfig } from './validation/oracle-feed-validator';
 import { RWAValidator, RWAValidatorConfig } from './validation/rwa-validator';
+import { OffChainDataVerifier, OffChainDataVerifierConfig } from './verification/off-chain-data-verifier';
 import { DataSourceManager, DataSourceManagerConfig } from './sources/data-source-manager';
 import { PerplexityClient, PerplexityClientConfig } from './sources/perplexity-client';
+import { getUnifiedAIClient, UnifiedAIClient } from '../../integrations/ai/unified-ai-client';
 
 export class OracleSatelliteAgent extends EventEmitter {
   private static instance: OracleSatelliteAgent;
@@ -33,8 +35,10 @@ export class OracleSatelliteAgent extends EventEmitter {
   // Component managers
   private oracleValidator?: OracleFeedValidator;
   private rwaValidator?: RWAValidator;
+  private offChainDataVerifier?: OffChainDataVerifier;
   private dataSourceManager?: DataSourceManager;
   private perplexityClient?: PerplexityClient;
+  private unifiedAIClient?: UnifiedAIClient;
   private anomalyDetector?: any; // AnomalyDetector
 
   // State management
@@ -92,8 +96,10 @@ export class OracleSatelliteAgent extends EventEmitter {
       // Initialize core components
       await this.initializeOracleValidator();
       await this.initializeRWAValidator();
+      await this.initializeOffChainDataVerifier();
       await this.initializeDataSourceManager();
       await this.initializePerplexityClient();
+      await this.initializeUnifiedAIClient();
       await this.initializeAnomalyDetector();
 
       // Load initial data
@@ -182,8 +188,14 @@ export class OracleSatelliteAgent extends EventEmitter {
       if (this.rwaValidator) {
         await this.rwaValidator.shutdown();
       }
+      if (this.offChainDataVerifier) {
+        await this.offChainDataVerifier.shutdown();
+      }
       if (this.dataSourceManager) {
         await this.dataSourceManager.shutdown();
+      }
+      if (this.perplexityClient) {
+        await this.perplexityClient.shutdown();
       }
 
       this.isRunning = false;
@@ -343,17 +355,267 @@ export class OracleSatelliteAgent extends EventEmitter {
     return results;
   }
 
+  // Off-Chain Data Verification
+  async verifyOffChainData(
+    dataSourceId: string, 
+    data: any, 
+    proof?: any
+  ): Promise<any> {
+    try {
+      if (!this.offChainDataVerifier) {
+        throw new Error('Off-chain data verifier not initialized');
+      }
+
+      this.logger.info('Verifying off-chain data', { 
+        dataSourceId, 
+        hasProof: !!proof 
+      });
+
+      const verificationResult = await this.offChainDataVerifier.verifyData(
+        dataSourceId, 
+        data, 
+        proof
+      );
+
+      // Emit verification event
+      this.emit('off_chain_data_verified', {
+        type: 'off_chain_data_verified',
+        dataSourceId,
+        result: verificationResult,
+        timestamp: new Date()
+      });
+
+      return verificationResult;
+
+    } catch (error) {
+      this.logger.error('Off-chain data verification failed:', error, { dataSourceId });
+      throw error;
+    }
+  }
+
+  async verifyOffChainDataBatch(
+    verificationRequests: Array<{
+      dataSourceId: string;
+      data: any;
+      proof?: any;
+    }>
+  ): Promise<any[]> {
+    try {
+      if (!this.offChainDataVerifier) {
+        throw new Error('Off-chain data verifier not initialized');
+      }
+
+      this.logger.info('Performing batch off-chain data verification', { 
+        batchSize: verificationRequests.length 
+      });
+
+      const results = await this.offChainDataVerifier.verifyBatch(verificationRequests);
+
+      this.emit('off_chain_batch_verified', {
+        type: 'off_chain_batch_verified',
+        batchSize: verificationRequests.length,
+        successfulVerifications: results.length,
+        timestamp: new Date()
+      });
+
+      return results;
+
+    } catch (error) {
+      this.logger.error('Batch off-chain data verification failed:', error);
+      throw error;
+    }
+  }
+
+  // AI-Powered Data Validation
+  async validateDataWithAI(
+    dataType: 'oracle' | 'rwa', 
+    data: any,
+    context?: string
+  ): Promise<any> {
+    try {
+      if (!this.unifiedAIClient) {
+        throw new Error('Unified AI Client not initialized');
+      }
+
+      this.logger.info('Performing AI-powered data validation', { 
+        dataType, 
+        context 
+      });
+
+      const analysisRequest = {
+        content: JSON.stringify(data, null, 2),
+        analysisType: 'data_validation',
+        context: `Validate ${dataType} data for accuracy and legitimacy. ${context || ''}`,
+        systemPrompt: this.buildValidationSystemPrompt(dataType)
+      };
+
+      const response = await this.unifiedAIClient.analyzeContent(analysisRequest);
+
+      if (!response.success) {
+        throw new Error(`AI validation failed: ${response.error}`);
+      }
+
+      // Emit validation event
+      this.emit('ai_data_validated', {
+        type: 'ai_data_validated',
+        dataType,
+        result: response.data,
+        provider: response.metadata?.provider,
+        timestamp: new Date()
+      });
+
+      return response.data;
+
+    } catch (error) {
+      this.logger.error('AI data validation failed:', error, { dataType });
+      throw error;
+    }
+  }
+
+  async performCrossProviderConsensus(
+    dataType: 'oracle' | 'rwa',
+    data: any,
+    context?: string
+  ): Promise<any> {
+    try {
+      if (!this.unifiedAIClient) {
+        throw new Error('Unified AI Client not initialized');
+      }
+
+      this.logger.info('Performing cross-provider consensus validation', { 
+        dataType, 
+        context 
+      });
+
+      const validationPrompt = this.buildConsensusValidationPrompt(dataType, data, context);
+
+      // Get responses from multiple providers for consensus
+      const providers = ['anthropic', 'openai', 'perplexity'];
+      const consensusResults = [];
+
+      for (const provider of providers) {
+        try {
+          const request = {
+            prompt: validationPrompt,
+            maxTokens: 2000,
+            temperature: 0.1,
+            systemPrompt: this.buildValidationSystemPrompt(dataType)
+          };
+
+          // Force specific provider by temporarily modifying config
+          const originalDefault = this.unifiedAIClient['config'].defaultProvider;
+          this.unifiedAIClient['config'].defaultProvider = provider as any;
+
+          const response = await this.unifiedAIClient.generateText(request);
+
+          // Restore original default
+          this.unifiedAIClient['config'].defaultProvider = originalDefault;
+
+          if (response.success) {
+            consensusResults.push({
+              provider,
+              result: response.data?.text,
+              confidence: this.extractConfidenceScore(response.data?.text)
+            });
+          }
+        } catch (error) {
+          this.logger.warn(`Provider ${provider} failed in consensus validation:`, error);
+        }
+      }
+
+      // Calculate consensus
+      const consensus = this.calculateValidationConsensus(consensusResults);
+
+      this.emit('ai_consensus_completed', {
+        type: 'ai_consensus_completed',
+        dataType,
+        consensus,
+        participatingProviders: consensusResults.length,
+        timestamp: new Date()
+      });
+
+      return consensus;
+
+    } catch (error) {
+      this.logger.error('Cross-provider consensus failed:', error, { dataType });
+      throw error;
+    }
+  }
+
+  async detectAnomaliesWithAI(data: any, context?: string): Promise<any> {
+    try {
+      if (!this.unifiedAIClient) {
+        throw new Error('Unified AI Client not initialized');
+      }
+
+      this.logger.info('Performing AI-powered anomaly detection', { context });
+
+      const analysisRequest = {
+        content: JSON.stringify(data, null, 2),
+        analysisType: 'anomaly_detection',
+        context: `Detect anomalies and unusual patterns in this data. ${context || ''}`,
+        systemPrompt: `You are an expert data analyst specializing in financial and blockchain data anomaly detection.
+        Analyze the provided data for:
+        1. Statistical outliers and unusual patterns
+        2. Potential data corruption or manipulation
+        3. Inconsistencies with expected behavior
+        4. Signs of fraudulent activity or market manipulation
+        5. Technical indicators of system failures
+        
+        Provide your analysis in JSON format with:
+        - isAnomaly: boolean
+        - confidence: number (0-1)
+        - anomalies: array of detected anomalies
+        - explanation: detailed explanation
+        - recommendations: suggested actions`
+      };
+
+      const response = await this.unifiedAIClient.analyzeContent(analysisRequest);
+
+      if (!response.success) {
+        throw new Error(`AI anomaly detection failed: ${response.error}`);
+      }
+
+      let anomalyResult;
+      try {
+        anomalyResult = JSON.parse(response.data?.analysis || response.data?.result || '{}');
+      } catch {
+        // Fallback to text analysis if JSON parsing fails
+        anomalyResult = {
+          isAnomaly: response.data?.analysis?.includes('anomaly') || false,
+          confidence: 0.5,
+          explanation: response.data?.analysis || response.data?.result,
+          anomalies: []
+        };
+      }
+
+      this.emit('ai_anomaly_detected', {
+        type: 'ai_anomaly_detected',
+        result: anomalyResult,
+        provider: response.metadata?.provider,
+        timestamp: new Date()
+      });
+
+      return anomalyResult;
+
+    } catch (error) {
+      this.logger.error('AI anomaly detection failed:', error);
+      throw error;
+    }
+  }
+
   // Real-time Analysis
   async performRealTimeAnalysis(): Promise<void> {
     try {
       this.logger.debug('Performing real-time analysis...');
 
-      // Parallel execution of analysis tasks
+      // Parallel execution of analysis tasks (now enhanced with AI)
       const analysisPromises = [
         this.analyzeOracleTrends(),
         this.analyzeRWAMarket(),
         this.detectSystemAnomalies(),
-        this.updateHealthMetrics()
+        this.updateHealthMetrics(),
+        this.performAIEnhancedAnalysis() // New AI-powered analysis
       ];
 
       await Promise.allSettled(analysisPromises);
@@ -377,6 +639,12 @@ export class OracleSatelliteAgent extends EventEmitter {
       if (this.dataSourceManager) {
         await this.dataSourceManager.refreshAll();
         await this.updateDataSourceHealth();
+        
+        this.emit('data_sources_refreshed', {
+          type: 'data_sources_refreshed',
+          timestamp: new Date(),
+          healthMetrics: this.dataSourceManager.getHealthMetrics()
+        });
       }
 
     } catch (error) {
@@ -409,131 +677,137 @@ export class OracleSatelliteAgent extends EventEmitter {
   }
 
   private async initializeRWAValidator(): Promise<void> {
-    // Initialize RWA validation system
     this.logger.debug('Initializing RWA validator...');
     
-    // Mock implementation - would be replaced with actual RWAValidator
-    this.rwaValidator = {
-      validateProtocol: async (protocol: RWAProtocol) => {
-        return {
-          protocol: protocol.id,
-          legitimacyScore: 0.87,
-          assetVerification: {
-            verified: true,
-            confidence: 0.9,
-            backing: {
-              claimed: 1000000,
-              verified: 950000,
-              percentage: 0.95,
-              sources: []
-            },
-            valuation: {
-              marketValue: 950000,
-              bookValue: 1000000,
-              discrepancy: 0.05,
-              methodology: 'market',
-              confidence: 0.85
-            },
-            custody: {
-              custodian: 'State Street',
-              verified: true,
-              attestation: true,
-              insurance: true,
-              auditTrail: true
-            },
-            discrepancies: []
-          },
-          teamVerification: {
-            verified: true,
-            score: 0.82,
-            members: [],
-            organization: {
-              incorporated: true,
-              registrationVerified: true,
-              address: true,
-              businessLicenses: true,
-              taxRecords: true,
-              score: 0.9
-            },
-            reputation: {
-              industryReputation: 0.8,
-              trackRecord: [],
-              previousProjects: [],
-              publicSentiment: {
-                positive: 0.7,
-                negative: 0.1,
-                neutral: 0.2,
-                sources: [],
-                confidence: 0.75
-              },
-              overallScore: 0.8
-            }
-          },
-          regulatoryCheck: {
-            compliant: true,
-            score: 0.92,
-            licenses: [],
-            filings: [],
-            violations: [],
-            riskLevel: 'low'
-          },
-          financialValidation: {
-            verified: true,
-            score: 0.88,
-            auditOpinion: 'unqualified',
-            financialHealth: {
-              liquidityRatio: 1.5,
-              debtToEquity: 0.3,
-              profitability: 0.15,
-              cashFlow: 1.2,
-              revenueGrowth: 0.25,
-              overallHealth: 'good'
-            },
-            transparency: {
-              auditedStatements: true,
-              publicDisclosures: true,
-              regularReporting: true,
-              thirdPartyVerification: true,
-              score: 0.95
-            },
-            sustainability: {
-              revenueStability: 0.8,
-              businessModel: 'sustainable',
-              marketPosition: 0.7,
-              competitiveAdvantage: [],
-              threats: [],
-              overallSustainability: 0.85
-            }
-          },
-          timestamp: new Date(),
-          recommendations: [],
-          riskAssessment: {
-            overallRisk: 'low',
-            categories: [],
-            mitigationStrategies: [],
-            monitoringRecommendations: []
-          }
-        } as RWAValidationResult;
+    const validatorConfig: RWAValidatorConfig = {
+      enablePerplexityResearch: this.config.rwa.enablePerplexityResearch || true,
+      enableSECFilingAnalysis: this.config.rwa.enableSECFilingAnalysis || false,
+      enableTeamVerification: this.config.rwa.enableTeamVerification || true,
+      enableFinancialAnalysis: this.config.rwa.enableFinancialAnalysis || true,
+      validationDepth: this.config.rwa.validationDepth || 'standard',
+      legitimacyThreshold: this.config.rwa.legitimacyThreshold || 0.6,
+      riskThresholds: this.config.rwa.riskThresholds || {
+        low: 0.3,
+        medium: 0.6,
+        high: 0.8
       },
-      stop: async () => {}
+      perplexityApiKey: this.config.rwa.perplexityApiKey || process.env.PERPLEXITY_API_KEY || '',
+      secApiKey: this.config.rwa.secApiKey,
+      maxConcurrentValidations: this.config.rwa.maxConcurrentValidations || 5,
+      validationTimeout: this.config.rwa.validationTimeout || 60000
     };
+
+    this.rwaValidator = RWAValidator.getInstance(validatorConfig);
+    await this.rwaValidator.initialize();
+
+    this.logger.info('RWA validator initialized successfully');
+  }
+
+  private async initializeOffChainDataVerifier(): Promise<void> {
+    this.logger.debug('Initializing off-chain data verifier...');
+    
+    const verifierConfig: OffChainDataVerifierConfig = {
+      enableCryptographicProofs: this.config.offChainVerification?.enableCryptographicProofs || true,
+      enableTemporalValidation: this.config.offChainVerification?.enableTemporalValidation || true,
+      enableSchemaValidation: this.config.offChainVerification?.enableSchemaValidation || true,
+      enableConsistencyChecks: this.config.offChainVerification?.enableConsistencyChecks || true,
+      maxDataAge: this.config.offChainVerification?.maxDataAge || 3600000, // 1 hour
+      minConsistencyThreshold: this.config.offChainVerification?.minConsistencyThreshold || 0.8,
+      cryptographicAlgorithm: this.config.offChainVerification?.cryptographicAlgorithm || 'sha256',
+      proofValidationTimeout: this.config.offChainVerification?.proofValidationTimeout || 30000,
+      enableAuditTrail: this.config.offChainVerification?.enableAuditTrail || true,
+      auditRetentionDays: this.config.offChainVerification?.auditRetentionDays || 30
+    };
+
+    this.offChainDataVerifier = OffChainDataVerifier.getInstance(verifierConfig);
+    await this.offChainDataVerifier.initialize();
+
+    this.logger.info('Off-chain data verifier initialized successfully');
   }
 
   private async initializeDataSourceManager(): Promise<void> {
     this.logger.debug('Initializing data source manager...');
     
-    this.dataSourceManager = {
-      refreshAll: async () => {},
-      stop: async () => {}
+    const managerConfig: DataSourceManagerConfig = {
+      maxConcurrentConnections: this.config.dataSources.maxConcurrent || 10,
+      defaultTimeout: this.config.dataSources.timeout || 30000,
+      retryAttempts: this.config.dataSources.retries || 3,
+      healthCheckInterval: this.config.dataSources.healthCheckInterval || 30000,
+      cachingEnabled: this.config.dataSources.enableCaching || true,
+      loadBalancing: this.config.dataSources.loadBalancing || false,
+      failoverEnabled: this.config.dataSources.failoverEnabled || true,
+      circuitBreakerThreshold: this.config.dataSources.circuitBreakerThreshold || 5,
+      rateLimitingEnabled: this.config.dataSources.rateLimitingEnabled || true,
+      enableMetrics: this.config.monitoring.enableMetrics || true
     };
+
+    this.dataSourceManager = DataSourceManager.getInstance(managerConfig);
+    await this.dataSourceManager.initialize();
+    await this.dataSourceManager.start();
+
+    this.logger.info('Data source manager initialized successfully');
   }
 
   private async initializePerplexityClient(): Promise<void> {
     this.logger.debug('Initializing Perplexity client...');
     
-    this.perplexityClient = {
-      query: async (query: string) => ({ content: '', sources: [] })
+    const clientConfig: PerplexityClientConfig = {
+      apiKey: this.config.perplexity.apiKey || process.env.PERPLEXITY_API_KEY || '',
+      baseUrl: this.config.perplexity.baseUrl || 'https://api.perplexity.ai',
+      model: this.config.perplexity.model || 'llama-3.1-sonar-large-128k-online',
+      timeout: this.config.perplexity.timeout || 30000,
+      maxRetries: this.config.perplexity.maxRetries || 3,
+      enableCaching: this.config.perplexity.enableCaching || true,
+      cacheTtl: this.config.perplexity.cacheTtl || 3600000, // 1 hour
+      dailyQuotaLimit: this.config.perplexity.dailyQuotaLimit || 10000,
+      enableRateLimiting: this.config.perplexity.enableRateLimiting || true,
+      requestsPerMinute: this.config.perplexity.requestsPerMinute || 60,
+      enableUsageTracking: this.config.perplexity.enableUsageTracking || true
     };
+
+    this.perplexityClient = PerplexityClient.getInstance(clientConfig);
+    await this.perplexityClient.initialize();
+
+    this.logger.info('Perplexity client initialized successfully');
+  }
+
+  private async initializeUnifiedAIClient(): Promise<void> {
+    this.logger.debug('Initializing Unified AI Client...');
+    
+    const unifiedAIConfig = {
+      defaultProvider: this.config.ai?.defaultProvider || 'anthropic',
+      fallbackProviders: this.config.ai?.fallbackProviders || ['openai', 'perplexity'],
+      providers: {
+        openai: {
+          model: this.config.ai?.openai?.model || 'gpt-4o-mini',
+          maxTokens: this.config.ai?.openai?.maxTokens || 4000,
+          temperature: this.config.ai?.openai?.temperature || 0.3
+        },
+        anthropic: {
+          model: this.config.ai?.anthropic?.model || 'claude-3-5-sonnet-20241022',
+          maxTokens: this.config.ai?.anthropic?.maxTokens || 4000,
+          temperature: this.config.ai?.anthropic?.temperature || 0.3
+        },
+        perplexity: {
+          model: this.config.ai?.perplexity?.model || 'llama-3.1-sonar-large-128k-online',
+          maxTokens: this.config.ai?.perplexity?.maxTokens || 4000,
+          temperature: this.config.ai?.perplexity?.temperature || 0.1
+        }
+      },
+      loadBalancing: {
+        enabled: this.config.ai?.loadBalancing?.enabled || true,
+        strategy: this.config.ai?.loadBalancing?.strategy || 'least-used'
+      }
+    };
+
+    this.unifiedAIClient = getUnifiedAIClient(unifiedAIConfig);
+    
+    // Wait for initial health check
+    await this.unifiedAIClient.refreshHealthStatus();
+
+    this.logger.info('Unified AI Client initialized successfully', {
+      healthStatus: this.unifiedAIClient.getHealthStatus()
+    });
   }
 
   private async initializeAnomalyDetector(): Promise<void> {
@@ -552,7 +826,62 @@ export class OracleSatelliteAgent extends EventEmitter {
   }
 
   private async loadOracleFeeds(): Promise<void> {
-    // TODO: Load oracle feeds from configuration or database
+    // Load default oracle feeds for testing
+    const defaultFeeds: OracleFeed[] = [
+      {
+        id: 'chainlink_eth_usd',
+        name: 'ETH/USD',
+        provider: 'Chainlink',
+        type: 'price',
+        endpoint: 'https://api.chainlinkfeeds.network/price/ETH-USD',
+        updateFrequency: 60000, // 1 minute
+        reliability: 0.95,
+        lastUpdate: new Date(),
+        isActive: true,
+        metadata: {
+          decimals: 8,
+          heartbeat: 3600,
+          threshold: 0.5
+        }
+      },
+      {
+        id: 'pyth_btc_usd',
+        name: 'BTC/USD',
+        provider: 'Pyth Network',
+        type: 'price',
+        endpoint: 'https://hermes.pyth.network/api/latest_price_feeds',
+        updateFrequency: 30000, // 30 seconds
+        reliability: 0.93,
+        lastUpdate: new Date(),
+        isActive: true,
+        metadata: {
+          decimals: 8,
+          heartbeat: 60,
+          threshold: 1.0
+        }
+      },
+      {
+        id: 'uma_defi_pulse_index',
+        name: 'DeFi Pulse Index',
+        provider: 'UMA Protocol',
+        type: 'rwa',
+        endpoint: 'https://api.umaproject.org/price/DPI',
+        updateFrequency: 300000, // 5 minutes
+        reliability: 0.88,
+        lastUpdate: new Date(),
+        isActive: true,
+        metadata: {
+          decimals: 18,
+          heartbeat: 86400,
+          threshold: 2.0
+        }
+      }
+    ];
+
+    for (const feed of defaultFeeds) {
+      this.oracleFeeds.set(feed.id, feed);
+    }
+
     this.logger.info('Oracle feeds loaded', { count: this.oracleFeeds.size });
   }
 
@@ -611,6 +940,172 @@ export class OracleSatelliteAgent extends EventEmitter {
 
   private async detectSystemAnomalies(): Promise<void> {
     // TODO: Implement system-wide anomaly detection
+  }
+
+  private async performAIEnhancedAnalysis(): Promise<void> {
+    try {
+      if (!this.unifiedAIClient) return;
+
+      // Perform AI-enhanced analysis on recent oracle and RWA data
+      const recentOracleData = Array.from(this.oracleFeeds.values()).slice(0, 5);
+      const recentRWAData = Array.from(this.rwaProtocols.values()).slice(0, 3);
+
+      if (recentOracleData.length > 0) {
+        await this.detectAnomaliesWithAI(recentOracleData, 'Oracle feed analysis');
+      }
+
+      if (recentRWAData.length > 0) {
+        await this.detectAnomaliesWithAI(recentRWAData, 'RWA protocol analysis');
+      }
+    } catch (error) {
+      this.logger.error('AI-enhanced analysis failed:', error);
+    }
+  }
+
+  private buildValidationSystemPrompt(dataType: 'oracle' | 'rwa'): string {
+    if (dataType === 'oracle') {
+      return `You are an expert blockchain oracle data validator with deep knowledge of:
+      - Price feed accuracy and manipulation detection
+      - Cross-oracle consensus mechanisms
+      - Temporal data consistency patterns
+      - Market data anomaly detection
+      - Oracle attack vectors (MEV, sandwich attacks, etc.)
+      
+      Analyze oracle data for accuracy, legitimacy, and potential manipulation.
+      Focus on price deviation analysis, update frequency consistency, and cross-validation opportunities.`;
+    } else {
+      return `You are an expert Real-World Asset (RWA) protocol analyst with expertise in:
+      - Asset backing verification and legitimacy assessment
+      - Regulatory compliance evaluation
+      - Financial health analysis of protocols
+      - Team and organization credibility assessment
+      - Market presence and reputation analysis
+      
+      Analyze RWA protocol data for legitimacy, compliance, and investment viability.
+      Focus on asset verification, regulatory status, and protocol sustainability.`;
+    }
+  }
+
+  private buildConsensusValidationPrompt(
+    dataType: 'oracle' | 'rwa',
+    data: any,
+    context?: string
+  ): string {
+    const basePrompt = `Analyze the following ${dataType} data and provide a validation assessment:
+
+${JSON.stringify(data, null, 2)}
+
+${context ? `Additional context: ${context}` : ''}
+
+Please provide:
+1. Overall legitimacy assessment (score 0-100)
+2. Key findings (both positive and concerning)
+3. Specific red flags or validation issues
+4. Confidence level in your assessment (0-100)
+5. Recommendations for further validation
+
+Format your response as JSON with the structure:
+{
+  "legitimacyScore": number,
+  "confidence": number,
+  "findings": {
+    "positive": ["list", "of", "positive", "findings"],
+    "concerns": ["list", "of", "concerns"]
+  },
+  "redFlags": ["list", "of", "red", "flags"],
+  "recommendations": ["list", "of", "recommendations"]
+}`;
+
+    return basePrompt;
+  }
+
+  private extractConfidenceScore(text?: string): number {
+    if (!text) return 0.5;
+    
+    // Try to extract confidence from JSON response
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.confidence) {
+          return parsed.confidence / 100; // Convert to 0-1 scale
+        }
+      }
+    } catch {
+      // Fallback to text parsing
+    }
+    
+    // Fallback: look for confidence indicators in text
+    const confidenceIndicators = [
+      { pattern: /very confident|highly confident|extremely confident/i, score: 0.9 },
+      { pattern: /confident|likely|probable/i, score: 0.8 },
+      { pattern: /moderately confident|somewhat confident/i, score: 0.7 },
+      { pattern: /uncertain|unclear|mixed/i, score: 0.5 },
+      { pattern: /doubtful|unlikely|suspicious/i, score: 0.3 },
+      { pattern: /very doubtful|highly suspicious|definitely not/i, score: 0.1 }
+    ];
+    
+    for (const indicator of confidenceIndicators) {
+      if (indicator.pattern.test(text)) {
+        return indicator.score;
+      }
+    }
+    
+    return 0.6; // Default moderate confidence
+  }
+
+  private calculateValidationConsensus(results: Array<{
+    provider: string;
+    result: string;
+    confidence: number;
+  }>): any {
+    if (results.length === 0) {
+      return {
+        consensus: 'no_data',
+        confidence: 0,
+        agreement: 0,
+        results: []
+      };
+    }
+
+    // Extract legitimacy scores from results
+    const scores = results.map(result => {
+      try {
+        const jsonMatch = result.result.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return parsed.legitimacyScore || 50;
+        }
+      } catch {
+        // Fallback scoring based on text sentiment
+        const text = result.result.toLowerCase();
+        if (text.includes('legitimate') || text.includes('valid')) return 80;
+        if (text.includes('suspicious') || text.includes('concerning')) return 30;
+        return 50;
+      }
+      return 50;
+    });
+
+    const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const averageConfidence = results.reduce((sum, r) => sum + r.confidence, 0) / results.length;
+    
+    // Calculate agreement (how close scores are to each other)
+    const maxScore = Math.max(...scores);
+    const minScore = Math.min(...scores);
+    const agreement = 1 - ((maxScore - minScore) / 100);
+
+    return {
+      consensus: averageScore >= 70 ? 'legitimate' : averageScore <= 40 ? 'suspicious' : 'mixed',
+      averageScore,
+      confidence: averageConfidence,
+      agreement,
+      participatingProviders: results.length,
+      results: results.map(r => ({
+        provider: r.provider,
+        confidence: r.confidence,
+        summary: r.result.substring(0, 200) + '...'
+      }))
+    };
   }
 
   private async detectOracleAnomalies(feed: OracleFeed, result: OracleValidationResult): Promise<void> {
@@ -725,12 +1220,87 @@ export class OracleSatelliteAgent extends EventEmitter {
     this.healthMetrics.rwa.isRunning = this.isRunning;
     this.healthMetrics.rwa.protocolsTracked = this.rwaProtocols.size;
     
+    // Update Perplexity client health
+    if (this.perplexityClient) {
+      const perplexityStatus = this.perplexityClient.getStatus();
+      this.healthMetrics.perplexity.connected = perplexityStatus.isInitialized;
+      this.healthMetrics.perplexity.quotaUsed = perplexityStatus.dailyQuotaUsed || 0;
+      this.healthMetrics.perplexity.quotaRemaining = perplexityStatus.dailyQuotaRemaining || 1000;
+      this.healthMetrics.perplexity.averageLatency = perplexityStatus.requestMetrics?.averageLatency || 0;
+      this.healthMetrics.perplexity.errorRate = perplexityStatus.requestMetrics ? 
+        (perplexityStatus.requestMetrics.failedRequests / Math.max(perplexityStatus.requestMetrics.totalRequests, 1)) : 0;
+      this.healthMetrics.perplexity.lastQuery = perplexityStatus.requestMetrics?.lastRequest || new Date();
+    }
+
+    // Update Unified AI Client health
+    if (this.unifiedAIClient) {
+      const aiHealthStatus = this.unifiedAIClient.getHealthStatus();
+      const healthyProviders = Object.values(aiHealthStatus).filter(status => status === true).length;
+      const totalProviders = Object.keys(aiHealthStatus).length;
+      
+      // Update system health with AI client status
+      if (totalProviders > 0) {
+        const aiHealthScore = healthyProviders / totalProviders;
+        
+        // Log AI health status
+        this.logger.debug('Unified AI Client health status', {
+          healthyProviders,
+          totalProviders,
+          healthScore: aiHealthScore,
+          providerStatus: aiHealthStatus
+        });
+        
+        // Factor AI health into overall system health
+        if (aiHealthScore < 0.5 && this.healthMetrics.overall === 'healthy') {
+          this.healthMetrics.overall = 'degraded';
+          this.logger.warn('System health degraded due to AI client issues');
+        }
+      }
+    }
+    
     // Calculate overall health
     this.healthMetrics.overall = this.calculateOverallHealth();
   }
 
   private async updateDataSourceHealth(): Promise<void> {
-    // TODO: Update data source health metrics
+    if (!this.dataSourceManager) return;
+    
+    const healthMetrics = this.dataSourceManager.getHealthMetrics();
+    
+    // Update system health metrics with data source information
+    this.healthMetrics.dataSources = healthMetrics.map(health => ({
+      id: health.id,
+      name: health.name,
+      status: health.status,
+      latency: health.latency,
+      uptime: health.uptime,
+      errorRate: health.errorRate,
+      lastCheck: health.lastCheck
+    }));
+    
+    // Calculate overall data source health impact
+    const healthyCount = healthMetrics.filter(h => h.status === 'online').length;
+    const totalCount = healthMetrics.length;
+    const overallDataSourceHealth = totalCount > 0 ? healthyCount / totalCount : 1.0;
+    
+    // Update overall system health considering data sources
+    if (overallDataSourceHealth < 0.5) {
+      if (this.healthMetrics.overall !== 'critical') {
+        this.healthMetrics.overall = 'critical';
+        this.logger.warn('System health degraded to critical due to data source issues');
+      }
+    } else if (overallDataSourceHealth < 0.8) {
+      if (this.healthMetrics.overall === 'healthy') {
+        this.healthMetrics.overall = 'degraded';
+        this.logger.warn('System health degraded due to data source issues');
+      }
+    }
+    
+    this.logger.debug('Data source health updated', {
+      totalSources: totalCount,
+      healthySources: healthyCount,
+      overallHealth: overallDataSourceHealth
+    });
   }
 
   private calculateOverallHealth(): 'healthy' | 'degraded' | 'critical' | 'offline' {

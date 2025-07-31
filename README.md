@@ -67,75 +67,6 @@ npm run dev
 
 ## Development
 
-### Development Environment Setup
-
-#### Required Environment Variables
-Create a `.env` file in the project root with the following variables:
-
-```bash
-# Database Configuration
-DATABASE_URL=postgresql://username:password@localhost:5432/yieldsensei
-REDIS_URL=redis://localhost:6379
-
-# API Keys (Required for AI features)
-ANTHROPIC_API_KEY=your_anthropic_key
-PERPLEXITY_API_KEY=your_perplexity_key
-OPENAI_API_KEY=your_openai_key
-
-# Blockchain Configuration
-ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/your_project_id
-POLYGON_RPC_URL=https://polygon-rpc.com
-
-# Security
-JWT_SECRET=your_jwt_secret
-ENCRYPTION_KEY=your_encryption_key
-
-# Monitoring
-PROMETHEUS_PORT=9090
-GRAFANA_PORT=3000
-```
-
-#### Development Tools Setup
-
-This project uses several development tools that are automatically ignored by Git:
-
-1. **Task Master AI** - For development workflow management
-   - Configuration files: `.taskmaster/`
-   - Task files: `.taskmaster/tasks/`
-   - Reports: `.taskmaster/reports/`
-
-2. **Cursor IDE** - For AI-assisted development
-   - Configuration: `.cursor/`
-   - Rules: `.cursor/rules/`
-
-3. **Claude AI** - For AI assistant integration
-   - Commands: `.claude/`
-
-#### Local Development Workflow
-
-```bash
-# Start all services
-docker-compose up -d
-
-# Run tests
-npm test
-
-# Run specific test suites
-npm run test:unit
-npm run test:integration
-npm run test:e2e
-
-# Generate coverage reports
-npm run test:coverage
-
-# Lint and format code
-npm run lint
-npm run format
-
-# Type checking
-npm run type-check
-```
-
 ### Task Management
 This project uses Task Master AI for development workflow:
 
@@ -167,76 +98,6 @@ YieldSensei/
 ├── scripts/               # Utility scripts
 ├── deployments/           # Deployment configs
 └── monitoring/            # Monitoring & telemetry
-```
-
-### Ignored Files and Directories
-
-The following files and directories are automatically ignored by Git to keep the repository clean:
-
-- **Temporary files**: `temp/`, `test-reports/`, `reports/`
-- **Coverage reports**: `coverage/`
-- **Development tools**: `.taskmaster/`, `.cursor/`, `.claude/`
-- **Environment files**: `.env*`
-- **Build artifacts**: `dist/`, `build/`
-- **Logs**: `*.log`, `logs/`
-- **IDE files**: `.vscode/`, `.idea/`
-- **OS files**: `.DS_Store`, `Thumbs.db`
-
-### Database Setup
-
-```bash
-# Start PostgreSQL with HA setup
-cd deployments/postgresql-ha
-docker-compose up -d
-
-# Start ClickHouse for analytics
-cd deployments/clickhouse
-docker-compose up -d
-
-# Start Redis cluster
-cd deployments/redis
-docker-compose up -d
-
-# Start Kafka for messaging
-cd deployments/kafka
-docker-compose up -d
-```
-
-### Monitoring Setup
-
-```bash
-# Start Prometheus and Grafana
-cd monitoring
-docker-compose up -d
-
-# Access Grafana at http://localhost:3000
-# Default credentials: admin/admin
-```
-
-### Security Testing
-
-```bash
-# Run security tests
-npm run test:security
-
-# Generate security reports
-npm run security:report
-
-# Validate encryption
-npm run security:validate
-```
-
-### Performance Testing
-
-```bash
-# Run performance tests
-npm run test:performance
-
-# Generate performance reports
-npm run performance:report
-
-# Run concurrency tests
-npm run test:concurrency
 ```
 
 ## Performance Targets
@@ -278,3 +139,44 @@ This project handles financial assets and user funds. Security is paramount:
 - Regular security audits by third parties
 - Bug bounty program for responsible disclosure
 - Multi-signature wallets with time-locks
+## 🚀 Quick Setup
+
+### Environment Configuration
+
+1. **Run the setup script:**
+   ```bash
+   ./scripts/setup-env.sh
+   ```
+
+2. **Edit your API keys:**
+   ```bash
+   # Edit .env file with your actual API keys
+   nano .env
+   ```
+
+3. **Restart Cursor IDE** to load the new MCP configuration
+
+### Required API Keys
+
+You'll need API keys for the AI providers you want to use:
+
+- **Anthropic** (Claude): https://console.anthropic.com/
+- **Perplexity**: https://www.perplexity.ai/settings/api
+- **OpenAI**: https://platform.openai.com/api-keys
+- **Google**: https://makersuite.google.com/app/apikey
+- **OpenRouter**: https://openrouter.ai/keys
+- **Mistral**: https://console.mistral.ai/
+- **Azure OpenAI**: https://portal.azure.com/
+- **Ollama**: Local installation (http://localhost:11434)
+
+### AI Tools Integration
+
+This project includes several AI tools:
+
+- **Claude AI Assistant** (`.claude/`): Command templates and workflows
+- **Taskmaster** (`.taskmaster/`): Task management and project planning
+- **Serena AI** (`.serena/`): Project memories and context
+- **Cursor IDE** (`.cursor/`): Development environment rules
+
+All configuration files are tracked in git for easy setup across different machines.
+

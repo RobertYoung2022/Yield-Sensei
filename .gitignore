@@ -20,6 +20,14 @@ target/
 *.tgz
 *.tar.gz
 
+# Rust build artifacts
+src/**/target/
+*.rlib
+*.rmeta
+*.so
+*.dylib
+*.dll
+
 # Runtime data
 pids
 *.pid
@@ -175,17 +183,31 @@ test-reports/
 docker-compose.local.yml
 .env.override
 
-# Development tools
-.taskmaster/
-.cursor/
-.claude/
-
-# Generated reports and data
+# Generated reports and data (but preserve AI tools)
 reports/
 temp/
 coverage/
-security_report_*.json
-fundamental-analysis-coverage.json
-task-*-package-update-summary.md
-database-security-report.md
-encryption-validation-report.md
+
+# Generated JSON reports (temporary files)
+temp/*.json
+test-reports/*.json
+reports/*.json
+reports/security_report_*.json
+reports/fundamental-analysis-coverage.json
+reports/task-*-package-update-summary.md
+reports/database-security-report.md
+reports/encryption-validation-report.md
+
+# Preserve AI tools - DO NOT IGNORE
+# .claude/ - Keep Claude AI assistant files
+# .taskmaster/ - Keep Taskmaster files
+# .serena/ - Keep Serena AI files
+# .cursor/ - Keep Cursor IDE configuration
+
+# Taskmaster specific exclusions (keep config but ignore generated files)
+.taskmaster/reports/
+
+# Serena specific exclusions (keep memories but ignore cache)
+.serena/cache/
+
+# Cursor specific exclusions (keep rules but ignore local settings)

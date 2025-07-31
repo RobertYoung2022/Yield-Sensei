@@ -1,0 +1,37 @@
+{
+  "models": {
+    "main": {
+      "provider": "anthropic",
+      "modelId": "claude-3-7-sonnet-20250219",
+      "maxTokens": 120000,
+      "temperature": 0.2
+    },
+    "research": {
+      "provider": "perplexity",
+      "modelId": "sonar-pro",
+      "maxTokens": 8700,
+      "temperature": 0.1
+    },
+    "fallback": {
+      "provider": "anthropic",
+      "modelId": "claude-3-7-sonnet-20250219",
+      "maxTokens": 120000,
+      "temperature": 0.2
+    }
+  },
+  "global": {
+    "logLevel": "${TASKMASTER_LOG_LEVEL:-info}",
+    "debug": "${TASKMASTER_DEBUG:-false}",
+    "defaultNumTasks": "${TASKMASTER_DEFAULT_NUM_TASKS:-10}",
+    "defaultSubtasks": "${TASKMASTER_DEFAULT_SUBTASKS:-5}",
+    "defaultPriority": "${TASKMASTER_DEFAULT_PRIORITY:-medium}",
+    "projectName": "${TASKMASTER_PROJECT_NAME:-YieldSensei}",
+    "ollamaBaseURL": "${OLLAMA_BASE_URL:-http://localhost:11434/api}",
+    "bedrockBaseURL": "https://bedrock.us-east-1.amazonaws.com",
+    "responseLanguage": "${TASKMASTER_RESPONSE_LANGUAGE:-English}",
+    "defaultTag": "${TASKMASTER_DEFAULT_TAG:-master}",
+    "azureOpenaiBaseURL": "${AZURE_OPENAI_ENDPOINT:-https://your-endpoint.openai.azure.com/}",
+    "userId": "1234567890"
+  },
+  "claudeCode": {}
+}
