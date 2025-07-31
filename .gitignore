@@ -11,6 +11,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env*
 
 # Build outputs
 dist/
@@ -116,6 +117,7 @@ Thumbs.db
 # Docker
 .dockerignore
 docker-compose.override.yml
+docker-compose.local.yml
 
 # Database
 *.sqlite
@@ -163,6 +165,8 @@ monitoring/logs/
 test-results/
 playwright-report/
 test-report/
+test-data/
+test-reports/
 
 # Analytics and telemetry
 .telemetry/
@@ -170,3 +174,18 @@ test-report/
 # Local development overrides
 docker-compose.local.yml
 .env.override
+
+# Development tools
+.taskmaster/
+.cursor/
+.claude/
+
+# Generated reports and data
+reports/
+temp/
+coverage/
+security_report_*.json
+fundamental-analysis-coverage.json
+task-*-package-update-summary.md
+database-security-report.md
+encryption-validation-report.md
