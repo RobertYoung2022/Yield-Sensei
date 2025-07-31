@@ -86,7 +86,10 @@ export const DEFAULT_PULSE_CONFIG: PulseSatelliteConfig = {
     diversificationRequirement: 0.7,
     mlModelEnabled: true,
     historicalDataWindow: 2592000000, // 30 days
-    confidenceThreshold: 0.75
+    confidenceThreshold: 0.75,
+    enableAPYPrediction: true,
+    enableSustainabilityDetection: true,
+    sustainabilityThreshold: 0.6
   },
   liquidStaking: {
     enableAutoStaking: true,

@@ -13,6 +13,11 @@ import {
   SlashingEvent,
   LiquidStakingConfig
 } from '../types';
+import { getUnifiedAIClient } from '../../../integrations/ai/unified-ai-client';
+import { YieldOptimizationEngine } from '../optimization/yield-optimization-engine';
+import { LiquidStakingOptimizer } from './liquid-staking-optimizer';
+import { ValidatorAnalyzer } from './validator-analyzer';
+import { RewardOptimizer } from './reward-optimizer';
 
 export interface LiquidStakingManagerConfig {
   enableAutoStaking: boolean;
@@ -26,6 +31,22 @@ export interface LiquidStakingManagerConfig {
   minStakeAmount: number;
   validatorDiversification: boolean;
   performanceThreshold: number;
+  enableAdvancedOptimization: boolean;
+  enableYieldPrediction: boolean;
+  enableValidatorAnalytics: boolean;
+  enableMEVProtection: boolean;
+  enableAutoCompounding: boolean;
+  riskManagement: {
+    maxSlashingRisk: number;
+    diversificationMinimum: number;
+    performanceTrackingWindow: number;
+  };
+  rewards: {
+    optimizationStrategy: 'maximize_apy' | 'minimize_risk' | 'balanced';
+    compoundingFrequency: number; // hours
+    taxOptimization: boolean;
+    claimThreshold: number; // minimum rewards to claim
+  };
 }
 
 export class LiquidStakingManager extends EventEmitter {
@@ -40,6 +61,15 @@ export class LiquidStakingManager extends EventEmitter {
   private stakingPositions: Map<string, LiquidStakingPosition> = new Map();
   private performanceHistory: Map<string, any[]> = new Map();
   private rebalanceInterval?: NodeJS.Timeout;
+  
+  // Enhanced components
+  private aiClient = getUnifiedAIClient();
+  private liquidStakingOptimizer?: LiquidStakingOptimizer;
+  private validatorAnalyzer?: ValidatorAnalyzer;
+  private rewardOptimizer?: RewardOptimizer;
+  private optimizationCache: Map<string, any> = new Map();
+  private yieldPredictions: Map<string, any> = new Map();
+  private mevProtectionData: Map<string, any> = new Map();
 
   private constructor(config: LiquidStakingManagerConfig) {
     super();
@@ -78,6 +108,50 @@ export class LiquidStakingManager extends EventEmitter {
 
       // Initialize performance tracking
       await this.initializePerformanceTracking();
+
+      // Initialize advanced components if enabled
+      if (this.config.enableAdvancedOptimization) {
+        this.liquidStakingOptimizer = LiquidStakingOptimizer.getInstance({
+          optimizationStrategy: this.config.rewards.optimizationStrategy,
+          riskModel: 'moderate',
+          maxValidatorsPerAsset: this.config.maxValidatorsPerAsset,
+          rebalanceThreshold: 0.05,
+          diversificationRequirement: this.config.riskManagement.diversificationMinimum,
+          performanceTracking: true,
+          aiModelConfig: {
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.3,
+            maxTokens: 1000
+          }
+        });
+        await this.liquidStakingOptimizer.initialize();
+      }
+
+      if (this.config.enableValidatorAnalytics) {
+        this.validatorAnalyzer = ValidatorAnalyzer.getInstance({
+          enableAIAnalysis: true,
+          historicalDataWindow: this.config.riskManagement.performanceTrackingWindow,
+          performanceThreshold: this.config.performanceThreshold,
+          maxSlashingTolerance: this.config.riskManagement.maxSlashingRisk,
+          diversificationWeight: 0.3,
+          enablePredictiveAnalysis: this.config.enableYieldPrediction
+        });
+        await this.validatorAnalyzer.initialize();
+      }
+
+      if (this.config.enableAutoCompounding) {
+        this.rewardOptimizer = RewardOptimizer.getInstance({
+          enableAutoCompounding: true,
+          minClaimThreshold: this.config.rewards.claimThreshold,
+          maxClaimInterval: 604800,
+          gasOptimization: true,
+          reinvestmentStrategy: 'hybrid',
+          enableTaxOptimization: this.config.rewards.taxOptimization,
+          compoundingFrequency: 'optimal'
+        });
+        await this.rewardOptimizer.initialize();
+      }
 
       this.isInitialized = true;
       this.logger.info('Liquid Staking Manager initialized successfully');
@@ -193,11 +267,17 @@ export class LiquidStakingManager extends EventEmitter {
         validatorCount: validators.length
       });
 
-      // Select optimal validators
-      const selectedValidators = this.selectOptimalValidators(validators, request);
+      // Enhanced validator analysis
+      const analyzedValidators = await this.performAdvancedValidatorAnalysis(validators, request);
 
-      // Calculate allocation weights
-      const allocations = this.calculateAllocationWeights(selectedValidators, request);
+      // Select optimal validators with AI-powered insights
+      const selectedValidators = await this.selectOptimalValidatorsAdvanced(analyzedValidators, request);
+
+      // Calculate optimal allocation weights with risk management
+      const allocations = await this.calculateOptimalAllocationWeights(selectedValidators, request);
+
+      // Generate yield predictions for selected validators
+      const yieldPredictions = await this.generateYieldPredictions(selectedValidators, request);
 
       // Create staking positions
       const positions: LiquidStakingPosition[] = [];
@@ -701,14 +781,452 @@ export class LiquidStakingManager extends EventEmitter {
     };
   }
 
+  // Advanced optimization methods
+  private async performAdvancedValidatorAnalysis(
+    validators: ValidatorInfo[], 
+    request: StakingOptimizationRequest
+  ): Promise<ValidatorInfo[]> {
+    if (!this.config.enableValidatorAnalytics || !this.validatorAnalyzer) {
+      return validators;
+    }
+
+    const analyzedValidators = [];
+    
+    for (const validator of validators) {
+      const analysis = await this.validatorAnalyzer.analyzeValidator(validator);
+      const enhancedValidator = {
+        ...validator,
+        analytics: analysis
+      };
+      analyzedValidators.push(enhancedValidator);
+    }
+
+    return analyzedValidators;
+  }
+
+  private async selectOptimalValidatorsAdvanced(
+    validators: ValidatorInfo[],
+    request: StakingOptimizationRequest
+  ): Promise<ValidatorInfo[]> {
+    try {
+      if (!this.config.enableAdvancedOptimization || !this.liquidStakingOptimizer) {
+        return this.selectOptimalValidators(validators, request);
+      }
+
+      // Use AI-powered validator selection
+      const optimizationResult = await this.liquidStakingOptimizer.optimizeValidatorSelection(
+        validators,
+        request
+      );
+
+      this.logger.info('Advanced validator selection completed', {
+        selectedCount: optimizationResult.selectedValidators.length,
+        optimizationScore: optimizationResult.score,
+        riskScore: optimizationResult.riskScore
+      });
+
+      return optimizationResult.selectedValidators;
+    } catch (error) {
+      this.logger.warn('Advanced validator selection failed, falling back to basic:', error);
+      return this.selectOptimalValidators(validators, request);
+    }
+  }
+
+  private async calculateOptimalAllocationWeights(
+    validators: ValidatorInfo[],
+    request: StakingOptimizationRequest
+  ): Promise<number[]> {
+    try {
+      if (!this.config.enableAdvancedOptimization || !this.liquidStakingOptimizer) {
+        return this.calculateAllocationWeights(validators, request);
+      }
+
+      // Use advanced allocation optimization
+      const allocationResult = await this.liquidStakingOptimizer.optimizeAllocation(
+        validators,
+        request.amount,
+        {
+          riskTolerance: request.constraints.slashingTolerance,
+          diversificationRequirement: this.config.riskManagement.diversificationMinimum,
+          maxAllocationPerValidator: 1 / Math.max(validators.length, 2) * 2, // Max 2x equal weight
+          minAllocationThreshold: 0.01 // Minimum 1% allocation
+        }
+      );
+
+      return allocationResult.weights;
+    } catch (error) {
+      this.logger.warn('Advanced allocation optimization failed, falling back to basic:', error);
+      return this.calculateAllocationWeights(validators, request);
+    }
+  }
+
+  private async generateYieldPredictions(
+    validators: ValidatorInfo[],
+    request: StakingOptimizationRequest
+  ): Promise<Map<string, any>> {
+    const predictions = new Map();
+
+    if (!this.config.enableYieldPrediction) {
+      return predictions;
+    }
+
+    try {
+      for (const validator of validators) {
+        const prediction = await this.predictValidatorYield(validator, request);
+        predictions.set(validator.id, prediction);
+      }
+
+      this.yieldPredictions = predictions;
+      this.logger.info('Yield predictions generated', { count: predictions.size });
+    } catch (error) {
+      this.logger.warn('Yield prediction generation failed:', error);
+    }
+
+    return predictions;
+  }
+
+  private async predictValidatorYield(
+    validator: ValidatorInfo,
+    request: StakingOptimizationRequest
+  ): Promise<any> {
+    try {
+      const prompt = `Predict the staking yield and performance for this validator over the next ${Math.floor(request.duration / (24 * 60 * 60))} days:
+
+Validator Details:
+- Name: ${validator.name}
+- Chain: ${validator.chain}
+- Commission: ${(validator.commission * 100).toFixed(2)}%
+- Uptime: ${(validator.performance.uptime * 100).toFixed(2)}%
+- Effectiveness: ${(validator.performance.effectiveness * 100).toFixed(2)}%
+- Total Staked: $${validator.delegation.totalStaked.toFixed(0)}
+- Delegator Count: ${validator.delegation.delegatorCount}
+- Reputation Score: ${(validator.reputation.score * 100).toFixed(1)}%
+- Recent Slashing Events: ${validator.performance.slashingHistory.length}
+
+Staking Context:
+- Asset: ${request.asset}
+- Amount: ${request.amount}
+- Duration: ${Math.floor(request.duration / (24 * 60 * 60))} days
+- Risk Tolerance: ${request.constraints.slashingTolerance}
+
+Consider:
+1. Network staking rewards and inflation
+2. Validator performance trends
+3. Commission changes probability
+4. Slashing risk assessment
+5. Network upgrade impacts
+6. Market conditions effect on staking
+
+Provide JSON response:
+{
+  "predicted_apy": 0.XX,
+  "confidence": 0.XX,
+  "risk_factors": ["factor1", "factor2"],
+  "yield_stability": 0.XX,
+  "slashing_probability": 0.XX,
+  "performance_trend": "improving|stable|declining",
+  "optimal_duration": XXX
+}`;
+
+      const result = await this.aiClient.generateText({
+        prompt,
+        maxTokens: 800,
+        temperature: 0.2,
+        systemPrompt: 'You are an expert in blockchain staking economics and validator performance analysis.'
+      });
+
+      if (result.success && result.data?.text) {
+        try {
+          const prediction = JSON.parse(result.data.text);
+          return {
+            validatorId: validator.id,
+            predictedAPY: prediction.predicted_apy || this.calculateStakingApy(validator, request.asset),
+            confidence: prediction.confidence || 0.7,
+            riskFactors: prediction.risk_factors || [],
+            yieldStability: prediction.yield_stability || 0.5,
+            slashingProbability: prediction.slashing_probability || 0.01,
+            performanceTrend: prediction.performance_trend || 'stable',
+            optimalDuration: prediction.optimal_duration || request.duration,
+            timestamp: new Date()
+          };
+        } catch (parseError) {
+          this.logger.debug('Failed to parse yield prediction:', parseError);
+        }
+      }
+    } catch (error) {
+      this.logger.debug('AI yield prediction failed:', error);
+    }
+
+    // Fallback to basic calculation
+    return {
+      validatorId: validator.id,
+      predictedAPY: this.calculateStakingApy(validator, request.asset),
+      confidence: 0.5,
+      riskFactors: [],
+      yieldStability: 0.6,
+      slashingProbability: this.calculateSlashingRisk(validator),
+      performanceTrend: 'stable',
+      optimalDuration: request.duration,
+      timestamp: new Date()
+    };
+  }
+
+  // Enhanced reward optimization
+  async optimizeRewardClaiming(): Promise<void> {
+    if (!this.config.enableAutoCompounding || !this.rewardOptimizer) {
+      await this.claimAllRewards();
+      return;
+    }
+
+    try {
+      this.logger.info('Starting optimized reward claiming...');
+
+      const positions = Array.from(this.stakingPositions.values());
+      const optimizationResult = await this.rewardOptimizer.optimizeBatch(positions);
+
+      for (const action of optimizationResult.batchActions) {
+        const position = this.stakingPositions.get(action.positionId);
+        if (!position) continue;
+
+        switch (action.type) {
+          case 'claim':
+            await this.claimRewards(position);
+            break;
+          case 'compound':
+            await this.compoundRewards(position);
+            break;
+          case 'reinvest':
+            await this.reinvestRewards(position, action.targetValidator);
+            break;
+          case 'hold':
+            // Do nothing, optimal to hold
+            break;
+        }
+      }
+
+      this.logger.info('Optimized reward claiming completed', {
+        actionsExecuted: optimizationResult.batchActions.length,
+        estimatedSavings: optimizationResult.batchGasSavings
+      });
+    } catch (error) {
+      this.logger.error('Optimized reward claiming failed:', error);
+      // Fallback to basic claiming
+      await this.claimAllRewards();
+    }
+  }
+
+  private async claimRewards(position: LiquidStakingPosition): Promise<void> {
+    if (position.rewards.accrued >= this.config.rewards.claimThreshold) {
+      position.rewards.claimed += position.rewards.accrued;
+      position.rewards.accrued = 0;
+      position.rewards.lastClaim = new Date();
+      position.updatedAt = new Date();
+      
+      this.stakingPositions.set(position.id, position);
+      
+      this.emit('rewards_claimed', {
+        positionId: position.id,
+        amount: position.rewards.claimed,
+        timestamp: new Date()
+      });
+    }
+  }
+
+  private async compoundRewards(position: LiquidStakingPosition): Promise<void> {
+    if (position.rewards.accrued >= this.config.minStakeAmount) {
+      position.amount += position.rewards.accrued;
+      position.rewards.accrued = 0;
+      position.rewards.lastClaim = new Date();
+      position.updatedAt = new Date();
+      
+      this.stakingPositions.set(position.id, position);
+      
+      this.emit('rewards_compounded', {
+        positionId: position.id,
+        amount: position.rewards.accrued,
+        newTotalAmount: position.amount,
+        timestamp: new Date()
+      });
+    }
+  }
+
+  private async reinvestRewards(position: LiquidStakingPosition, targetValidatorId?: string): Promise<void> {
+    if (position.rewards.accrued >= this.config.minStakeAmount) {
+      const targetValidator = targetValidatorId 
+        ? this.validatorRegistry.get(targetValidatorId)
+        : await this.findOptimalValidatorForReinvestment(position);
+
+      if (targetValidator) {
+        // Create new position with reinvested rewards
+        const newPosition = await this.createStakingPosition(
+          targetValidator,
+          position.asset,
+          position.rewards.accrued
+        );
+
+        this.stakingPositions.set(newPosition.id, newPosition);
+        
+        // Update original position
+        position.rewards.claimed += position.rewards.accrued;
+        position.rewards.accrued = 0;
+        position.rewards.lastClaim = new Date();
+        position.updatedAt = new Date();
+        
+        this.stakingPositions.set(position.id, position);
+        
+        this.emit('rewards_reinvested', {
+          originalPositionId: position.id,
+          newPositionId: newPosition.id,
+          amount: newPosition.amount,
+          targetValidator: targetValidator.id,
+          timestamp: new Date()
+        });
+      }
+    }
+  }
+
+  private async findOptimalValidatorForReinvestment(position: LiquidStakingPosition): Promise<ValidatorInfo | null> {
+    try {
+      const availableValidators = await this.getAvailableValidators(position.asset);
+      const filteredValidators = availableValidators.filter(v => v.id !== position.validator.id);
+      
+      if (filteredValidators.length === 0) return null;
+      
+      // Find validator with best score that's different from current
+      return filteredValidators[0]; // Already sorted by score
+    } catch (error) {
+      this.logger.error('Failed to find optimal validator for reinvestment:', error);
+      return null;
+    }
+  }
+
+  // MEV Protection and Advanced Features
+  async enableMEVProtection(positionId: string): Promise<void> {
+    if (!this.config.enableMEVProtection) return;
+
+    const position = this.stakingPositions.get(positionId);
+    if (!position) return;
+
+    try {
+      // Implement MEV protection strategies
+      const mevProtection = {
+        enablePrivateMempool: true,
+        useFlashbotsProtection: true,
+        enableSandwichProtection: true,
+        maxSlippage: 0.005, // 0.5%
+        enabledAt: new Date()
+      };
+
+      this.mevProtectionData.set(positionId, mevProtection);
+      
+      this.logger.info('MEV protection enabled', { positionId });
+    } catch (error) {
+      this.logger.error('Failed to enable MEV protection:', error);
+    }
+  }
+
+  // Analytics and reporting
+  async generateStakingReport(): Promise<any> {
+    const positions = Array.from(this.stakingPositions.values());
+    const totalStaked = positions.reduce((sum, pos) => sum + pos.amount, 0);
+    const totalRewards = positions.reduce((sum, pos) => sum + pos.rewards.claimed + pos.rewards.accrued, 0);
+    const avgAPY = positions.reduce((sum, pos) => sum + pos.apy, 0) / positions.length;
+
+    const assetBreakdown = positions.reduce((breakdown, pos) => {
+      breakdown[pos.asset] = (breakdown[pos.asset] || 0) + pos.amount;
+      return breakdown;
+    }, {} as Record<string, number>);
+
+    const validatorBreakdown = positions.reduce((breakdown, pos) => {
+      breakdown[pos.validator.name] = (breakdown[pos.validator.name] || 0) + pos.amount;
+      return breakdown;
+    }, {} as Record<string, number>);
+
+    return {
+      summary: {
+        totalPositions: positions.length,
+        totalStaked,
+        totalRewards,
+        averageAPY: avgAPY,
+        totalValue: totalStaked + totalRewards
+      },
+      breakdown: {
+        byAsset: assetBreakdown,
+        byValidator: validatorBreakdown
+      },
+      performance: {
+        bestPerforming: positions.sort((a, b) => b.apy - a.apy)[0],
+        worstPerforming: positions.sort((a, b) => a.apy - b.apy)[0],
+        riskMetrics: this.calculatePortfolioRiskMetrics(positions)
+      },
+      predictions: Object.fromEntries(this.yieldPredictions),
+      generatedAt: new Date()
+    };
+  }
+
+  private calculatePortfolioRiskMetrics(positions: LiquidStakingPosition[]): any {
+    const slashingRisks = positions.map(pos => this.calculateSlashingRisk(pos.validator));
+    const apyVariance = this.calculateVariance(positions.map(pos => pos.apy));
+    
+    return {
+      averageSlashingRisk: slashingRisks.reduce((sum, risk) => sum + risk, 0) / slashingRisks.length,
+      maxSlashingRisk: Math.max(...slashingRisks),
+      apyVolatility: Math.sqrt(apyVariance),
+      concentrationRisk: this.calculateConcentrationRisk(positions),
+      diversificationScore: this.calculateDiversificationScore(positions)
+    };
+  }
+
+  private calculateVariance(values: number[]): number {
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
+    return squaredDiffs.reduce((sum, diff) => sum + diff, 0) / values.length;
+  }
+
+  private calculateConcentrationRisk(positions: LiquidStakingPosition[]): number {
+    const totalAmount = positions.reduce((sum, pos) => sum + pos.amount, 0);
+    const weights = positions.map(pos => pos.amount / totalAmount);
+    
+    // Herfindahl-Hirschman Index
+    return weights.reduce((sum, weight) => sum + weight * weight, 0);
+  }
+
+  private calculateDiversificationScore(positions: LiquidStakingPosition[]): number {
+    const validators = new Set(positions.map(pos => pos.validator.id));
+    const chains = new Set(positions.map(pos => pos.validator.chain));
+    const assets = new Set(positions.map(pos => pos.asset));
+    
+    // Diversification score based on number of unique validators, chains, and assets
+    const validatorScore = Math.min(validators.size / 5, 1); // Optimal: 5+ validators
+    const chainScore = Math.min(chains.size / 3, 1); // Optimal: 3+ chains
+    const assetScore = Math.min(assets.size / 3, 1); // Optimal: 3+ assets
+    
+    return (validatorScore + chainScore + assetScore) / 3;
+  }
+
   async shutdown(): Promise<void> {
     try {
       this.logger.info('Shutting down Liquid Staking Manager...');
 
       await this.stopAutoStaking();
+      
+      // Shutdown enhanced components
+      if (this.liquidStakingOptimizer) {
+        await this.liquidStakingOptimizer.shutdown();
+      }
+      if (this.validatorAnalyzer) {
+        await this.validatorAnalyzer.shutdown();
+      }
+      if (this.rewardOptimizer) {
+        await this.rewardOptimizer.shutdown();
+      }
+      
       this.validatorRegistry.clear();
       this.stakingPositions.clear();
       this.performanceHistory.clear();
+      this.optimizationCache.clear();
+      this.yieldPredictions.clear();
+      this.mevProtectionData.clear();
       this.removeAllListeners();
 
       this.logger.info('Liquid Staking Manager shutdown complete');

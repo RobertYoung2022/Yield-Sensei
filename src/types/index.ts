@@ -3,10 +3,10 @@
  */
 
 // Re-export common types and utilities
-export * from './common.js';
+export * from './common';
 
 // Re-export database schema types
-export * from './database-schemas.js';
+export * from './database-schemas';
 
 // Agent Types
 export type AgentId = string;

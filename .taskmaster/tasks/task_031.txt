@@ -1,7 +1,7 @@
 # Task ID: 31
 # Title: Public Demo & Documentation Package Creation
 # Status: pending
-# Dependencies: 29, 27, 26, 11
+# Dependencies: 29, 27, 26, 35
 # Priority: medium
 # Description: Create a comprehensive public demonstration environment and documentation package for YieldSensei, including user guides, API documentation, video demos, marketing materials, and a public-facing demo instance.
 # Details:

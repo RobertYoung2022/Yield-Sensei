@@ -7,6 +7,8 @@ import { EventEmitter } from 'events';
 import { Logger } from 'winston';
 import { createLogger, format, transports } from 'winston';
 import { SentimentData, SocialPlatform } from '../types';
+import { DiscordClient } from '../../../integrations/social/discord-client';
+import { getUnifiedAIClient } from '../../../integrations/ai/unified-ai-client';
 
 export interface DiscordConfig {
   botToken: string;
@@ -21,6 +23,8 @@ export interface DiscordConfig {
 export class DiscordIntegration extends EventEmitter {
   private logger: Logger;
   private config: DiscordConfig;
+  private discordClient: DiscordClient;
+  private aiClient = getUnifiedAIClient();
   private isConnected: boolean = false;
   private isCollecting: boolean = false;
   private lastCollectionTime: Date = new Date();
@@ -30,10 +34,17 @@ export class DiscordIntegration extends EventEmitter {
     remaining: 0,
     resetTime: new Date()
   };
+  private collectionInterval?: NodeJS.Timeout;
 
   constructor(config: DiscordConfig) {
     super();
     this.config = config;
+    this.discordClient = new DiscordClient({
+      botToken: config.botToken,
+      clientId: config.clientId,
+      clientSecret: config.clientSecret
+    });
+    
     this.logger = createLogger({
       level: 'info',
       format: format.combine(
@@ -51,13 +62,21 @@ export class DiscordIntegration extends EventEmitter {
     try {
       this.logger.info('Initializing Discord integration...');
       
-      // TODO: Initialize Discord.js client
-      // const client = new Client({
-      //   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
-      // });
-      // await client.login(this.config.botToken);
+      // Initialize Discord client
+      await this.discordClient.initialize();
+      
+      // Test connection
+      const status = await this.discordClient.getHealthStatus();
+      if (!status.isHealthy) {
+        throw new Error('Discord client health check failed');
+      }
 
       this.isConnected = true;
+      this.rateLimitStatus = {
+        remaining: 100, // Default
+        resetTime: new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+      };
+      
       this.logger.info('Discord integration initialized successfully');
     } catch (error) {
       this.logger.error('Failed to initialize Discord integration:', error);
@@ -71,7 +90,12 @@ export class DiscordIntegration extends EventEmitter {
       this.logger.info('Starting Discord data collection...');
       this.isCollecting = true;
       
-      // TODO: Start message collection from monitored servers/channels
+      // Start periodic collection
+      this.collectionInterval = setInterval(() => {
+        this.collectData().catch(error => {
+          this.logger.error('Error in periodic collection:', error);
+        });
+      }, 5 * 60 * 1000); // Every 5 minutes
       
       this.logger.info('Discord data collection started');
     } catch (error) {
@@ -86,7 +110,10 @@ export class DiscordIntegration extends EventEmitter {
       this.logger.info('Stopping Discord data collection...');
       this.isCollecting = false;
       
-      // TODO: Stop message collection
+      if (this.collectionInterval) {
+        clearInterval(this.collectionInterval);
+        this.collectionInterval = undefined;
+      }
       
       this.logger.info('Discord data collection stopped');
     } catch (error) {
@@ -98,13 +125,45 @@ export class DiscordIntegration extends EventEmitter {
 
   async collectData(): Promise<void> {
     try {
-      // TODO: Implement periodic data collection from Discord servers
-      // const messages = await this.fetchRecentMessages();
-      // const sentimentData = this.convertToSentimentData(messages);
-      // this.emit('data_collected', sentimentData);
+      if (!this.isCollecting) return;
+
+      // Search for crypto-related messages in monitored Discord servers
+      const queries = [
+        'DeFi OR "decentralized finance"',
+        'Bitcoin OR BTC',
+        'Ethereum OR ETH', 
+        'yield farming',
+        'staking rewards',
+        'bridge protocol'
+      ];
+
+      const allMessages: any[] = [];
+      
+      for (const query of queries) {
+        try {
+          const messages = await this.discordClient.searchMessages({
+            query,
+            maxResults: 100,
+            timeframe: '1h'
+          });
+          
+          if (messages.success && messages.data) {
+            allMessages.push(...messages.data.messages);
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to search for "${query}":`, error);
+        }
+      }
+
+      if (allMessages.length > 0) {
+        const sentimentData = this.convertToSentimentData(allMessages);
+        this.dataCollectedCount += sentimentData.length;
+        this.emit('data_collected', sentimentData);
+        
+        this.logger.info(`Collected ${sentimentData.length} Discord messages`);
+      }
       
       this.lastCollectionTime = new Date();
-      this.dataCollectedCount += 0; // Placeholder
     } catch (error) {
       this.logger.error('Failed to collect Discord data:', error);
       this.errorCount++;
@@ -114,12 +173,37 @@ export class DiscordIntegration extends EventEmitter {
 
   async fetchData(request: any): Promise<SentimentData[]> {
     try {
-      // TODO: Implement data fetching based on request parameters
-      // - Search messages in specific servers/channels
-      // - Filter by timeframe
-      // - Filter by user influence/roles
+      const { entity, timeframe, includeInfluencers } = request;
       
-      return []; // Placeholder
+      // Build search query
+      let query = entity || 'crypto OR DeFi OR blockchain';
+      
+      if (includeInfluencers) {
+        // Search in channels where crypto influencers are active
+        query += ' in:general OR in:trading OR in:defi OR in:announcements';
+      }
+
+      // Search messages
+      const result = await this.discordClient.searchMessages({
+        query,
+        maxResults: 1000,
+        timeframe: timeframe || '1h'
+      });
+
+      if (!result.success || !result.data) {
+        throw new Error(`Discord search failed: ${result.error}`);
+      }
+
+      // Convert to sentiment data
+      const sentimentData = this.convertToSentimentData(result.data.messages);
+      
+      // Filter by timeframe if specified
+      if (timeframe) {
+        const cutoff = this.getTimeframeCutoff(timeframe);
+        return sentimentData.filter(data => data.timestamp >= cutoff);
+      }
+
+      return sentimentData;
     } catch (error) {
       this.logger.error('Failed to fetch Discord data:', error);
       this.errorCount++;
@@ -168,6 +252,30 @@ export class DiscordIntegration extends EventEmitter {
     }
     
     return Math.min(score, 1);
+  }
+
+  private getTimeframeCutoff(timeframe: string): Date {
+    const now = Date.now();
+    let cutoff: number;
+
+    switch (timeframe) {
+      case 'hour':
+        cutoff = now - (60 * 60 * 1000);
+        break;
+      case 'day':
+        cutoff = now - (24 * 60 * 60 * 1000);
+        break;
+      case 'week':
+        cutoff = now - (7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        cutoff = now - (30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        cutoff = now - (60 * 60 * 1000); // Default to 1 hour
+    }
+
+    return new Date(cutoff);
   }
 
   // Status methods

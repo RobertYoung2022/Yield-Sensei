@@ -7,6 +7,8 @@ import { EventEmitter } from 'events';
 import { Logger } from 'winston';
 import { createLogger, format, transports } from 'winston';
 import { SentimentData, SocialPlatform } from '../types';
+import { TelegramClient } from '../../../integrations/social/telegram-client';
+import { getUnifiedAIClient } from '../../../integrations/ai/unified-ai-client';
 
 export interface TelegramConfig {
   botToken: string;
@@ -21,6 +23,8 @@ export interface TelegramConfig {
 export class TelegramIntegration extends EventEmitter {
   private logger: Logger;
   private config: TelegramConfig;
+  private telegramClient: TelegramClient;
+  private aiClient = getUnifiedAIClient();
   private isConnected: boolean = false;
   private isCollecting: boolean = false;
   private lastCollectionTime: Date = new Date();
@@ -30,10 +34,17 @@ export class TelegramIntegration extends EventEmitter {
     remaining: 0,
     resetTime: new Date()
   };
+  private collectionInterval?: NodeJS.Timeout;
 
   constructor(config: TelegramConfig) {
     super();
     this.config = config;
+    this.telegramClient = new TelegramClient({
+      botToken: config.botToken,
+      apiId: config.apiId,
+      apiHash: config.apiHash
+    });
+    
     this.logger = createLogger({
       level: 'info',
       format: format.combine(
@@ -51,15 +62,21 @@ export class TelegramIntegration extends EventEmitter {
     try {
       this.logger.info('Initializing Telegram integration...');
       
-      // TODO: Initialize Telegram client
-      // const client = new TelegramClient(new StringSession(''), parseInt(this.config.apiId), this.config.apiHash, {
-      //   connectionRetries: 5,
-      // });
-      // await client.start({
-      //   botAuthToken: this.config.botToken,
-      // });
+      // Initialize Telegram client
+      await this.telegramClient.initialize();
+      
+      // Test connection
+      const status = await this.telegramClient.getHealthStatus();
+      if (!status.isHealthy) {
+        throw new Error('Telegram client health check failed');
+      }
 
       this.isConnected = true;
+      this.rateLimitStatus = {
+        remaining: 100, // Default
+        resetTime: new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
+      };
+      
       this.logger.info('Telegram integration initialized successfully');
     } catch (error) {
       this.logger.error('Failed to initialize Telegram integration:', error);
@@ -73,7 +90,12 @@ export class TelegramIntegration extends EventEmitter {
       this.logger.info('Starting Telegram data collection...');
       this.isCollecting = true;
       
-      // TODO: Start monitoring channels/groups
+      // Start periodic collection
+      this.collectionInterval = setInterval(() => {
+        this.collectData().catch(error => {
+          this.logger.error('Error in periodic collection:', error);
+        });
+      }, 5 * 60 * 1000); // Every 5 minutes
       
       this.logger.info('Telegram data collection started');
     } catch (error) {
@@ -88,7 +110,10 @@ export class TelegramIntegration extends EventEmitter {
       this.logger.info('Stopping Telegram data collection...');
       this.isCollecting = false;
       
-      // TODO: Stop monitoring
+      if (this.collectionInterval) {
+        clearInterval(this.collectionInterval);
+        this.collectionInterval = undefined;
+      }
       
       this.logger.info('Telegram data collection stopped');
     } catch (error) {
@@ -100,13 +125,45 @@ export class TelegramIntegration extends EventEmitter {
 
   async collectData(): Promise<void> {
     try {
-      // TODO: Implement periodic data collection from Telegram channels/groups
-      // const messages = await this.fetchRecentMessages();
-      // const sentimentData = this.convertToSentimentData(messages);
-      // this.emit('data_collected', sentimentData);
+      if (!this.isCollecting) return;
+
+      // Search for crypto-related messages in monitored Telegram channels
+      const queries = [
+        'DeFi OR "decentralized finance"',
+        'Bitcoin OR BTC',
+        'Ethereum OR ETH',
+        'yield farming',
+        'staking rewards',
+        'bridge protocol'
+      ];
+
+      const allMessages: any[] = [];
+      
+      for (const query of queries) {
+        try {
+          const messages = await this.telegramClient.searchMessages({
+            query,
+            maxResults: 100,
+            timeframe: '1h'
+          });
+          
+          if (messages.success && messages.data) {
+            allMessages.push(...messages.data.messages);
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to search for "${query}":`, error);
+        }
+      }
+
+      if (allMessages.length > 0) {
+        const sentimentData = this.convertToSentimentData(allMessages);
+        this.dataCollectedCount += sentimentData.length;
+        this.emit('data_collected', sentimentData);
+        
+        this.logger.info(`Collected ${sentimentData.length} Telegram messages`);
+      }
       
       this.lastCollectionTime = new Date();
-      this.dataCollectedCount += 0; // Placeholder
     } catch (error) {
       this.logger.error('Failed to collect Telegram data:', error);
       this.errorCount++;
@@ -116,12 +173,37 @@ export class TelegramIntegration extends EventEmitter {
 
   async fetchData(request: any): Promise<SentimentData[]> {
     try {
-      // TODO: Implement data fetching based on request parameters
-      // - Search messages in specific channels/groups
-      // - Filter by timeframe
-      // - Filter by user influence
+      const { entity, timeframe, includeInfluencers } = request;
       
-      return []; // Placeholder
+      // Build search query
+      let query = entity || 'crypto OR DeFi OR blockchain';
+      
+      if (includeInfluencers) {
+        // Search in channels where crypto influencers are active
+        query += ' channel:@CryptoChannel OR channel:@DeFiChannel';
+      }
+
+      // Search messages
+      const result = await this.telegramClient.searchMessages({
+        query,
+        maxResults: 1000,
+        timeframe: timeframe || '1h'
+      });
+
+      if (!result.success || !result.data) {
+        throw new Error(`Telegram search failed: ${result.error}`);
+      }
+
+      // Convert to sentiment data
+      const sentimentData = this.convertToSentimentData(result.data.messages);
+      
+      // Filter by timeframe if specified
+      if (timeframe) {
+        const cutoff = this.getTimeframeCutoff(timeframe);
+        return sentimentData.filter(data => data.timestamp >= cutoff);
+      }
+
+      return sentimentData;
     } catch (error) {
       this.logger.error('Failed to fetch Telegram data:', error);
       this.errorCount++;
@@ -174,6 +256,30 @@ export class TelegramIntegration extends EventEmitter {
     }
     
     return Math.min(score, 1);
+  }
+
+  private getTimeframeCutoff(timeframe: string): Date {
+    const now = Date.now();
+    let cutoff: number;
+
+    switch (timeframe) {
+      case 'hour':
+        cutoff = now - (60 * 60 * 1000);
+        break;
+      case 'day':
+        cutoff = now - (24 * 60 * 60 * 1000);
+        break;
+      case 'week':
+        cutoff = now - (7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        cutoff = now - (30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        cutoff = now - (60 * 60 * 1000); // Default to 1 hour
+    }
+
+    return new Date(cutoff);
   }
 
   // Status methods

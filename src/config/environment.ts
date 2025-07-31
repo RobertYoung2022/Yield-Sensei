@@ -29,16 +29,36 @@ export interface Config {
   perplexityApiKey?: string | undefined;
   openaiApiKey?: string | undefined;
   googleApiKey?: string | undefined;
+  
+  // Blockchain RPC URLs
   ethereumRpcUrl?: string | undefined;
   polygonRpcUrl?: string | undefined;
   arbitrumRpcUrl?: string | undefined;
   optimismRpcUrl?: string | undefined;
+  bscRpcUrl?: string | undefined;
+  avalancheRpcUrl?: string | undefined;
+  solanaRpcUrl?: string | undefined;
+  cosmosRpcUrl?: string | undefined;
+  
+  // External Data APIs
+  coingeckoApiKey?: string | undefined;
+  duneApiKey?: string | undefined;
+  defillamaApiKey?: string | undefined;
+  moralisApiKey?: string | undefined;
+  
+  // ElizaOS Integration
   elizaosApiKey?: string | undefined;
   elizaosWebhookSecret?: string | undefined;
+  
+  // Social Media APIs
   twitterApiKey?: string | undefined;
   twitterApiSecret?: string | undefined;
+  twitterAccessToken?: string | undefined;
+  twitterAccessTokenSecret?: string | undefined;
   discordBotToken?: string | undefined;
   telegramBotToken?: string | undefined;
+  redditClientId?: string | undefined;
+  redditClientSecret?: string | undefined;
   
   // Security
   jwtSecret: string;
@@ -85,6 +105,10 @@ export const config: Config = {
   polygonRpcUrl: process.env['POLYGON_RPC_URL'],
   arbitrumRpcUrl: process.env['ARBITRUM_RPC_URL'],
   optimismRpcUrl: process.env['OPTIMISM_RPC_URL'],
+  bscRpcUrl: process.env['BSC_RPC_URL'],
+  avalancheRpcUrl: process.env['AVALANCHE_RPC_URL'],
+  solanaRpcUrl: process.env['SOLANA_RPC_URL'],
+  cosmosRpcUrl: process.env['COSMOS_RPC_URL'],
   
   // Security
   jwtSecret: process.env['JWT_SECRET'] || (() => {
@@ -102,11 +126,21 @@ export const config: Config = {
   elizaosApiKey: process.env['ELIZAOS_API_KEY'],
   elizaosWebhookSecret: process.env['ELIZAOS_WEBHOOK_SECRET'],
   
+  // External Data APIs
+  coingeckoApiKey: process.env['COINGECKO_API_KEY'],
+  duneApiKey: process.env['DUNE_API_KEY'],
+  defillamaApiKey: process.env['DEFILLAMA_API_KEY'],
+  moralisApiKey: process.env['MORALIS_API_KEY'],
+  
   // Social Media APIs
   twitterApiKey: process.env['TWITTER_API_KEY'],
   twitterApiSecret: process.env['TWITTER_API_SECRET'],
+  twitterAccessToken: process.env['TWITTER_ACCESS_TOKEN'],
+  twitterAccessTokenSecret: process.env['TWITTER_ACCESS_TOKEN_SECRET'],
   discordBotToken: process.env['DISCORD_BOT_TOKEN'],
   telegramBotToken: process.env['TELEGRAM_BOT_TOKEN'],
+  redditClientId: process.env['REDDIT_CLIENT_ID'],
+  redditClientSecret: process.env['REDDIT_CLIENT_SECRET'],
   
   // Monitoring
   performanceMonitoringEnabled: process.env['PERFORMANCE_MONITORING_ENABLED'] === 'true',

@@ -7,6 +7,12 @@ import { EventEmitter } from 'events';
 import { Logger } from 'winston';
 import { createLogger, format, transports } from 'winston';
 import { SentimentData, SentimentAnalysis, SentimentType, EntityMention, Theme, EmotionScores } from '../types';
+import { getUnifiedAIClient } from '../../../integrations/ai/unified-ai-client';
+import { 
+  AIPoweredSentimentAnalyzer, 
+  DEFAULT_AI_SENTIMENT_CONFIG,
+  AIPoweredSentimentConfig 
+} from './ai-powered-sentiment-analyzer';
 
 export interface SentimentAnalysisConfig {
   enableRealTimeAnalysis: boolean;
@@ -20,12 +26,16 @@ export interface SentimentAnalysisConfig {
   cacheResults: boolean;
   cacheTTL: number;
   enableCryptoSpecificModels: boolean;
+  enableAIPoweredAnalysis: boolean;
+  aiPoweredConfig: AIPoweredSentimentConfig;
 }
 
 export class SentimentAnalysisEngine extends EventEmitter {
   private static instance: SentimentAnalysisEngine;
   private logger: Logger;
   private config: SentimentAnalysisConfig;
+  private aiClient = getUnifiedAIClient();
+  private aiPoweredAnalyzer?: AIPoweredSentimentAnalyzer;
   private isInitialized: boolean = false;
   private analysisCache: Map<string, SentimentAnalysis> = new Map();
   private cryptoTermsDatabase: Set<string> = new Set();
@@ -62,6 +72,24 @@ export class SentimentAnalysisEngine extends EventEmitter {
 
       // Load crypto-specific terms database
       await this.loadCryptoTermsDatabase();
+
+      // Initialize AI-powered analyzer if enabled
+      if (this.config.enableAIPoweredAnalysis) {
+        this.aiPoweredAnalyzer = AIPoweredSentimentAnalyzer.getInstance(this.config.aiPoweredConfig);
+        
+        // Forward AI-powered events
+        this.aiPoweredAnalyzer.on('ai_sentiment_analyzed', (event) => {
+          this.emit('ai_sentiment_analyzed', event);
+        });
+        
+        this.aiPoweredAnalyzer.on('narratives_detected', (event) => {
+          this.emit('narratives_detected', event);
+        });
+        
+        this.aiPoweredAnalyzer.on('trends_predicted', (event) => {
+          this.emit('trends_predicted', event);
+        });
+      }
 
       // Initialize ML models if enabled
       if (this.config.enableMLModels) {
@@ -106,18 +134,29 @@ export class SentimentAnalysisEngine extends EventEmitter {
         return cached;
       }
 
-      // Perform sentiment analysis
-      const analysis: SentimentAnalysis = {
-        id: `sentiment_${data.id}_${Date.now()}`,
-        content: data.content,
-        sentiment: await this.analyzeSentimentCore(data.content),
-        entities: await this.extractEntities(data.content),
-        themes: await this.extractThemes(data.content),
-        influence: this.calculateInfluence(data),
-        market: await this.analyzeMarketSentiment(data.content),
-        timestamp: data.timestamp,
-        processed: new Date()
-      };
+      let analysis: SentimentAnalysis;
+
+      // Use AI-powered analysis if available and confidence is high enough
+      if (this.config.enableAIPoweredAnalysis && this.aiPoweredAnalyzer) {
+        try {
+          analysis = await this.aiPoweredAnalyzer.analyzeSentimentWithConsensus(data);
+          
+          // If AI analysis confidence is below threshold, fallback to traditional analysis
+          if (analysis.sentiment.confidence < this.config.confidenceThreshold) {
+            this.logger.debug('AI analysis confidence below threshold, using fallback', {
+              aiConfidence: analysis.sentiment.confidence,
+              threshold: this.config.confidenceThreshold
+            });
+            analysis = await this.performTraditionalAnalysis(data);
+          }
+        } catch (error) {
+          this.logger.warn('AI-powered analysis failed, falling back to traditional analysis:', error);
+          analysis = await this.performTraditionalAnalysis(data);
+        }
+      } else {
+        // Use traditional analysis
+        analysis = await this.performTraditionalAnalysis(data);
+      }
 
       // Cache the result
       if (this.config.cacheResults) {
@@ -149,129 +188,366 @@ export class SentimentAnalysisEngine extends EventEmitter {
     }
   }
 
+  private async performTraditionalAnalysis(data: SentimentData): Promise<SentimentAnalysis> {
+    return {
+      id: `sentiment_${data.id}_${Date.now()}`,
+      content: data.content,
+      sentiment: await this.analyzeSentimentCore(data.content),
+      entities: await this.extractEntities(data.content),
+      themes: await this.extractThemes(data.content),
+      influence: this.calculateInfluence(data),
+      market: await this.analyzeMarketSentiment(data.content),
+      timestamp: data.timestamp,
+      processed: new Date()
+    };
+  }
+
   private async analyzeSentimentCore(content: string): Promise<{
     overall: SentimentType;
     score: number;
     confidence: number;
     emotions: EmotionScores;
   }> {
-    // TODO: Implement actual sentiment analysis
-    // This could use various approaches:
-    // 1. Traditional ML models (trained on crypto data)
-    // 2. Transformer models (BERT, RoBERTa fine-tuned for crypto)
-    // 3. External APIs (AWS Comprehend, Google Cloud NLP)
-    // 4. Hybrid approach combining multiple methods
+    try {
+      // Try AI-powered sentiment analysis first if available
+      if (this.config.enableMLModels && this.aiClient) {
+        try {
+          const aiResult = await this.performAISentimentAnalysis(content);
+          if (aiResult && aiResult.confidence > 0.6) {
+            return aiResult;
+          }
+        } catch (error) {
+          this.logger.warn('AI sentiment analysis failed, falling back to keyword analysis:', error);
+        }
+      }
 
-    // Placeholder implementation with simple keyword-based analysis
+      // Fallback to keyword-based analysis
+      return await this.performKeywordSentimentAnalysis(content);
+    } catch (error) {
+      this.logger.error('All sentiment analysis methods failed:', error);
+      throw error;
+    }
+  }
+
+  private async performAISentimentAnalysis(content: string): Promise<{
+    overall: SentimentType;
+    score: number;
+    confidence: number;
+    emotions: EmotionScores;
+  } | null> {
+    try {
+      const prompt = `Analyze the sentiment of this cryptocurrency/DeFi related social media content. Provide:
+1. Overall sentiment: very_positive, positive, neutral, negative, or very_negative
+2. Sentiment score from -1 (very negative) to +1 (very positive)
+3. Confidence level from 0 to 1
+4. Emotion scores (0-1) for: joy, fear, anger, sadness, surprise, trust, anticipation, disgust
+
+Content: "${content}"
+
+Respond in JSON format: {"sentiment": "...", "score": 0.0, "confidence": 0.0, "emotions": {"joy": 0.0, "fear": 0.0, "anger": 0.0, "sadness": 0.0, "surprise": 0.0, "trust": 0.0, "anticipation": 0.0, "disgust": 0.0}}`;
+
+      const result = await this.aiClient.chat({
+        messages: [{ role: 'user', content: prompt }],
+        provider: 'anthropic', // Use Anthropic for better structured output
+        responseFormat: 'json'
+      });
+
+      if (result.success && result.data?.content) {
+        const analysis = JSON.parse(result.data.content);
+        
+        // Map sentiment string to SentimentType enum
+        const sentimentMap: { [key: string]: SentimentType } = {
+          'very_positive': SentimentType.VERY_POSITIVE,
+          'positive': SentimentType.POSITIVE,
+          'neutral': SentimentType.NEUTRAL,
+          'negative': SentimentType.NEGATIVE,
+          'very_negative': SentimentType.VERY_NEGATIVE
+        };
+
+        return {
+          overall: sentimentMap[analysis.sentiment] || SentimentType.NEUTRAL,
+          score: Math.max(-1, Math.min(1, analysis.score || 0)),
+          confidence: Math.max(0, Math.min(1, analysis.confidence || 0)),
+          emotions: {
+            joy: Math.max(0, Math.min(1, analysis.emotions?.joy || 0)),
+            fear: Math.max(0, Math.min(1, analysis.emotions?.fear || 0)),
+            anger: Math.max(0, Math.min(1, analysis.emotions?.anger || 0)),
+            sadness: Math.max(0, Math.min(1, analysis.emotions?.sadness || 0)),
+            surprise: Math.max(0, Math.min(1, analysis.emotions?.surprise || 0)),
+            trust: Math.max(0, Math.min(1, analysis.emotions?.trust || 0)),
+            anticipation: Math.max(0, Math.min(1, analysis.emotions?.anticipation || 0)),
+            disgust: Math.max(0, Math.min(1, analysis.emotions?.disgust || 0))
+          }
+        };
+      }
+    } catch (error) {
+      this.logger.debug('AI sentiment analysis parsing failed:', error);
+    }
+    
+    return null;
+  }
+
+  private async performKeywordSentimentAnalysis(content: string): Promise<{
+    overall: SentimentType;
+    score: number;
+    confidence: number;
+    emotions: EmotionScores;
+  }> {
+    // Enhanced keyword-based analysis with crypto-specific terms
     const lowerContent = content.toLowerCase();
     
-    // Crypto-specific positive sentiment indicators
-    const positiveKeywords = [
-      'moon', 'bullish', 'pump', 'green', 'up', 'gains', 'profit',
-      'hodl', 'diamond hands', 'to the moon', 'ath', 'breakout',
-      'buy', 'accumulate', 'strong', 'solid', 'partnership'
-    ];
+    // Expanded crypto-specific positive sentiment indicators with weights
+    const positiveKeywords = new Map([
+      // Strong positive (weight 3)
+      ['moon', 3], ['to the moon', 3], ['bullish', 3], ['diamond hands', 3],
+      ['ath', 3], ['all time high', 3], ['breakout', 3], ['surge', 3],
+      
+      // Moderate positive (weight 2)  
+      ['pump', 2], ['green', 2], ['up', 2], ['gains', 2], ['profit', 2],
+      ['hodl', 2], ['buy', 2], ['accumulate', 2], ['strong', 2], ['solid', 2],
+      ['partnership', 2], ['adoption', 2], ['mainstream', 2], ['institutional', 2],
+      
+      // Mild positive (weight 1)
+      ['good', 1], ['nice', 1], ['cool', 1], ['awesome', 1], ['great', 1],
+      ['bullrun', 1], ['rally', 1], ['recovery', 1], ['bounce', 1]
+    ]);
 
-    // Crypto-specific negative sentiment indicators
-    const negativeKeywords = [
-      'dump', 'crash', 'bear', 'red', 'down', 'loss', 'rekt',
-      'paper hands', 'fud', 'scam', 'rug pull', 'sell', 'exit',
-      'weak', 'failing', 'dead', 'bubble'
-    ];
+    // Expanded crypto-specific negative sentiment indicators with weights
+    const negativeKeywords = new Map([
+      // Strong negative (weight 3)
+      ['crash', 3], ['dump', 3], ['rekt', 3], ['scam', 3], ['rug pull', 3],
+      ['paper hands', 3], ['dead', 3], ['failing', 3], ['collapse', 3],
+      
+      // Moderate negative (weight 2)
+      ['bear', 2], ['bearish', 2], ['red', 2], ['down', 2], ['loss', 2],
+      ['sell', 2], ['exit', 2], ['weak', 2], ['bubble', 2], ['fud', 2],
+      
+      // Mild negative (weight 1)
+      ['bad', 1], ['terrible', 1], ['awful', 1], ['disappointing', 1],
+      ['concern', 1], ['worried', 1], ['decline', 1], ['drop', 1]
+    ]);
 
     let score = 0;
     let positiveMatches = 0;
     let negativeMatches = 0;
+    let totalWeight = 0;
 
-    // Count keyword matches
-    positiveKeywords.forEach(keyword => {
+    // Count weighted keyword matches for positive terms
+    positiveKeywords.forEach((weight, keyword) => {
       if (lowerContent.includes(keyword)) {
         positiveMatches++;
-        score += 0.1;
+        const adjustedWeight = weight * 0.05; // Scale weight
+        score += adjustedWeight;
+        totalWeight += weight;
       }
     });
 
-    negativeKeywords.forEach(keyword => {
+    // Count weighted keyword matches for negative terms
+    negativeKeywords.forEach((weight, keyword) => {
       if (lowerContent.includes(keyword)) {
         negativeMatches++;
-        score -= 0.1;
+        const adjustedWeight = weight * 0.05; // Scale weight
+        score -= adjustedWeight;
+        totalWeight += weight;
       }
     });
 
     // Normalize score to -1 to 1 range
     score = Math.max(-1, Math.min(1, score));
 
-    // Determine overall sentiment
+    // Determine overall sentiment with refined thresholds
     let overall: SentimentType;
-    if (score > 0.3) {
-      overall = SentimentType.POSITIVE;
-    } else if (score > 0.6) {
+    if (score >= 0.6) {
       overall = SentimentType.VERY_POSITIVE;
-    } else if (score < -0.3) {
-      overall = SentimentType.NEGATIVE;
-    } else if (score < -0.6) {
+    } else if (score >= 0.2) {
+      overall = SentimentType.POSITIVE;
+    } else if (score <= -0.6) {
       overall = SentimentType.VERY_NEGATIVE;
+    } else if (score <= -0.2) {
+      overall = SentimentType.NEGATIVE;
     } else {
       overall = SentimentType.NEUTRAL;
     }
 
-    // Calculate confidence based on number of indicators
+    // Enhanced confidence calculation
     const totalMatches = positiveMatches + negativeMatches;
-    const confidence = Math.min(0.3 + (totalMatches * 0.1), 1.0);
+    const baseConfidence = 0.4; // Base confidence for keyword matching
+    const matchConfidence = Math.min(totalMatches * 0.1, 0.4);
+    const weightConfidence = Math.min(totalWeight * 0.02, 0.2);
+    const confidence = baseConfidence + matchConfidence + weightConfidence;
 
-    // Generate emotion scores (placeholder)
+    // Enhanced emotion scores based on content analysis
     const emotions: EmotionScores = {
-      joy: score > 0 ? score * 0.8 : 0,
-      fear: score < 0 ? Math.abs(score) * 0.6 : 0,
-      anger: score < -0.5 ? Math.abs(score) * 0.7 : 0,
-      sadness: score < 0 ? Math.abs(score) * 0.4 : 0,
-      surprise: Math.random() * 0.3, // Placeholder
-      trust: score > 0.3 ? score * 0.6 : 0,
-      anticipation: lowerContent.includes('soon') || lowerContent.includes('upcoming') ? 0.7 : 0.2,
-      disgust: score < -0.4 ? Math.abs(score) * 0.5 : 0
+      joy: score > 0.3 ? Math.min(score * 0.9, 1) : 0,
+      fear: (lowerContent.includes('crash') || lowerContent.includes('dump') || lowerContent.includes('bear')) ? 
+            Math.min(Math.abs(score) * 0.8, 1) : Math.max(0, Math.abs(score) * 0.3),
+      anger: (lowerContent.includes('scam') || lowerContent.includes('rug pull') || lowerContent.includes('rekt')) ?
+             Math.min(Math.abs(score) * 0.9, 1) : 0,
+      sadness: score < -0.3 ? Math.min(Math.abs(score) * 0.6, 1) : 0,
+      surprise: (lowerContent.includes('sudden') || lowerContent.includes('unexpected') || lowerContent.includes('wow')) ? 0.7 : 0.1,
+      trust: (lowerContent.includes('solid') || lowerContent.includes('strong') || lowerContent.includes('reliable')) ?
+             Math.min(score > 0 ? score * 0.8 : 0.3, 1) : 0,
+      anticipation: (lowerContent.includes('soon') || lowerContent.includes('upcoming') || lowerContent.includes('launch')) ? 0.8 : 0.2,
+      disgust: (lowerContent.includes('disgusting') || lowerContent.includes('awful') || score < -0.5) ?
+               Math.min(Math.abs(score) * 0.7, 1) : 0
     };
 
     return {
       overall,
       score,
-      confidence,
+      confidence: Math.min(confidence, 1.0),
       emotions
     };
   }
 
   private async extractEntities(content: string): Promise<EntityMention[]> {
-    // TODO: Implement entity extraction using NLP libraries
-    // Should identify: tokens, protocols, exchanges, people, etc.
-    
-    const entities: EntityMention[] = [];
-    const lowerContent = content.toLowerCase();
+    try {
+      // Try AI-powered entity extraction first if available
+      if (this.config.enableEntityRecognition && this.aiClient) {
+        try {
+          const aiEntities = await this.performAIEntityExtraction(content);
+          if (aiEntities && aiEntities.length > 0) {
+            // Combine AI entities with pattern-based entities for better coverage
+            const patternEntities = await this.performPatternEntityExtraction(content);
+            return this.mergeEntities(aiEntities, patternEntities);
+          }
+        } catch (error) {
+          this.logger.warn('AI entity extraction failed, falling back to pattern matching:', error);
+        }
+      }
 
-    // Simple pattern-based entity extraction (placeholder)
+      // Fallback to enhanced pattern-based extraction
+      return await this.performPatternEntityExtraction(content);
+    } catch (error) {
+      this.logger.error('All entity extraction methods failed:', error);
+      return [];
+    }
+  }
+
+  private async performAIEntityExtraction(content: string): Promise<EntityMention[]> {
+    try {
+      const prompt = `Extract cryptocurrency/DeFi entities from this social media content. Identify:
+- Tokens/cryptocurrencies (e.g., Bitcoin, ETH, $DOGE)
+- Protocols/projects (e.g., Uniswap, Aave, PancakeSwap)  
+- Exchanges (e.g., Binance, Coinbase)
+- People/influencers (e.g., @elonmusk, Vitalik)
+- Companies (e.g., Tesla, MicroStrategy)
+
+Content: "${content}"
+
+Return JSON array: [{"entity": "name", "type": "token|protocol|exchange|person|company", "confidence": 0.9, "position": {"start": 0, "end": 5}, "context": "surrounding text"}]`;
+
+      const result = await this.aiClient.chat({
+        messages: [{ role: 'user', content: prompt }],
+        provider: 'anthropic',
+        responseFormat: 'json'
+      });
+
+      if (result.success && result.data?.content) {
+        const aiEntities = JSON.parse(result.data.content);
+        
+        return aiEntities.map((entity: any) => ({
+          entity: entity.entity || '',
+          type: entity.type || 'unknown',
+          confidence: Math.max(0, Math.min(1, entity.confidence || 0.7)),
+          sentiment: SentimentType.NEUTRAL, // Would need context analysis
+          context: entity.context || content.substring(
+            Math.max(0, (entity.position?.start || 0) - 20),
+            (entity.position?.end || 0) + 20
+          ),
+          position: {
+            start: entity.position?.start || 0,
+            end: entity.position?.end || 0
+          },
+          normalized: entity.entity?.toUpperCase() || ''
+        }));
+      }
+    } catch (error) {
+      this.logger.debug('AI entity extraction parsing failed:', error);
+    }
+    
+    return [];
+  }
+
+  private async performPatternEntityExtraction(content: string): Promise<EntityMention[]> {
+    const entities: EntityMention[] = [];
+
+    // Enhanced pattern-based entity extraction
     const patterns = [
-      { pattern: /\$([A-Z]{2,6})\b/g, type: 'token' },
+      // Token patterns with $ prefix
+      { pattern: /\$([A-Z]{2,10})\b/g, type: 'token' },
+      
+      // Social media handles
       { pattern: /@(\w+)/g, type: 'person' },
-      { pattern: /\b(bitcoin|btc|ethereum|eth|binance|coinbase|uniswap)\b/gi, type: 'protocol' }
+      
+      // Major cryptocurrencies and protocols (case insensitive)
+      { 
+        pattern: /\b(bitcoin|btc|ethereum|eth|binance|bnb|cardano|ada|solana|sol|polkadot|dot|chainlink|link|litecoin|ltc|dogecoin|doge|shiba|avax|avalanche|matic|polygon|atom|cosmos|near|algorand|algo|tezos|xtz|stellar|xlm|monero|xmr|dash|zcash|zec)\b/gi, 
+        type: 'token' 
+      },
+      
+      // DeFi protocols
+      { 
+        pattern: /\b(uniswap|sushiswap|pancakeswap|compound|aave|maker|curve|yearn|convex|balancer|1inch|dydx|synthetix|snx|ren|kyber|bancor)\b/gi, 
+        type: 'protocol' 
+      },
+      
+      // Exchanges
+      { 
+        pattern: /\b(binance|coinbase|kraken|bitfinex|kucoin|huobi|ftx|okex|gate\.io|crypto\.com|gemini|bittrex)\b/gi, 
+        type: 'exchange' 
+      },
+      
+      // Layer 2 and scaling solutions
+      { 
+        pattern: /\b(arbitrum|optimism|polygon|matic|loopring|immutable|starknet|zkSync)\b/gi, 
+        type: 'protocol' 
+      },
+      
+      // NFT marketplaces and projects
+      { 
+        pattern: /\b(opensea|rarible|foundation|superrare|asyncart|makersplace|cryptopunks|bayc|bored apes)\b/gi, 
+        type: 'protocol' 
+      }
     ];
 
     patterns.forEach(({ pattern, type }) => {
       let match;
       while ((match = pattern.exec(content)) !== null) {
+        const entityText = match[1] || match[0];
+        const startPos = match.index;
+        const endPos = match.index + match[0].length;
+        
         entities.push({
-          entity: match[1] || match[0],
+          entity: entityText,
           type: type as any,
-          confidence: 0.7, // Placeholder
-          sentiment: SentimentType.NEUTRAL, // Would analyze context
-          context: content.substring(Math.max(0, match.index - 20), match.index + 20),
+          confidence: 0.8, // Higher confidence for pattern matching
+          sentiment: SentimentType.NEUTRAL, // Could analyze surrounding context
+          context: content.substring(Math.max(0, startPos - 25), endPos + 25),
           position: {
-            start: match.index,
-            end: match.index + match[0].length
+            start: startPos,
+            end: endPos
           },
-          normalized: (match[1] || match[0]).toUpperCase()
+          normalized: entityText.toUpperCase()
         });
       }
     });
 
     return entities;
+  }
+
+  private mergeEntities(aiEntities: EntityMention[], patternEntities: EntityMention[]): EntityMention[] {
+    const merged = [...aiEntities];
+    const aiEntityTexts = new Set(aiEntities.map(e => e.normalized.toLowerCase()));
+    
+    // Add pattern entities that weren't found by AI
+    patternEntities.forEach(patternEntity => {
+      if (!aiEntityTexts.has(patternEntity.normalized.toLowerCase())) {
+        merged.push(patternEntity);
+      }
+    });
+    
+    return merged;
   }
 
   private async extractThemes(content: string): Promise<Theme[]> {
@@ -424,12 +700,44 @@ export class SentimentAnalysisEngine extends EventEmitter {
     }
   }
 
+  // AI-Powered Analysis Methods
+  async detectNarratives(sentimentData: SentimentData[], context?: string): Promise<any> {
+    if (this.config.enableAIPoweredAnalysis && this.aiPoweredAnalyzer) {
+      return await this.aiPoweredAnalyzer.detectNarratives(sentimentData, context);
+    }
+    
+    this.logger.warn('AI-powered narrative detection not available');
+    return {
+      narratives: [],
+      emergingThemes: [],
+      marketImpactScore: 0,
+      confidenceScore: 0
+    };
+  }
+
+  async predictTrends(sentimentData: SentimentData[], context?: string, history?: any): Promise<any> {
+    if (this.config.enableAIPoweredAnalysis && this.aiPoweredAnalyzer) {
+      return await this.aiPoweredAnalyzer.predictTrends(sentimentData, context, history);
+    }
+    
+    this.logger.warn('AI-powered trend prediction not available');
+    return {
+      predictions: [],
+      confidenceScore: 0,
+      timeHorizon: 'day',
+      marketDirection: 'sideways',
+      volatilityForecast: 0.5
+    };
+  }
+
   getStatus(): any {
     return {
       isInitialized: this.isInitialized,
       isRunning: true,
       cacheSize: this.analysisCache.size,
       cryptoTermsCount: this.cryptoTermsDatabase.size,
+      aiPoweredEnabled: this.config.enableAIPoweredAnalysis,
+      aiPoweredStatus: this.aiPoweredAnalyzer?.getStatus(),
       config: this.config
     };
   }
@@ -440,6 +748,11 @@ export class SentimentAnalysisEngine extends EventEmitter {
 
       if (this.modelUpdateInterval) {
         clearInterval(this.modelUpdateInterval);
+      }
+
+      // Shutdown AI-powered analyzer
+      if (this.aiPoweredAnalyzer) {
+        await this.aiPoweredAnalyzer.shutdown();
       }
 
       this.analysisCache.clear();

@@ -319,6 +319,122 @@ export const ENVIRONMENT_REQUIREMENTS: EnvironmentRequirement[] = [
     description: 'Optimism RPC endpoint URL',
     environment: 'development'
   },
+  {
+    name: 'BSC_RPC_URL',
+    required: false,
+    type: 'url',
+    description: 'Binance Smart Chain RPC endpoint URL',
+    environment: 'development'
+  },
+  {
+    name: 'AVALANCHE_RPC_URL',
+    required: false,
+    type: 'url',
+    description: 'Avalanche RPC endpoint URL',
+    environment: 'development'
+  },
+  {
+    name: 'SOLANA_RPC_URL',
+    required: false,
+    type: 'url',
+    description: 'Solana RPC endpoint URL',
+    environment: 'development'
+  },
+  {
+    name: 'COSMOS_RPC_URL',
+    required: false,
+    type: 'url',
+    description: 'Cosmos RPC endpoint URL',
+    environment: 'development'
+  },
+
+  // External Data APIs (Optional)
+  {
+    name: 'COINGECKO_API_KEY',
+    required: false,
+    type: 'secret',
+    description: 'CoinGecko Pro API key for market data',
+    environment: 'development'
+  },
+  {
+    name: 'DUNE_API_KEY',
+    required: false,
+    type: 'secret',
+    description: 'Dune Analytics API key for blockchain analytics',
+    environment: 'development'
+  },
+  {
+    name: 'DEFILLAMA_API_KEY',
+    required: false,
+    type: 'secret',
+    description: 'DefiLlama API key for DeFi protocol data',
+    environment: 'development'
+  },
+  {
+    name: 'MORALIS_API_KEY',
+    required: false,
+    type: 'secret',
+    description: 'Moralis API key for blockchain data',
+    environment: 'development'
+  },
+
+  // Social Media APIs (Optional for Echo Satellite)
+  {
+    name: 'TWITTER_API_KEY',
+    required: false,
+    type: 'secret',
+    description: 'Twitter API key for social media integration',
+    environment: 'development'
+  },
+  {
+    name: 'TWITTER_API_SECRET',
+    required: false,
+    type: 'secret',
+    description: 'Twitter API secret for social media integration',
+    environment: 'development'
+  },
+  {
+    name: 'TWITTER_ACCESS_TOKEN',
+    required: false,
+    type: 'secret',
+    description: 'Twitter access token for social media integration',
+    environment: 'development'
+  },
+  {
+    name: 'TWITTER_ACCESS_TOKEN_SECRET',
+    required: false,
+    type: 'secret',
+    description: 'Twitter access token secret for social media integration',
+    environment: 'development'
+  },
+  {
+    name: 'DISCORD_BOT_TOKEN',
+    required: false,
+    type: 'secret',
+    description: 'Discord bot token for social media integration',
+    environment: 'development'
+  },
+  {
+    name: 'TELEGRAM_BOT_TOKEN',
+    required: false,
+    type: 'secret',
+    description: 'Telegram bot token for social media integration',
+    environment: 'development'
+  },
+  {
+    name: 'REDDIT_CLIENT_ID',
+    required: false,
+    type: 'string',
+    description: 'Reddit client ID for social media integration',
+    environment: 'development'
+  },
+  {
+    name: 'REDDIT_CLIENT_SECRET',
+    required: false,
+    type: 'secret',
+    description: 'Reddit client secret for social media integration',
+    environment: 'development'
+  },
 
   // Development Configuration
   {

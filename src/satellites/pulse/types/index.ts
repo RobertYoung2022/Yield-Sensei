@@ -14,6 +14,8 @@ export interface YieldOpportunity {
     historical: number[];
     projected: number;
     confidence: number;
+    predicted?: number;
+    trend?: 'increasing' | 'decreasing' | 'stable';
   };
   tvl: number;
   liquidity: {
@@ -27,6 +29,7 @@ export interface YieldOpportunity {
     smartContractRisk: number;
     impermanentLoss: number;
     liquidationRisk: number;
+    volatility?: number;
   };
   sustainability: {
     score: number; // 0-1, higher is more sustainable
@@ -256,6 +259,7 @@ export interface OptimizationResult {
     fees: number;
   };
   performance: PerformanceMetrics;
+  backtestResult?: BacktestResult;
   timestamp: Date;
 }
 
@@ -313,16 +317,15 @@ export interface BacktestResult {
   period: {
     start: Date;
     end: Date;
-    duration: number; // in seconds
   };
-  initialCapital: number;
-  finalValue: number;
   performance: PerformanceMetrics;
   trades: TradeExecution[];
-  drawdowns: DrawdownPeriod[];
-  monthlySummary: MonthlySummary[];
-  riskMetrics: RiskMetrics;
-  benchmark: BenchmarkComparison;
+  riskMetrics: {
+    var95: number;
+    cvar95: number;
+    maxConsecutiveLosses: number;
+  };
+  timestamp: Date;
 }
 
 export interface TradeExecution {

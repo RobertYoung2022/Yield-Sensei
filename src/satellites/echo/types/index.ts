@@ -421,6 +421,194 @@ export interface NarrativeEmergenceEvent {
   timestamp: Date;
 }
 
+// Community Engagement Types
+export interface EngagementMetrics {
+  contentId: string;
+  platform: SocialPlatform;
+  totalEngagements: number;
+  engagementRate: number;
+  likes: number;
+  shares: number;
+  comments: number;
+  views: number;
+  sentiment: string;
+  timestamp: Date;
+  authorInfluence: number;
+  viralityScore: number;
+  reachEstimate: number;
+}
+
+export interface CommunityGrowthMetrics {
+  id: string;
+  timestamp: Date;
+  timeframe: 'hour' | 'day' | 'week' | 'month';
+  newMembers: number;
+  activeMembers: number;
+  totalEngagement: number;
+  averageSentiment: number;
+  growthRate: number;
+  engagementRate: number;
+  topPlatforms: SocialPlatform[];
+  topInfluencers: string[];
+  viralContent: string[];
+  trends: string[];
+}
+
+export interface EngagementResponse {
+  id: string;
+  originalContentId: string;
+  platform: SocialPlatform;
+  responseText: string;
+  responseType: 'supportive' | 'educational' | 'engaging' | 'informative';
+  confidence: number;
+  timestamp: Date;
+  status: 'pending' | 'posted' | 'failed';
+  postedAt?: Date;
+  targetAudience: string;
+  engagementGoal: string;
+  metadata: {
+    generatedBy: 'ai' | 'template' | 'manual';
+    provider?: string;
+    originalSentiment: string;
+    triggerRules: string[];
+  };
+}
+
+export interface EngagementRule {
+  id: string;
+  name: string;
+  conditions: {
+    platforms?: SocialPlatform[];
+    minInfluence?: number;
+    minSentimentScore?: number;
+    maxSentimentScore?: number;
+    minEngagement?: number;
+    keywordMatch?: string[];
+  };
+  actions: {
+    autoRespond: boolean;
+    responseType: 'supportive' | 'educational' | 'engaging' | 'informative';
+    priority: 'low' | 'medium' | 'high';
+  };
+  enabled: boolean;
+}
+
+export interface CommunityMember {
+  id: string;
+  username: string;
+  platform: SocialPlatform;
+  joinDate: Date;
+  lastActivity: Date;
+  totalPosts: number;
+  totalEngagement: number;
+  averageSentiment: number;
+  influence: number;
+  verified: boolean;
+  followerCount: number;
+  engagementRate: number;
+  interests: string[];
+  activityScore: number;
+  communityRank: 'member' | 'contributor' | 'influencer' | 'leader';
+  badges: string[];
+}
+
+export interface EngagementAnalytics {
+  totalEngagements: number;
+  averageEngagementRate: number;
+  responseRate: number;
+  topEngagedContent: string[];
+  engagementByPlatform: Map<SocialPlatform, number>;
+  engagementByTime: { timestamp: Date; count: number }[];
+  sentimentDistribution: {
+    positive: number;
+    negative: number;
+    neutral: number;
+  };
+  responseEffectiveness: number;
+  communityHealthScore: number;
+}
+
+// DeFAI Project Tracking Types
+export interface DeFAIProject {
+  id: string;
+  name: string;
+  category: 'defi' | 'ai' | 'defai';
+  type: string;
+  description: string;
+  launchDate: Date;
+  discoveredDate: Date;
+  platforms: SocialPlatform[];
+  tags: string[];
+  status: 'discovered' | 'active' | 'inactive' | 'deprecated';
+  confidence: number;
+  website: string | null;
+  social: {
+    twitter: string | null;
+    discord: string | null;
+    telegram: string | null;
+  };
+  metrics: {
+    mentionCount: number;
+    sentimentScore: number;
+    influencerMentions: number;
+    communitySize: number;
+    adoptionScore: number;
+  };
+  lastUpdated: Date;
+}
+
+export interface AdoptionSignal {
+  id: string;
+  projectId: string;
+  type: 'launch' | 'partnership' | 'growth' | 'technical' | 'market';
+  description: string;
+  strength: number; // 0-1
+  source: SocialPlatform;
+  timestamp: Date;
+  originalContent: string;
+  author: {
+    id: string;
+    username: string;
+    influence: number;
+  };
+  metadata: {
+    engagement: any;
+    sentiment: number;
+    keywords: string[];
+  };
+}
+
+export interface ProjectMetrics {
+  projectId: string;
+  totalMentions: number;
+  mentionVelocity: number; // mentions per hour
+  sentimentDistribution: {
+    positive: number;
+    negative: number;
+    neutral: number;
+  };
+  platformDistribution: Map<SocialPlatform, number>;
+  influencerMentions: number;
+  communityGrowth: number;
+  adoptionSignals: string[];
+  viralityScore: number;
+  momentumScore: number;
+  riskScore: number;
+  lastUpdated: Date;
+}
+
+export interface TrendingProject {
+  projectId: string;
+  name: string;
+  category: 'defi' | 'ai' | 'defai';
+  trendingScore: number;
+  mentionVelocity: number;
+  sentimentScore: number;
+  timestamp: Date;
+  rank: number;
+  change: number; // Change in rank from previous period
+}
+
 export type EchoEvent = 
   | SentimentAnalysisEvent
   | TrendDetectionEvent

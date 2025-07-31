@@ -54,17 +54,20 @@ export class BacktestingFramework extends EventEmitter {
   }
 
   async backtest(strategy: YieldStrategy, opportunities: YieldOpportunity[]): Promise<BacktestResult> {
-    // TODO: Implement backtesting
+    if (!this.isInitialized) {
+      throw new Error('BacktestingFramework not initialized');
+    }
+
+    this.logger.info('Starting backtest for strategy', { strategyType: strategy.type });
+
+    // Mock implementation with proper BacktestResult structure
     const mockResult: BacktestResult = {
       id: `backtest_${Date.now()}`,
       strategy,
       period: {
         start: new Date(Date.now() - this.config.defaultBacktestPeriod),
-        end: new Date(),
-        duration: this.config.defaultBacktestPeriod
+        end: new Date()
       },
-      initialCapital: 100000,
-      finalValue: 110000,
       performance: {
         totalReturn: 0.1,
         annualizedReturn: 0.12,
@@ -80,30 +83,20 @@ export class BacktestingFramework extends EventEmitter {
         informationRatio: 0.5
       },
       trades: [],
-      drawdowns: [],
-      monthlySummary: [],
       riskMetrics: {
         var95: 0.02,
-        var99: 0.035,
         cvar95: 0.025,
-        maxDrawdown: 0.05,
-        consecutiveLosses: 2,
-        downside: 0.08,
-        beta: 0.8,
-        correlation: 0.6
+        maxConsecutiveLosses: 2
       },
-      benchmark: {
-        benchmark: 'ETH',
-        benchmarkReturn: 0.08,
-        alpha: 0.02,
-        beta: 0.8,
-        correlation: 0.6,
-        informationRatio: 0.5,
-        trackingError: 0.05,
-        upCapture: 1.1,
-        downCapture: 0.9
-      }
+      timestamp: new Date()
     };
+
+    this.logger.info('Backtest completed', {
+      strategyId: strategy.name,
+      totalReturn: (mockResult.performance.totalReturn * 100).toFixed(2) + '%',
+      sharpeRatio: mockResult.performance.sharpeRatio.toFixed(2),
+      maxDrawdown: (mockResult.performance.maxDrawdown * 100).toFixed(2) + '%'
+    });
 
     return mockResult;
   }

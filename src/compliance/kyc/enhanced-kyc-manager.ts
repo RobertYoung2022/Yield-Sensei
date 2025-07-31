@@ -17,20 +17,17 @@ import { DecentralizedKYCWorkflow } from './decentralized-kyc-workflow';
 // Types
 import {
   User,
-  KYCConfig,
-  KYCStatus,
-  KYCDocument,
   KYCLevel,
   DocumentType,
   ActivityLevel,
   ComplianceViolation,
   RiskLevel,
-  Jurisdiction
+  Jurisdiction,
+  KYCStatus
 } from '../types';
 import {
   DecentralizedUser,
-  DecentralizedKYCStatus,
-  VerifiableCredential
+  DecentralizedKYCStatus
 } from '../types/decentralized-types';
 
 const logger = Logger.getLogger('enhanced-kyc-manager');
@@ -317,8 +314,8 @@ export class EnhancedKYCManager extends EventEmitter {
         flags: riskAssessment.violations,
         recommendations,
         nextReviewDate: this.calculateNextReviewDate(user, requiredLevel),
-        traditionalStatus: userType === 'traditional' ? (user as User).kycStatus : undefined,
-        decentralizedStatus: userType === 'decentralized' ? (user as DecentralizedUser).kycStatus : undefined,
+        traditionalStatus: userType === 'traditional' ? (user as User).kycStatus : undefined as KYCStatus | undefined,
+        decentralizedStatus: userType === 'decentralized' ? (user as DecentralizedUser).kycStatus : undefined as DecentralizedKYCStatus | undefined,
         verificationMethods: this.getVerificationMethods(user),
         documentStatus,
         biometricVerification: biometricStatus,
@@ -652,7 +649,7 @@ export class EnhancedKYCManager extends EventEmitter {
       if (traditionalUser.riskProfile.overallRisk === 'high') {
         riskScore += 40;
       }
-      if (traditionalUser.riskProfile.politically) {
+      if ('politically' in traditionalUser.riskProfile && traditionalUser.riskProfile.politically) {
         riskScore += 30;
       }
     }
@@ -712,7 +709,7 @@ export class EnhancedKYCManager extends EventEmitter {
     return {
       required,
       completed,
-      confidence: completed ? 0.95 : undefined
+      confidence: completed ? 0.95 : undefined as number | undefined
     };
   }
 
@@ -796,7 +793,7 @@ export class EnhancedKYCManager extends EventEmitter {
     return recommendations;
   }
 
-  private calculateNextReviewDate(user: User | DecentralizedUser, requiredLevel: KYCLevel): Date {
+  private calculateNextReviewDate(user: User | DecentralizedUser, _requiredLevel: KYCLevel): Date {
     const activityLevel = this.getUserActivityLevel(user);
     const reviewFrequency = this.config.monitoring.reviewFrequency[activityLevel] || 365;
     
@@ -1013,7 +1010,7 @@ export class EnhancedKYCManager extends EventEmitter {
     });
 
     if (session.userType === 'traditional') {
-      const provider = session.provider === 'jumio' ? this.jumioClient : this.onfidoClient;
+      const _provider = session.provider === 'jumio' ? this.jumioClient : this.onfidoClient;
       
       if (session.provider === 'onfido') {
         // Upload document to Onfido

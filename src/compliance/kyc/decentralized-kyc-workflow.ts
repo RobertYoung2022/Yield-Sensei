@@ -604,22 +604,22 @@ export class DecentralizedKYCWorkflow extends EventEmitter {
     return [];
   }
 
-  private async checkBiometricVerification(did: string): Promise<boolean> {
+  private async checkBiometricVerification(_did: string): Promise<boolean> {
     // Mock implementation - would check for valid biometric verification
     return false;
   }
 
-  private async countCommunityEndorsements(did: string): Promise<number> {
+  private async countCommunityEndorsements(_did: string): Promise<number> {
     // Mock implementation - would count community endorsements
     return 3;
   }
 
-  private async analyzeRiskFactors(did: string, credentials: VerifiableCredential[]): Promise<string[]> {
+  private async analyzeRiskFactors(_did: string, _credentials: VerifiableCredential[]): Promise<string[]> {
     // Mock implementation - would analyze risk factors
     return [];
   }
 
-  private async checkCompletedSteps(did: string, requiredSteps: VerificationStepType[]): Promise<VerificationStepType[]> {
+  private async checkCompletedSteps(_did: string, _requiredSteps: VerificationStepType[]): Promise<VerificationStepType[]> {
     // Mock implementation - would check which steps are completed
     return ['proof-of-personhood'];
   }
@@ -627,14 +627,14 @@ export class DecentralizedKYCWorkflow extends EventEmitter {
   private isCompliantForLevel(
     completedSteps: VerificationStepType[],
     requiredSteps: VerificationStepType[],
-    currentLevel: KYCLevel,
+    _currentLevel: KYCLevel,
     targetLevel: ActivityLevel
   ): boolean {
     // Check if all required steps are completed
     const requiredCompleted = requiredSteps.every(step => completedSteps.includes(step));
     
     // Check minimum attestations
-    const minAttestations = this.config.minimumAttestations[targetLevel];
+    const _minAttestations = this.config.minimumAttestations[targetLevel];
     // Would check actual attestation count here
     
     return requiredCompleted; // Simplified for mock
@@ -664,7 +664,7 @@ export class DecentralizedKYCWorkflow extends EventEmitter {
   private generateRecommendations(
     completedSteps: VerificationStepType[],
     requiredSteps: VerificationStepType[],
-    targetLevel: ActivityLevel
+    _targetLevel: ActivityLevel
   ): string[] {
     const missing = requiredSteps.filter(step => !completedSteps.includes(step));
     return missing.map(step => `Complete ${step.replace(/-/g, ' ')}`);
@@ -689,8 +689,8 @@ export class DecentralizedKYCWorkflow extends EventEmitter {
 
   private async createVerificationPath(
     requiredSteps: VerificationStepType[],
-    preferredMethods: VerificationStepType[],
-    targetLevel: ActivityLevel
+    _preferredMethods: VerificationStepType[],
+    _targetLevel: ActivityLevel
   ): Promise<VerificationPath> {
     const steps: VerificationStep[] = requiredSteps.map(stepType => ({
       id: this.generateStepId(),

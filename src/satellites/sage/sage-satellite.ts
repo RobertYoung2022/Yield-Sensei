@@ -18,15 +18,14 @@ import {
   ProtocolAnalysis, 
   RWAData, 
   AnalysisRequest,
-  AnalysisResponse,
-  AnalysisEvent,
-  AlertEvent
+  AnalysisResponse
 } from './types';
 import { RWAOpportunityScore } from './rwa/opportunity-scoring-system';
 import { FundamentalAnalysisEngine, FundamentalAnalysisConfig } from './research/fundamental-analysis-engine';
 import { RWAOpportunityScoringSystem, RWAScoringConfig } from './rwa/opportunity-scoring-system';
 import { ComplianceMonitoringFramework, ComplianceMonitoringConfig } from './compliance/compliance-monitoring-framework';
-import { PerplexityIntegration, PerplexityConfig } from './api/perplexity-integration';
+import { getUnifiedAIClient, UnifiedAIClient } from '@/integrations/ai/unified-ai-client';
+import { UnifiedAIClientConfig } from '@/integrations/ai/types';
 import Logger from '@/shared/logging/logger';
 
 const logger = Logger.getLogger('sage-satellite');
@@ -41,7 +40,7 @@ export interface SageSatelliteConfig {
   fundamentalAnalysis: FundamentalAnalysisConfig;
   rwaScoring: RWAScoringConfig;
   complianceMonitoring: ComplianceMonitoringConfig;
-  perplexityIntegration: PerplexityConfig;
+  unifiedAIClient?: Partial<UnifiedAIClientConfig>;
   enableRealTimeAnalysis: boolean;
   analysisInterval: number; // milliseconds
   maxConcurrentAnalyses: number;
@@ -95,19 +94,13 @@ export const DEFAULT_SAGE_CONFIG: SageSatelliteConfig = {
     auditTrail: true,
     updateInterval: 300000 // 5 minutes
   },
-  perplexityIntegration: {
-    apiKey: '',
-    baseUrl: 'https://api.perplexity.ai',
-    timeout: 30000,
-    maxRetries: 3,
-    rateLimit: {
-      requestsPerMinute: 60,
-      requestsPerHour: 1000
-    },
-    enableCaching: true,
-    cacheTTL: 3600000, // 1 hour
-    enableRateLimiting: true,
-    enableLogging: true
+  unifiedAIClient: {
+    defaultProvider: 'perplexity',
+    fallbackProviders: ['anthropic', 'openai'],
+    loadBalancing: {
+      enabled: true,
+      strategy: 'least-used'
+    }
   },
   enableRealTimeAnalysis: true,
   analysisInterval: 300000, // 5 minutes
@@ -132,11 +125,11 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
   private fundamentalAnalysisEngine: FundamentalAnalysisEngine;
   private rwaScoringSystem: RWAOpportunityScoringSystem;
   private complianceFramework: ComplianceMonitoringFramework;
-  private perplexityIntegration: PerplexityIntegration;
+  private unifiedAIClient: UnifiedAIClient;
 
   // Runtime state
   private isInitialized: boolean = false;
-  private isRunning: boolean = false;
+  private _isRunning: boolean = false;
   private analysisInterval?: NodeJS.Timeout;
   private pendingAnalyses: Map<string, AnalysisRequest> = new Map();
   private analysisResults: Map<string, AnalysisResponse> = new Map();
@@ -151,7 +144,7 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
       name: config.name,
       version: config.version,
       implementation: 'custom',
-      config: config
+      config: config as unknown as Record<string, unknown>
     };
 
     // Initialize status
@@ -176,7 +169,7 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
     this.fundamentalAnalysisEngine = FundamentalAnalysisEngine.getInstance(config.fundamentalAnalysis);
     this.rwaScoringSystem = RWAOpportunityScoringSystem.getInstance(config.rwaScoring);
     this.complianceFramework = ComplianceMonitoringFramework.getInstance(config.complianceMonitoring);
-    this.perplexityIntegration = PerplexityIntegration.getInstance(config.perplexityIntegration);
+    this.unifiedAIClient = getUnifiedAIClient(config.unifiedAIClient);
 
     this.setupEventHandlers();
   }
@@ -189,7 +182,8 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
       await this.fundamentalAnalysisEngine.initialize();
       await this.rwaScoringSystem.initialize();
       await this.complianceFramework.initialize();
-      await this.perplexityIntegration.initialize();
+      // UnifiedAIClient initializes automatically, just check health
+      await this.unifiedAIClient.refreshHealthStatus();
 
       this.isInitialized = true;
       this.status.status = 'initializing';
@@ -212,7 +206,7 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
 
       logger.info('Starting Sage Satellite Agent...');
 
-      this.isRunning = true;
+      this._isRunning = true;
       this.status.status = 'running';
       this.startTime = new Date();
 
@@ -234,7 +228,7 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
     try {
       logger.info('Stopping Sage Satellite Agent...');
 
-      this.isRunning = false;
+      this._isRunning = false;
       this.status.status = 'stopped';
 
       // Stop real-time analysis
@@ -332,8 +326,8 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
         protocolData
       );
 
-      // Perform market research using Perplexity
-      const marketResearch = await this.perplexityIntegration.researchProtocol(protocolData);
+      // Perform market research using UnifiedAIClient
+      const marketResearch = await this.researchProtocolWithAI(protocolData);
 
       // Combine results
       const enhancedAnalysis: ProtocolAnalysis = {
@@ -341,13 +335,13 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
         recommendations: [
           ...fundamentalAnalysis.recommendations,
           ...complianceAssessment.recommendations.map(rec => ({
-            type: rec.priority === 'critical' ? 'sell' : 
-                  rec.priority === 'high' ? 'monitor' : 'hold',
+            type: (rec.priority === 'critical' ? 'sell' : 
+                  rec.priority === 'high' ? 'monitor' : 'hold') as 'sell' | 'monitor' | 'hold',
             confidence: complianceAssessment.overallScore,
             reasoning: rec.description,
-            timeframe: 'short',
-            riskLevel: rec.priority === 'critical' ? 'high' : 
-                      rec.priority === 'high' ? 'medium' : 'low'
+            timeframe: 'short' as const,
+            riskLevel: (rec.priority === 'critical' ? 'high' : 
+                      rec.priority === 'high' ? 'medium' : 'low') as 'low' | 'medium' | 'high'
           }))
         ],
         confidence: (fundamentalAnalysis.confidence + complianceAssessment.overallScore + marketResearch.confidence) / 3
@@ -390,7 +384,7 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
       );
 
       // Perform market research
-      const marketResearch = await this.perplexityIntegration.researchRWA(rwaData);
+      const marketResearch = await this.researchRWAWithAI(rwaData);
 
       // Enhance RWA score with compliance and market data
       const enhancedScore: RWAOpportunityScore = {
@@ -399,13 +393,13 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
         recommendations: [
           ...rwaScore.recommendations,
           ...complianceAssessment.recommendations.map(rec => ({
-            action: rec.priority === 'critical' ? 'avoid' : 
-                    rec.priority === 'high' ? 'monitor' : 'hold',
+            action: (rec.priority === 'critical' ? 'avoid' : 
+                    rec.priority === 'high' ? 'monitor' : 'hold') as 'avoid' | 'monitor' | 'hold',
             confidence: complianceAssessment.overallScore,
             reasoning: rec.description,
-            timeframe: 'short',
-            riskLevel: rec.priority === 'critical' ? 'high' : 
-                      rec.priority === 'high' ? 'medium' : 'low',
+            timeframe: 'short' as const,
+            riskLevel: (rec.priority === 'critical' ? 'high' : 
+                      rec.priority === 'high' ? 'medium' : 'low') as 'low' | 'medium' | 'high',
             expectedReturn: rwaData.yield * (complianceAssessment.overallScore),
             maxExposure: 0 // No exposure if compliance issues
           }))
@@ -439,7 +433,11 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
     try {
       logger.info('Starting market research', { topic, jurisdiction });
 
-      const result = await this.perplexityIntegration.researchMarket(topic, jurisdiction);
+      const result = await this.unifiedAIClient.research({
+        query: `Research the ${topic} market${jurisdiction ? ` in ${jurisdiction}` : ''}: 1) Current market size and growth trends, 2) Key players and competitive landscape, 3) Regulatory environment and compliance requirements, 4) Risk factors and market dynamics, 5) Future outlook and opportunities.`,
+        domain: 'finance',
+        recency: 'month'
+      });
 
       // Emit research completed event
       this.emit('market_research_completed', {
@@ -462,7 +460,11 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
     try {
       logger.info('Starting regulatory research', { jurisdiction, topic });
 
-      const result = await this.perplexityIntegration.researchRegulatory(jurisdiction, topic);
+      const result = await this.unifiedAIClient.research({
+        query: `Research regulatory requirements in ${jurisdiction}${topic ? ` related to ${topic}` : ''}: 1) Current regulatory framework, 2) Recent regulatory changes and updates, 3) Compliance requirements and obligations, 4) Enforcement actions and penalties, 5) Best practices for regulatory compliance.`,
+        domain: 'legal',
+        recency: 'week'
+      });
 
       // Emit research completed event
       this.emit('regulatory_research_completed', {
@@ -507,12 +509,12 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
   async getSystemHealth(): Promise<any> {
     try {
       const health = {
-        overall: 'healthy' as const,
+        overall: 'healthy' as 'healthy' | 'degraded',
         components: {
           fundamentalAnalysis: this.fundamentalAnalysisEngine.getStatus(),
           rwaScoring: this.rwaScoringSystem.getStatus(),
           complianceMonitoring: this.complianceFramework.getStatus(),
-          perplexityIntegration: this.perplexityIntegration.getStatus()
+          unifiedAIClient: this.unifiedAIClient.getHealthStatus()
         },
         metrics: {
           pendingAnalyses: this.pendingAnalyses.size,
@@ -538,8 +540,9 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
 
   // Private methods
   private async handleCommand(message: Message): Promise<void> {
-    const command = message.payload.command;
-    const args = message.payload.args || {};
+    const payload = message.payload as any;
+    const command = payload.command;
+    const args = payload.args || {};
 
     try {
       switch (command) {
@@ -588,8 +591,9 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
   }
 
   private async handleQuery(message: Message): Promise<void> {
-    const query = message.payload.query;
-    const args = message.payload.args || {};
+    const payload = message.payload as any;
+    const query = payload.query;
+    const args = payload.args || {};
 
     try {
       switch (query) {
@@ -621,19 +625,20 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
   }
 
   private async handleData(message: Message): Promise<void> {
-    const dataType = message.payload.type;
-    const data = message.payload.data;
+    const payload = message.payload as any;
+    const dataType = payload.type;
+    const data = payload.data;
 
     try {
       switch (dataType) {
         case 'protocol_data':
           // Store protocol data for analysis
-          logger.debug('Received protocol data', { protocolId: data.id });
+          logger.debug('Received protocol data', { protocolId: data?.id });
           break;
 
         case 'rwa_data':
           // Store RWA data for scoring
-          logger.debug('Received RWA data', { rwaId: data.id });
+          logger.debug('Received RWA data', { rwaId: data?.id });
           break;
 
         default:
@@ -676,6 +681,156 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
     this.emit('message', errorMessage);
   }
 
+  private async researchProtocolWithAI(protocolData: ProtocolData): Promise<any> {
+    try {
+      const queries = [
+        // Protocol fundamentals query
+        {
+          query: `Analyze the fundamentals of ${protocolData.name} (${protocolData.category} protocol). Focus on: 1) Recent performance and TVL trends, 2) Revenue generation and sustainability, 3) Security audits and vulnerabilities, 4) Team background and credibility, 5) Competitive positioning. Provide specific data and insights.`,
+          domain: 'crypto',
+          recency: 'week' as const
+        },
+        // Security analysis query
+        {
+          query: `Research security aspects of ${protocolData.name}: 1) Recent security audits and their findings, 2) Known vulnerabilities or exploits, 3) Insurance coverage and risk management, 4) Bug bounty programs, 5) Security best practices implementation.`,
+          domain: 'security',
+          recency: 'month' as const
+        },
+        // Market analysis query
+        {
+          query: `Analyze the market position of ${protocolData.name} in the ${protocolData.category} sector: 1) Market share and competitive landscape, 2) User growth and adoption trends, 3) Regulatory considerations, 4) Future outlook and roadmap, 5) Investment thesis.`,
+          domain: 'finance',
+          recency: 'week' as const
+        }
+      ];
+
+      const results = await Promise.all(
+        queries.map(q => this.unifiedAIClient.research(q))
+      );
+
+      // Combine and format results
+      const combinedResult = {
+        summary: results.map(r => r.data?.answer || '').join('\n\n'),
+        keyFindings: results.flatMap(r => {
+          const answer = r.data?.answer || '';
+          return answer.split(/[.!?]+/)
+            .filter(s => s.trim().length > 20)
+            .slice(0, 3);
+        }),
+        sources: results.flatMap(r => r.data?.sources || []),
+        confidence: results.every(r => r.success) ? 0.8 : 0.6,
+        recommendations: this.generateProtocolRecommendations(protocolData, results),
+        metadata: {
+          protocolId: protocolData.id,
+          timestamp: new Date(),
+          provider: results[0]?.metadata?.provider || 'unknown'
+        }
+      };
+
+      return combinedResult;
+    } catch (error) {
+      logger.error('Protocol research failed', { protocolId: protocolData.id, error });
+      throw error;
+    }
+  }
+
+  private async researchRWAWithAI(rwaData: RWAData): Promise<any> {
+    try {
+      const queries = [
+        // RWA fundamentals query
+        {
+          query: `Research the fundamentals of ${rwaData.type} real-world assets: 1) Market size and growth trends, 2) Risk factors and volatility, 3) Regulatory environment, 4) Liquidity characteristics, 5) Yield expectations and sustainability.`,
+          domain: 'finance',
+          recency: 'month' as const
+        },
+        // Issuer research query
+        {
+          query: `Research the issuer ${rwaData.issuer}: 1) Company background and financial health, 2) Credit rating and risk profile, 3) Regulatory compliance history, 4) Market reputation and track record, 5) Recent news and developments.`,
+          domain: 'business',
+          recency: 'week' as const
+        },
+        // Regulatory compliance query
+        {
+          query: `Research regulatory requirements for ${rwaData.type} assets in ${rwaData.regulatoryStatus.jurisdiction}: 1) Licensing requirements, 2) Compliance obligations, 3) Recent regulatory changes, 4) Enforcement actions, 5) Best practices for compliance.`,
+          domain: 'legal',
+          recency: 'week' as const
+        }
+      ];
+
+      const results = await Promise.all(
+        queries.map(q => this.unifiedAIClient.research(q))
+      );
+
+      // Combine and format results
+      const combinedResult = {
+        summary: results.map(r => r.data?.answer || '').join('\n\n'),
+        keyFindings: results.flatMap(r => {
+          const answer = r.data?.answer || '';
+          return answer.split(/[.!?]+/)
+            .filter(s => s.trim().length > 20)
+            .slice(0, 3);
+        }),
+        sources: results.flatMap(r => r.data?.sources || []),
+        confidence: results.every(r => r.success) ? 0.8 : 0.6,
+        recommendations: this.generateRWARecommendations(rwaData, results),
+        metadata: {
+          rwaId: rwaData.id,
+          timestamp: new Date(),
+          provider: results[0]?.metadata?.provider || 'unknown'
+        }
+      };
+
+      return combinedResult;
+    } catch (error) {
+      logger.error('RWA research failed', { rwaId: rwaData.id, error });
+      throw error;
+    }
+  }
+
+  private generateProtocolRecommendations(_protocolData: ProtocolData, results: any[]): string[] {
+    const recommendations: string[] = [];
+    
+    // Generate recommendations based on research results
+    const combinedContent = results.map(r => r.data?.answer || '').join(' ').toLowerCase();
+    
+    if (combinedContent.includes('security')) {
+      recommendations.push('Conduct additional security audits');
+    }
+    if (combinedContent.includes('regulatory')) {
+      recommendations.push('Review regulatory compliance status');
+    }
+    if (combinedContent.includes('growth')) {
+      recommendations.push('Monitor market growth trends');
+    }
+    if (combinedContent.includes('competition')) {
+      recommendations.push('Analyze competitive landscape');
+    }
+    
+    return recommendations;
+  }
+
+  private generateRWARecommendations(_rwaData: RWAData, results: any[]): string[] {
+    const recommendations: string[] = [];
+    
+    // Generate recommendations based on research results
+    const combinedContent = results.map(r => r.data?.answer || '').join(' ').toLowerCase();
+    
+    if (combinedContent.includes('regulatory')) {
+      recommendations.push('Ensure full regulatory compliance');
+    }
+    if (combinedContent.includes('liquidity')) {
+      recommendations.push('Monitor liquidity conditions');
+    }
+    if (combinedContent.includes('risk')) {
+      recommendations.push('Implement risk management strategies');
+    }
+    if (combinedContent.includes('yield')) {
+      recommendations.push('Optimize yield generation');
+    }
+    
+    return recommendations;
+  }
+
   private setupEventHandlers(): void {
     // Forward events from components
     this.fundamentalAnalysisEngine.on('analysis_completed', (event) => {
@@ -694,8 +849,21 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
       this.emit('regulatory_change_detected', event);
     });
 
-    this.perplexityIntegration.on('research_completed', (event) => {
-      this.emit('perplexity_research_completed', event);
+    // Forward events from UnifiedAIClient
+    this.unifiedAIClient.on('research_success', (event) => {
+      this.emit('ai_research_completed', {
+        ...event,
+        timestamp: new Date()
+      });
+    });
+
+    this.unifiedAIClient.on('fallback_success', (event) => {
+      logger.warn('AI provider fallback occurred', event);
+      this.emit('ai_provider_fallback', event);
+    });
+
+    this.unifiedAIClient.on('health_check_complete', (status) => {
+      this.emit('ai_health_status_changed', status);
     });
   }
 
@@ -722,7 +890,7 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
       await this.fundamentalAnalysisEngine.shutdown();
       await this.rwaScoringSystem.shutdown();
       await this.complianceFramework.shutdown();
-      await this.perplexityIntegration.shutdown();
+      // UnifiedAIClient doesn't need explicit shutdown, it's a singleton
 
       logger.info('Sage Satellite Agent shutdown complete');
     } catch (error) {

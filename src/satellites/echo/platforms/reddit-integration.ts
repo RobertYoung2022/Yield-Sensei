@@ -7,6 +7,8 @@ import { EventEmitter } from 'events';
 import { Logger } from 'winston';
 import { createLogger, format, transports } from 'winston';
 import { SentimentData, SocialPlatform } from '../types';
+import { RedditClient } from '../../../integrations/social/reddit-client';
+import { getUnifiedAIClient } from '../../../integrations/ai/unified-ai-client';
 
 export interface RedditConfig {
   clientId: string;
@@ -23,6 +25,8 @@ export interface RedditConfig {
 export class RedditIntegration extends EventEmitter {
   private logger: Logger;
   private config: RedditConfig;
+  private redditClient: RedditClient;
+  private aiClient = getUnifiedAIClient();
   private isConnected: boolean = false;
   private isCollecting: boolean = false;
   private lastCollectionTime: Date = new Date();
@@ -32,10 +36,18 @@ export class RedditIntegration extends EventEmitter {
     remaining: 0,
     resetTime: new Date()
   };
+  private collectionInterval?: NodeJS.Timeout;
 
   constructor(config: RedditConfig) {
     super();
     this.config = config;
+    this.redditClient = new RedditClient({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      userAgent: config.userAgent,
+      username: config.username,
+      password: config.password
+    });
     this.logger = createLogger({
       level: 'info',
       format: format.combine(

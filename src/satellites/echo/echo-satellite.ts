@@ -28,10 +28,13 @@ import {
   EchoAnalysisResponse
 } from './types';
 import { SentimentAnalysisEngine, SentimentAnalysisConfig } from './sentiment/sentiment-analysis-engine';
+import { DEFAULT_AI_SENTIMENT_CONFIG } from './sentiment/ai-powered-sentiment-analyzer';
 import { TrendDetectionEngine, TrendDetectionConfig } from './trends/trend-detection-engine';
 import { InfluencerTracker, InfluencerTrackingConfig } from './influencers/influencer-tracker';
 import { NarrativeAnalyzer, NarrativeAnalysisConfig } from './narratives/narrative-analyzer';
 import { SocialMediaPlatformManager, SocialPlatformConfig } from './platforms/social-media-platform-manager';
+import { CommunityEngagementManager, CommunityEngagementConfig, DEFAULT_COMMUNITY_ENGAGEMENT_CONFIG } from './engagement/community-engagement-manager';
+import { DeFAIProjectTracker, DeFAITrackingConfig, DEFAULT_DEFAI_TRACKING_CONFIG } from './engagement/defai-project-tracker';
 import Logger from '@/shared/logging/logger';
 
 const logger = Logger.getLogger('echo-satellite');
@@ -48,6 +51,8 @@ export interface EchoSatelliteConfig {
   influencerTracking: InfluencerTrackingConfig;
   narrativeAnalysis: NarrativeAnalysisConfig;
   socialPlatforms: SocialPlatformConfig;
+  communityEngagement: CommunityEngagementConfig;
+  defaiProjectTracking: DeFAITrackingConfig;
   enableRealTimeAnalysis: boolean;
   analysisInterval: number; // milliseconds
   maxConcurrentAnalyses: number;
@@ -72,7 +77,9 @@ export const DEFAULT_ECHO_CONFIG: EchoSatelliteConfig = {
     enableLanguageDetection: true,
     cacheResults: true,
     cacheTTL: 900000, // 15 minutes
-    enableCryptoSpecificModels: true
+    enableCryptoSpecificModels: true,
+    enableAIPoweredAnalysis: true,
+    aiPoweredConfig: DEFAULT_AI_SENTIMENT_CONFIG
   },
   trendDetection: {
     enableRealTimeDetection: true,
@@ -124,6 +131,8 @@ export const DEFAULT_ECHO_CONFIG: EchoSatelliteConfig = {
     maxDataAge: 86400000, // 24 hours
     enableContentFiltering: true
   },
+  communityEngagement: DEFAULT_COMMUNITY_ENGAGEMENT_CONFIG,
+  defaiProjectTracking: DEFAULT_DEFAI_TRACKING_CONFIG,
   enableRealTimeAnalysis: true,
   analysisInterval: 300000, // 5 minutes
   maxConcurrentAnalyses: 20,
@@ -151,6 +160,8 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
   private influencerTracker: InfluencerTracker;
   private narrativeAnalyzer: NarrativeAnalyzer;
   private platformManager: SocialMediaPlatformManager;
+  private engagementManager: CommunityEngagementManager;
+  private defaiTracker: DeFAIProjectTracker;
 
   // Runtime state
   private isInitialized: boolean = false;
@@ -197,6 +208,8 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
     this.influencerTracker = InfluencerTracker.getInstance(config.influencerTracking);
     this.narrativeAnalyzer = NarrativeAnalyzer.getInstance(config.narrativeAnalysis);
     this.platformManager = SocialMediaPlatformManager.getInstance(config.socialPlatforms);
+    this.engagementManager = CommunityEngagementManager.getInstance(config.communityEngagement);
+    this.defaiTracker = DeFAIProjectTracker.getInstance(config.defaiProjectTracking);
 
     this.setupEventHandlers();
   }
@@ -211,6 +224,8 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
       await this.influencerTracker.initialize();
       await this.narrativeAnalyzer.initialize();
       await this.platformManager.initialize();
+      await this.engagementManager.initialize();
+      await this.defaiTracker.initialize();
 
       this.isInitialized = true;
       this.status.status = 'initialized';
@@ -240,6 +255,10 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
       // Start platform data collection
       await this.platformManager.startDataCollection();
 
+      // Start community engagement and project tracking
+      await this.engagementManager.start();
+      await this.defaiTracker.start();
+
       // Start real-time analysis if enabled
       if (this.echoConfig.enableRealTimeAnalysis) {
         this.startRealTimeAnalysis();
@@ -268,6 +287,10 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
 
       // Stop platform data collection
       await this.platformManager.stopDataCollection();
+
+      // Stop community engagement and project tracking
+      await this.engagementManager.stop();
+      await this.defaiTracker.stop();
 
       logger.info('Echo Satellite Agent stopped successfully');
     } catch (error) {
@@ -486,6 +509,210 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
     }
   }
 
+  async getCommunityGrowthMetrics(timeframe: 'hour' | 'day' | 'week' | 'month' = 'day'): Promise<any> {
+    try {
+      logger.info('Getting community growth metrics', { timeframe });
+
+      const metrics = await this.engagementManager.getCommunityGrowthMetrics(timeframe);
+
+      logger.info('Community growth metrics generated', { 
+        timeframe,
+        newMembers: metrics.newMembers,
+        growthRate: metrics.growthRate
+      });
+
+      return metrics;
+    } catch (error) {
+      logger.error('Failed to get community growth metrics:', error);
+      throw error;
+    }
+  }
+
+  async getEngagementAnalytics(platform?: SocialPlatform): Promise<any> {
+    try {
+      logger.info('Getting engagement analytics', { platform });
+
+      const analytics = await this.engagementManager.getEngagementAnalytics(platform);
+
+      logger.info('Engagement analytics generated', { 
+        platform,
+        totalEngagements: analytics.totalEngagements,
+        responseRate: analytics.responseRate
+      });
+
+      return analytics;
+    } catch (error) {
+      logger.error('Failed to get engagement analytics:', error);
+      throw error;
+    }
+  }
+
+  async generateEngagementResponse(sentimentData: any, context?: string): Promise<any> {
+    try {
+      logger.info('Generating engagement response', { contentId: sentimentData.id });
+
+      const response = await this.engagementManager.generateEngagementResponse(sentimentData, context);
+
+      if (response) {
+        logger.info('Engagement response generated', { 
+          responseId: response.id,
+          responseType: response.responseType
+        });
+      }
+
+      return response;
+    } catch (error) {
+      logger.error('Failed to generate engagement response:', error);
+      throw error;
+    }
+  }
+
+  async getTrackedProjects(): Promise<any[]> {
+    try {
+      logger.info('Getting tracked DeFAI projects');
+
+      const projects = await this.defaiTracker.getTrackedProjects();
+
+      logger.info('Tracked projects retrieved', { count: projects.length });
+
+      return projects;
+    } catch (error) {
+      logger.error('Failed to get tracked projects:', error);
+      throw error;
+    }
+  }
+
+  async getTrendingProjects(limit: number = 10): Promise<any[]> {
+    try {
+      logger.info('Getting trending projects', { limit });
+
+      const projects = await this.defaiTracker.getTrendingProjects(limit);
+
+      logger.info('Trending projects retrieved', { count: projects.length });
+
+      return projects;
+    } catch (error) {
+      logger.error('Failed to get trending projects:', error);
+      throw error;
+    }
+  }
+
+  async getAdoptionSignals(projectId: string): Promise<any[]> {
+    try {
+      logger.info('Getting adoption signals', { projectId });
+
+      const signals = await this.defaiTracker.getAdoptionSignals(projectId);
+
+      logger.info('Adoption signals retrieved', { 
+        projectId,
+        signalsCount: signals.length
+      });
+
+      return signals;
+    } catch (error) {
+      logger.error('Failed to get adoption signals:', error);
+      throw error;
+    }
+  }
+
+  async analyzeProjectWithAI(projectName: string): Promise<any> {
+    try {
+      logger.info('Analyzing project with AI', { projectName });
+
+      const analysis = await this.defaiTracker.analyzeProjectWithAI(projectName);
+
+      if (analysis) {
+        logger.info('AI project analysis completed', { 
+          projectName,
+          assessment: analysis.assessment,
+          confidence: analysis.confidence
+        });
+      }
+
+      return analysis;
+    } catch (error) {
+      logger.error('Failed to analyze project with AI:', error);
+      throw error;
+    }
+  }
+
+  async detectNarratives(sentimentData?: any[], context?: string): Promise<any> {
+    try {
+      logger.info('Detecting narratives with AI', { dataPoints: sentimentData?.length || 0 });
+
+      // Use recent data if none provided
+      let data = sentimentData;
+      if (!data) {
+        data = await this.platformManager.getRecentData();
+      }
+
+      const narratives = await this.sentimentEngine.detectNarratives(data, context);
+
+      logger.info('Narrative detection completed', { 
+        narrativesCount: narratives.narratives?.length || 0,
+        marketImpactScore: narratives.marketImpactScore
+      });
+
+      return narratives;
+    } catch (error) {
+      logger.error('Failed to detect narratives:', error);
+      throw error;
+    }
+  }
+
+  async predictTrends(sentimentData?: any[], context?: string, history?: any): Promise<any> {
+    try {
+      logger.info('Predicting trends with AI', { dataPoints: sentimentData?.length || 0 });
+
+      // Use recent data if none provided
+      let data = sentimentData;
+      if (!data) {
+        data = await this.platformManager.getRecentData();
+      }
+
+      const predictions = await this.sentimentEngine.predictTrends(data, context, history);
+
+      logger.info('Trend prediction completed', { 
+        predictionsCount: predictions.predictions?.length || 0,
+        marketDirection: predictions.marketDirection,
+        confidenceScore: predictions.confidenceScore
+      });
+
+      return predictions;
+    } catch (error) {
+      logger.error('Failed to predict trends:', error);
+      throw error;
+    }
+  }
+
+  async getAISentimentAnalysis(content: string, platform?: string): Promise<any> {
+    try {
+      logger.info('Getting AI-powered sentiment analysis', { contentLength: content.length });
+
+      const sentimentData = {
+        id: `temp_${Date.now()}`,
+        source: platform || 'twitter',
+        content,
+        author: { id: 'unknown', username: 'unknown' },
+        timestamp: new Date(),
+        engagement: {},
+        metadata: {}
+      };
+
+      const analysis = await this.sentimentEngine.analyzeSentiment([sentimentData as any]);
+
+      logger.info('AI sentiment analysis completed', { 
+        sentiment: analysis.sentiment.overall,
+        confidence: analysis.sentiment.confidence
+      });
+
+      return analysis;
+    } catch (error) {
+      logger.error('Failed to get AI sentiment analysis:', error);
+      throw error;
+    }
+  }
+
   async getSystemHealth(): Promise<any> {
     try {
       const health = {
@@ -495,7 +722,9 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
           trendDetection: this.trendEngine.getStatus(),
           influencerTracking: this.influencerTracker.getStatus(),
           narrativeAnalysis: this.narrativeAnalyzer.getStatus(),
-          platformManager: this.platformManager.getStatus()
+          platformManager: this.platformManager.getStatus(),
+          communityEngagement: this.engagementManager.getStatus(),
+          defaiProjectTracking: this.defaiTracker.getStatus()
         },
         metrics: {
           pendingAnalyses: this.pendingAnalyses.size,
@@ -680,6 +909,40 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
       this.processedDataCount++;
       this.emit('data_processed', event);
     });
+
+    // Community Engagement Manager events
+    this.engagementManager.on('engagement_tracked', (event) => {
+      this.emit('engagement_tracked', event);
+    });
+
+    this.engagementManager.on('viral_content_detected', (event) => {
+      this.emit('viral_content_detected', event);
+    });
+
+    this.engagementManager.on('growth_analysis_completed', (event) => {
+      this.emit('growth_analysis_completed', event);
+    });
+
+    this.engagementManager.on('response_posted', (event) => {
+      this.emit('response_posted', event);
+    });
+
+    // DeFAI Project Tracker events
+    this.defaiTracker.on('new_project_discovered', (event) => {
+      this.emit('new_project_discovered', event);
+    });
+
+    this.defaiTracker.on('adoption_signal_detected', (event) => {
+      this.emit('adoption_signal_detected', event);
+    });
+
+    this.defaiTracker.on('viral_adoption_detected', (event) => {
+      this.emit('viral_adoption_detected', event);
+    });
+
+    this.defaiTracker.on('high_momentum_detected', (event) => {
+      this.emit('high_momentum_detected', event);
+    });
   }
 
   private startRealTimeAnalysis(): void {
@@ -705,11 +968,18 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
           // Analyze narratives
           const narratives = await this.narrativeAnalyzer.analyzeEmergingNarratives(recentData);
 
+          // Process engagement data
+          await this.engagementManager.processEngagementData(recentData);
+
+          // Process project tracking data
+          await this.defaiTracker.processSentimentData(recentData);
+
           logger.debug('Real-time analysis cycle completed', {
             sentimentAnalyses: sentimentAnalyses.length,
             trends: trends.length,
             influencerActivities: influencerActivities.length,
-            narratives: narratives.length
+            narratives: narratives.length,
+            processedData: recentData.length
           });
         }
       } catch (error) {
@@ -731,6 +1001,8 @@ export class EchoSatelliteAgent extends EventEmitter implements SatelliteAgent {
       await this.influencerTracker.shutdown();
       await this.narrativeAnalyzer.shutdown();
       await this.platformManager.shutdown();
+      await this.engagementManager.shutdown();
+      await this.defaiTracker.shutdown();
 
       logger.info('Echo Satellite Agent shutdown complete');
     } catch (error) {

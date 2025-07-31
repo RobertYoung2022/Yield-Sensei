@@ -1,6 +1,6 @@
 # Task ID: 3
 # Title: Sage Satellite Implementation (Market & Protocol Research)
-# Status: done
+# Status: in-progress
 # Dependencies: 1, 2
 # Priority: high
 # Description: Develop the Sage satellite for market and protocol research with RWA integration using custom Python/TypeScript ML models.
@@ -108,4 +108,10 @@ Collect and preprocess historical data for model training. Implement feature eng
 ### Description: Integrate all components into a cohesive system with unified interfaces and workflows
 ### Details:
 Develop unified API for accessing all satellite capabilities. Create consistent data models across components. Implement authentication and authorization system. Design monitoring and logging infrastructure. Create comprehensive documentation and usage examples.
+
+## 8. Upgrade to Unified AI Client Integration [pending]
+### Dependencies: None
+### Description: Replace basic Perplexity integration with UnifiedAIClient for multi-provider AI support
+### Details:
+Upgrade Sage Satellite to use the new UnifiedAIClient instead of basic Perplexity integration. Implement multi-provider AI for fundamental analysis, compliance assessment, and regulatory research. Add intelligent provider routing, load balancing across OpenAI, Anthropic, and Perplexity, and unified usage tracking. This addresses the missing AI integration upgrade identified in the Claude Code analysis.
 

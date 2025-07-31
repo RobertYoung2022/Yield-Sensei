@@ -5,15 +5,16 @@
 
 import { EventEmitter } from 'events';
 import Logger from '../../shared/logging/logger';
-import { DecentralizedIdentityService } from '../../compliance/kyc/decentralized-identity.service';
 import {
   DecentralizedUser,
   DecentralizedAuthSession,
-  SessionProof,
+  CrossChainIdentity,
   SessionCapability,
-  DIDDocument,
-  CrossChainIdentity
+  SessionProof
 } from '../../compliance/types/decentralized-types';
+import {
+  DecentralizedIdentityService
+} from '../types';
 
 const logger = Logger.getLogger('decentralized-auth');
 
@@ -167,8 +168,14 @@ export class DecentralizedAuthService extends EventEmitter {
       logger.info('Authenticating with DID', { did: request.did });
 
       // Verify DID is valid
-      const didVerification = await this.identityService.verifyDID(request.did);
-      if (!didVerification.valid) {
+      const didVerification = await this.identityService.verifyDID(request.did, {
+        type: 'did-auth',
+        challenge: request.challenge,
+        response: request.proof,
+        timestamp: new Date(request.timestamp),
+        signature: request.proof
+      });
+      if (!didVerification) {
         return {
           success: false,
           error: 'Invalid DID'
@@ -247,14 +254,55 @@ export class DecentralizedAuthService extends EventEmitter {
       const did = await this.walletAddressToDID(walletAddress);
 
       // Create decentralized identity
-      const identity = await this.identityService.createDecentralizedIdentity(walletAddress);
+      const identity = await this.identityService.createDecentralizedIdentity(did, walletAddress);
 
       // Create user profile
       const user: DecentralizedUser = {
         did,
         walletAddress: walletAddress.toLowerCase(),
         authenticationMethod: 'decentralized',
-        decentralizedIdentity: identity,
+        decentralizedIdentity: {
+          did,
+          didDocument: identity.didDocument,
+          verifiableCredentials: [],
+          zkProofs: [],
+          biometricHashes: [],
+          reputation: {
+            overallScore: 100,
+            transactionReputation: 50,
+            communityReputation: 0,
+            verificationReputation: 50,
+            complianceReputation: 50,
+            timeReputation: 0,
+            endorsements: [],
+            attestations: [],
+            stakedTokens: 0,
+            stakingHistory: [],
+            lastUpdated: new Date()
+          },
+          crossChainIdentities: [],
+          privacySettings: {
+            dataMinimization: true,
+            anonymousMode: false,
+            selectiveDisclosure: {
+              age: 'none',
+              jurisdiction: 'category',
+              income: 'none',
+              identity: 'pseudonymous'
+            },
+            dataSharing: {
+              analytics: false,
+              compliance: true,
+              research: false,
+              marketing: false
+            },
+            credentialRevocation: {
+              automatic: true,
+              notificationRequired: true,
+              gracePeriod: 30
+            }
+          }
+        },
         kycStatus: {
           level: 'basic',
           verified: false,
@@ -474,8 +522,8 @@ export class DecentralizedAuthService extends EventEmitter {
 
       logger.info('Cross-chain identity linked', {
         did,
-        chain: chainIdentity.chain,
-        address: chainIdentity.address,
+        chain: chainIdentity['chain'],
+        address: chainIdentity['address'],
         verified
       });
 
@@ -557,7 +605,7 @@ export class DecentralizedAuthService extends EventEmitter {
     return session;
   }
 
-  private getUserCapabilities(user: DecentralizedUser, session?: DecentralizedAuthSession): SessionCapability[] {
+  private getUserCapabilities(user: DecentralizedUser, _session?: DecentralizedAuthSession): SessionCapability[] {
     const capabilities: SessionCapability[] = [];
 
     // Base capabilities for all authenticated users

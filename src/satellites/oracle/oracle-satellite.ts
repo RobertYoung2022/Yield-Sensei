@@ -18,6 +18,10 @@ import {
   OracleValidationResult,
   RWAValidationResult
 } from './types';
+import { OracleFeedValidator, OracleValidatorConfig } from './validation/oracle-feed-validator';
+import { RWAValidator, RWAValidatorConfig } from './validation/rwa-validator';
+import { DataSourceManager, DataSourceManagerConfig } from './sources/data-source-manager';
+import { PerplexityClient, PerplexityClientConfig } from './sources/perplexity-client';
 
 export class OracleSatelliteAgent extends EventEmitter {
   private static instance: OracleSatelliteAgent;
@@ -27,10 +31,10 @@ export class OracleSatelliteAgent extends EventEmitter {
   private isRunning: boolean = false;
 
   // Component managers
-  private oracleValidator?: any; // OracleValidator
-  private rwaValidator?: any; // RWAValidator
-  private dataSourceManager?: any; // DataSourceManager
-  private perplexityClient?: any; // PerplexityClient
+  private oracleValidator?: OracleFeedValidator;
+  private rwaValidator?: RWAValidator;
+  private dataSourceManager?: DataSourceManager;
+  private perplexityClient?: PerplexityClient;
   private anomalyDetector?: any; // AnomalyDetector
 
   // State management
@@ -172,14 +176,14 @@ export class OracleSatelliteAgent extends EventEmitter {
       }
 
       // Stop components
-      if (this.oracleValidator?.stop) {
-        await this.oracleValidator.stop();
+      if (this.oracleValidator) {
+        await this.oracleValidator.shutdown();
       }
-      if (this.rwaValidator?.stop) {
-        await this.rwaValidator.stop();
+      if (this.rwaValidator) {
+        await this.rwaValidator.shutdown();
       }
-      if (this.dataSourceManager?.stop) {
-        await this.dataSourceManager.stop();
+      if (this.dataSourceManager) {
+        await this.dataSourceManager.shutdown();
       }
 
       this.isRunning = false;
@@ -382,27 +386,26 @@ export class OracleSatelliteAgent extends EventEmitter {
 
   // Private Methods
   private async initializeOracleValidator(): Promise<void> {
-    // Initialize oracle validation system
     this.logger.debug('Initializing oracle validator...');
     
-    // Mock implementation - would be replaced with actual OracleValidator
-    this.oracleValidator = {
-      validateFeed: async (feed: OracleFeed) => {
-        return {
-          isValid: true,
-          score: 0.95,
-          errors: [],
-          warnings: [],
-          metadata: {
-            sources: 3,
-            consensus: 0.98,
-            deviations: [0.01, 0.02, 0.015],
-            timestamp: new Date()
-          }
-        } as OracleValidationResult;
-      },
-      stop: async () => {}
+    const validatorConfig: OracleValidatorConfig = {
+      enableCrossValidation: this.config.oracle.enableCrossValidation || true,
+      enableHistoricalValidation: this.config.oracle.enableHistoricalValidation || true,
+      enableAnomalyDetection: this.config.oracle.anomalyDetection?.enabled || true,
+      accuracyThreshold: this.config.oracle.accuracyThreshold || 0.8,
+      consensusThreshold: this.config.oracle.consensusThreshold || 0.75,
+      maxDeviationPercent: this.config.oracle.maxDeviationPercent || 5.0,
+      historicalWindowDays: this.config.oracle.historicalWindowDays || 30,
+      minConsensusSize: this.config.oracle.minConsensusSize || 3,
+      validationTimeout: this.config.oracle.validationTimeout || 30000,
+      enableCaching: this.config.oracle.enableCaching || true,
+      cacheTtl: this.config.oracle.cacheTtl || 300000 // 5 minutes
     };
+
+    this.oracleValidator = OracleFeedValidator.getInstance(validatorConfig);
+    await this.oracleValidator.initialize();
+
+    this.logger.info('Oracle validator initialized successfully');
   }
 
   private async initializeRWAValidator(): Promise<void> {
