@@ -139,3 +139,44 @@ This project handles financial assets and user funds. Security is paramount:
 - Regular security audits by third parties
 - Bug bounty program for responsible disclosure
 - Multi-signature wallets with time-locks
+## 🚀 Quick Setup
+
+### Environment Configuration
+
+1. **Run the setup script:**
+   ```bash
+   ./scripts/setup-env.sh
+   ```
+
+2. **Edit your API keys:**
+   ```bash
+   # Edit .env file with your actual API keys
+   nano .env
+   ```
+
+3. **Restart Cursor IDE** to load the new MCP configuration
+
+### Required API Keys
+
+You'll need API keys for the AI providers you want to use:
+
+- **Anthropic** (Claude): https://console.anthropic.com/
+- **Perplexity**: https://www.perplexity.ai/settings/api
+- **OpenAI**: https://platform.openai.com/api-keys
+- **Google**: https://makersuite.google.com/app/apikey
+- **OpenRouter**: https://openrouter.ai/keys
+- **Mistral**: https://console.mistral.ai/
+- **Azure OpenAI**: https://portal.azure.com/
+- **Ollama**: Local installation (http://localhost:11434)
+
+### AI Tools Integration
+
+This project includes several AI tools:
+
+- **Claude AI Assistant** (`.claude/`): Command templates and workflows
+- **Taskmaster** (`.taskmaster/`): Task management and project planning
+- **Serena AI** (`.serena/`): Project memories and context
+- **Cursor IDE** (`.cursor/`): Development environment rules
+
+All configuration files are tracked in git for easy setup across different machines.
+

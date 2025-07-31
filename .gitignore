@@ -11,6 +11,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env*
 
 # Build outputs
 dist/
@@ -18,6 +19,14 @@ build/
 target/
 *.tgz
 *.tar.gz
+
+# Rust build artifacts
+src/**/target/
+*.rlib
+*.rmeta
+*.so
+*.dylib
+*.dll
 
 # Runtime data
 pids
@@ -116,6 +125,7 @@ Thumbs.db
 # Docker
 .dockerignore
 docker-compose.override.yml
+docker-compose.local.yml
 
 # Database
 *.sqlite
@@ -163,6 +173,8 @@ monitoring/logs/
 test-results/
 playwright-report/
 test-report/
+test-data/
+test-reports/
 
 # Analytics and telemetry
 .telemetry/
@@ -170,3 +182,32 @@ test-report/
 # Local development overrides
 docker-compose.local.yml
 .env.override
+
+# Generated reports and data (but preserve AI tools)
+reports/
+temp/
+coverage/
+
+# Generated JSON reports (temporary files)
+temp/*.json
+test-reports/*.json
+reports/*.json
+reports/security_report_*.json
+reports/fundamental-analysis-coverage.json
+reports/task-*-package-update-summary.md
+reports/database-security-report.md
+reports/encryption-validation-report.md
+
+# Preserve AI tools - DO NOT IGNORE
+# .claude/ - Keep Claude AI assistant files
+# .taskmaster/ - Keep Taskmaster files
+# .serena/ - Keep Serena AI files
+# .cursor/ - Keep Cursor IDE configuration
+
+# Taskmaster specific exclusions (keep config but ignore generated files)
+.taskmaster/reports/
+
+# Serena specific exclusions (keep memories but ignore cache)
+.serena/cache/
+
+# Cursor specific exclusions (keep rules but ignore local settings)

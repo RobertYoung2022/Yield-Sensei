@@ -4,15 +4,25 @@
 			"command": "npx",
 			"args": ["-y", "--package=task-master-ai", "task-master-ai"],
 			"env": {
-				"ANTHROPIC_API_KEY": "your-anthropic-api-key-here",
-				"PERPLEXITY_API_KEY": "your-perplexity-api-key-here",
-				"OPENAI_API_KEY": "your-openai-api-key-here",
-				"GOOGLE_API_KEY": "your-google-api-key-here",
-				"XAI_API_KEY": "your-xai-api-key-here",
-				"OPENROUTER_API_KEY": "your-openrouter-api-key-here",
-				"MISTRAL_API_KEY": "your-mistral-api-key-here",
-				"AZURE_OPENAI_API_KEY": "your-azure-openai-api-key-here",
-				"OLLAMA_API_KEY": "your-ollama-api-key-here"
+				"ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+				"PERPLEXITY_API_KEY": "${PERPLEXITY_API_KEY}",
+				"OPENAI_API_KEY": "${OPENAI_API_KEY}",
+				"GOOGLE_API_KEY": "${GOOGLE_API_KEY}",
+				"XAI_API_KEY": "${XAI_API_KEY}",
+				"OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}",
+				"MISTRAL_API_KEY": "${MISTRAL_API_KEY}",
+				"AZURE_OPENAI_API_KEY": "${AZURE_OPENAI_API_KEY}",
+				"OLLAMA_API_KEY": "${OLLAMA_API_KEY}",
+				"AZURE_OPENAI_ENDPOINT": "${AZURE_OPENAI_ENDPOINT}",
+				"OLLAMA_BASE_URL": "${OLLAMA_BASE_URL}",
+				"TASKMASTER_LOG_LEVEL": "${TASKMASTER_LOG_LEVEL}",
+				"TASKMASTER_DEBUG": "${TASKMASTER_DEBUG}",
+				"TASKMASTER_DEFAULT_NUM_TASKS": "${TASKMASTER_DEFAULT_NUM_TASKS}",
+				"TASKMASTER_DEFAULT_SUBTASKS": "${TASKMASTER_DEFAULT_SUBTASKS}",
+				"TASKMASTER_DEFAULT_PRIORITY": "${TASKMASTER_DEFAULT_PRIORITY}",
+				"TASKMASTER_PROJECT_NAME": "${TASKMASTER_PROJECT_NAME}",
+				"TASKMASTER_RESPONSE_LANGUAGE": "${TASKMASTER_RESPONSE_LANGUAGE}",
+				"TASKMASTER_DEFAULT_TAG": "${TASKMASTER_DEFAULT_TAG}"
 			}
 		}
 	}
