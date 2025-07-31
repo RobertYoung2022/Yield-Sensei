@@ -211,3 +211,46 @@ reports/encryption-validation-report.md
 .serena/cache/
 
 # Cursor specific exclusions (keep rules but ignore local settings)
+# Personal AI configurations
+.claude/
+.cursor/
+.serena/
+.taskmaster/
+.gemini/
+.mcp.json
+*.backup
+env.template
+.env copy.example
+
+# Personal AI configurations - DO NOT TRACK
+.claude/
+.cursor/
+.serena/
+.taskmaster/
+.gemini/
+.mcp.json
+
+# Personal documentation
+CLAUDE.md
+GEMINI.md
+yield_sensei_PRD.txt
+
+# Personal reports
+security-assessment-report.md
+security-audit-report.json
+SECURITY_AND_STANDARDS_REVIEW.md
+
+# Personal configs
+env.template
+.env copy.example
+*.backup
+
+# Test files
+test-framework-validation.js
+
+# Personal AI tool configurations
+.serena/cache/
+.taskmaster/reports/
+.taskmaster/state.json
+.taskmaster/config.json
+.cursor/mcp.json
