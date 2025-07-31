@@ -1,0 +1,302 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Cancel previous runs for the same PR
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast checks that run on every PR
+  quick-checks:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Need full history for diff
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files_yaml: |
+            src:
+              - 'src/**'
+            tests:
+              - 'tests/**'
+              - '**/*.test.ts'
+              - '**/*.spec.ts'
+            config:
+              - 'tsconfig*.json'
+              - 'jest.config.js'
+              - 'package*.json'
+            docs:
+              - '**/*.md'
+              - 'docs/**'
+
+      - name: Install dependencies
+        if: steps.changed-files.outputs.src_any_changed == 'true' || steps.changed-files.outputs.tests_any_changed == 'true'
+        run: npm ci
+
+      - name: Run TypeScript check
+        if: steps.changed-files.outputs.src_any_changed == 'true'
+        run: npm run typecheck
+
+      - name: Run linting on changed files
+        if: steps.changed-files.outputs.src_any_changed == 'true'
+        run: |
+          echo "${{ steps.changed-files.outputs.src_all_changed_files }}" | xargs -r npx eslint || true
+
+      - name: Check for console.log statements
+        if: steps.changed-files.outputs.src_any_changed == 'true'
+        run: |
+          if grep -r "console\.log" ${{ steps.changed-files.outputs.src_all_changed_files }} 2>/dev/null; then
+            echo "::warning::Found console.log statements in source files"
+          fi
+
+      - name: Check for hardcoded secrets
+        if: steps.changed-files.outputs.src_any_changed == 'true'
+        run: |
+          # Simple check for potential secrets
+          patterns="password=|api_key=|secret=|token="
+          if grep -riE "$patterns" ${{ steps.changed-files.outputs.src_all_changed_files }} 2>/dev/null; then
+            echo "::error::Potential hardcoded secrets found!"
+            exit 1
+          fi
+
+  # Run targeted tests based on changes
+  targeted-tests:
+    name: Targeted Tests
+    needs: quick-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        test-suite:
+          - { name: 'Unit', pattern: 'unit' }
+          - { name: 'Integration', pattern: 'integration' }
+          - { name: 'Security', pattern: 'security' }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Get changed test files
+        id: changed-tests
+        run: |
+          # Find test files related to changed source files
+          changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(ts|js)$' || true)
+          test_pattern=""
+          
+          for file in $changed_files; do
+            if [[ $file == *"test"* ]] || [[ $file == *"spec"* ]]; then
+              test_pattern="${test_pattern}|${file}"
+            else
+              # Find corresponding test file
+              test_file=$(echo $file | sed 's/\.ts$/.test.ts/;s/src/tests/')
+              if [ -f "$test_file" ]; then
+                test_pattern="${test_pattern}|${test_file}"
+              fi
+            fi
+          done
+          
+          echo "test_pattern=${test_pattern#|}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ${{ matrix.test-suite.name }} tests
+        if: steps.changed-tests.outputs.test_pattern != ''
+        run: |
+          npm test -- \
+            --testPathPattern="${{ matrix.test-suite.pattern }}" \
+            --testNamePattern="${{ steps.changed-tests.outputs.test_pattern }}" \
+            --coverage \
+            --coverageReporters=text-summary
+        continue-on-error: true
+
+  # Check test coverage for changed files
+  coverage-check:
+    name: Coverage Check
+    needs: targeted-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get changed source files
+        id: changed-src
+        run: |
+          changed_src=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E 'src/.*\.ts$' | grep -v '\.test\.' || true)
+          echo "files=${changed_src}" >> $GITHUB_OUTPUT
+
+      - name: Run coverage for changed files
+        if: steps.changed-src.outputs.files != ''
+        run: |
+          # Run tests with coverage for changed files
+          npm test -- \
+            --coverage \
+            --collectCoverageFrom='${{ steps.changed-src.outputs.files }}' \
+            --coverageThreshold='{"global":{"branches":70,"functions":70,"lines":80,"statements":80}}'
+
+  # Performance impact check
+  performance-impact:
+    name: Performance Impact
+    needs: quick-checks
+    if: contains(github.event.pull_request.labels.*.name, 'performance') || contains(github.event.pull_request.title, '[perf]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Run performance comparison
+        run: |
+          # Install dependencies for both
+          npm ci
+          cd base && npm ci && cd ..
+          
+          # Run performance tests on base
+          cd base
+          npm test -- --testPathPattern="performance" --json --outputFile=../base-perf.json || true
+          cd ..
+          
+          # Run performance tests on PR
+          npm test -- --testPathPattern="performance" --json --outputFile=pr-perf.json || true
+          
+          # Compare results
+          node scripts/compare-performance.js base-perf.json pr-perf.json
+
+  # Security scan for dependencies
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for dependency changes
+        id: dep-changes
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q "package.*json"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run dependency audit
+        if: steps.dep-changes.outputs.changed == 'true'
+        run: |
+          npm audit --production
+          
+      - name: Check for outdated dependencies
+        if: steps.dep-changes.outputs.changed == 'true'
+        run: |
+          npm outdated || true
+
+  # Summary comment
+  pr-summary:
+    name: PR Summary
+    needs: [quick-checks, targeted-tests, coverage-check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const quickChecks = '${{ needs.quick-checks.result }}';
+            const targetedTests = '${{ needs.targeted-tests.result }}';
+            const coverage = '${{ needs.coverage-check.result }}';
+            
+            let status = '✅';
+            if (quickChecks === 'failure' || targetedTests === 'failure' || coverage === 'failure') {
+              status = '❌';
+            } else if (quickChecks === 'skipped' || targetedTests === 'skipped') {
+              status = '⏭️';
+            }
+            
+            const comment = `## ${status} PR Check Summary
+            
+            | Check | Status |
+            |-------|--------|
+            | Quick Checks | ${quickChecks === 'success' ? '✅' : quickChecks === 'failure' ? '❌' : '⏭️'} |
+            | Targeted Tests | ${targetedTests === 'success' ? '✅' : targetedTests === 'failure' ? '❌' : '⏭️'} |
+            | Coverage | ${coverage === 'success' ? '✅' : coverage === 'failure' ? '❌' : '⏭️'} |
+            
+            <details>
+            <summary>Details</summary>
+            
+            - Quick validation includes TypeScript, linting, and security checks
+            - Targeted tests run only on changed components
+            - Coverage ensures changed files meet minimum thresholds
+            
+            </details>
+            
+            _Updated at ${new Date().toISOString()}_`;
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('PR Check Summary')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }

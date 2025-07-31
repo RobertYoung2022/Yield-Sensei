@@ -1,0 +1,79 @@
+# Code Owners Configuration
+# =========================
+# 
+# This file defines who owns which parts of the codebase and requires
+# their review for changes in those areas
+
+# Global ownership
+* @yield-sensei/core-team
+
+# Infrastructure and CI/CD
+/.github/ @yield-sensei/devops-team
+/scripts/ @yield-sensei/devops-team
+/deployment/ @yield-sensei/devops-team
+/deployments/ @yield-sensei/devops-team
+/docker-compose.yml @yield-sensei/devops-team
+/Dockerfile* @yield-sensei/devops-team
+
+# Core system architecture
+/src/core/ @yield-sensei/core-team @yield-sensei/architecture-team
+/src/shared/ @yield-sensei/core-team
+
+# Security components
+/src/security/ @yield-sensei/security-team @yield-sensei/core-team
+/src/compliance/ @yield-sensei/security-team @yield-sensei/compliance-team
+/src/auth/ @yield-sensei/security-team
+
+# Configuration and secrets
+/src/config/ @yield-sensei/devops-team @yield-sensei/security-team
+*.env* @yield-sensei/devops-team @yield-sensei/security-team
+
+# Database and data
+/src/shared/database/ @yield-sensei/data-team @yield-sensei/core-team
+/src/types/database-schemas.ts @yield-sensei/data-team
+
+# Testing framework
+/src/testing/ @yield-sensei/qa-team @yield-sensei/core-team
+/tests/ @yield-sensei/qa-team
+jest.config.js @yield-sensei/qa-team
+*.test.ts @yield-sensei/qa-team
+*.spec.ts @yield-sensei/qa-team
+
+# Satellite modules
+/src/satellites/echo/ @yield-sensei/echo-team
+/src/satellites/sage/ @yield-sensei/sage-team
+/src/satellites/bridge/ @yield-sensei/bridge-team
+/src/satellites/aegis/ @yield-sensei/aegis-team @yield-sensei/rust-team
+/src/satellites/pulse/ @yield-sensei/pulse-team
+/src/satellites/forge/ @yield-sensei/forge-team
+/src/satellites/oracle/ @yield-sensei/oracle-team
+
+# Rust components
+Cargo.toml @yield-sensei/rust-team
+Cargo.lock @yield-sensei/rust-team
+**/*.rs @yield-sensei/rust-team
+
+# API and external interfaces
+/src/api/ @yield-sensei/api-team @yield-sensei/core-team
+/src/graphql/ @yield-sensei/api-team
+/src/websocket/ @yield-sensei/api-team
+
+# Documentation
+/docs/ @yield-sensei/docs-team
+*.md @yield-sensei/docs-team
+/README.md @yield-sensei/core-team @yield-sensei/docs-team
+
+# TypeScript configuration
+tsconfig*.json @yield-sensei/core-team
+/src/types/ @yield-sensei/core-team
+
+# Package management
+package*.json @yield-sensei/core-team @yield-sensei/devops-team
+/node_modules/ @yield-sensei/devops-team
+
+# Monitoring and observability
+/monitoring/ @yield-sensei/devops-team @yield-sensei/observability-team
+/logs/ @yield-sensei/observability-team
+
+# Integration configurations
+/integrations/ @yield-sensei/integrations-team

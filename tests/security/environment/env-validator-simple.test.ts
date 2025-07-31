@@ -145,7 +145,7 @@ SECURE_SECRET=a-very-long-and-secure-secret-key
       // Create test source file
       const srcDir = join(testDir, 'src');
       mkdirSync(srcDir, { recursive: true });
-      writeFileSync(join(srcDir, 'good.js'), 'const port = process.env.PORT;');
+      writeFileSync(join(srcDir, 'good.js'), 'const port = process.env["PORT"];');
 
       const summary = await validator.validateAll();
       

@@ -17,9 +17,10 @@ import {
 } from '../types';
 import {
   DecentralizedUser,
-  DecentralizedTransaction,
-  ZKProof
+  DecentralizedTransaction
 } from '../types/decentralized-types';
+import { MLPatternRecognition, TransactionPattern } from '../ml/pattern-recognition';
+import { BlockchainAnalyticsService, AnalyticsResult } from '../integrations/blockchain-analytics';
 
 const logger = Logger.getLogger('transaction-monitor');
 
@@ -79,11 +80,15 @@ export class TransactionMonitor extends EventEmitter {
   private isRunning = false;
   private velocityMetrics: Map<string, VelocityMetrics> = new Map();
   private addressCache: Map<string, any> = new Map();
+  private mlPatternRecognition?: MLPatternRecognition;
+  private blockchainAnalytics?: BlockchainAnalyticsService;
   private monitoringStats = {
     transactionsScreened: 0,
     violationsDetected: 0,
     patternsDetected: 0,
-    velocityViolations: 0
+    velocityViolations: 0,
+    mlPatternsDetected: 0,
+    blockchainAnalyticsChecks: 0
   };
 
   constructor(config: MonitoringConfig) {
@@ -98,6 +103,19 @@ export class TransactionMonitor extends EventEmitter {
     }
 
     try {
+      // Initialize ML pattern recognition
+      this.mlPatternRecognition = new MLPatternRecognition();
+      await this.mlPatternRecognition.initialize();
+      
+      // Initialize blockchain analytics if configured
+      if (this.config.blockchainAnalytics) {
+        this.blockchainAnalytics = new BlockchainAnalyticsService();
+        await this.blockchainAnalytics.initialize({
+          chainalysis: this.config.blockchainAnalytics.chainalysis,
+          trmLabs: this.config.blockchainAnalytics.trmLabs
+        });
+        logger.info('Blockchain analytics initialized');
+      }
       logger.info('Initializing Transaction Monitor...');
 
       // Set up periodic cleanup
@@ -220,11 +238,11 @@ export class TransactionMonitor extends EventEmitter {
       const flags: ComplianceFlag[] = [];
 
       // Check daily transaction count
-      if (metrics.dailyCount > velocityLimits.daily_transaction_count) {
+      if (metrics.dailyCount > velocityLimits['daily_transaction_count']) {
         flags.push({
           type: 'velocity-anomaly',
           severity: 'medium',
-          description: `Daily transaction count exceeded: ${metrics.dailyCount} > ${velocityLimits.daily_transaction_count}`,
+          description: `Daily transaction count exceeded: ${metrics.dailyCount} > ${velocityLimits['daily_transaction_count']}`,
           source: 'transaction-monitor',
           confidence: 0.9,
           timestamp: new Date(),
@@ -422,6 +440,78 @@ export class TransactionMonitor extends EventEmitter {
     
     const riskFactors: any[] = [];
     let riskScore = 0;
+    
+    // ML Pattern Recognition Analysis
+    let mlPatterns: TransactionPattern[] = [];
+    if (this.mlPatternRecognition) {
+      try {
+        // Get related transactions for ML analysis
+        const relatedTransactions = await this.getRelatedTransactions(user.id, transaction.timestamp);
+        
+        // Run ML pattern detection
+        mlPatterns = await this.mlPatternRecognition.analyzeTransaction(
+          transaction,
+          user,
+          relatedTransactions
+        );
+        
+        // Add ML patterns to risk factors
+        for (const pattern of mlPatterns) {
+          riskFactors.push({
+            type: `ml_pattern_${pattern.type}`,
+            weight: pattern.confidence,
+            value: pattern.name,
+            contribution: pattern.riskScore * pattern.confidence,
+            description: pattern.description,
+            indicators: pattern.indicators
+          });
+          riskScore += Math.round(pattern.riskScore * pattern.confidence);
+          this.monitoringStats.mlPatternsDetected++;
+        }
+      } catch (error) {
+        logger.error('ML pattern detection failed', { error, transactionId: transaction.id });
+      }
+    }
+    
+    // Blockchain Analytics Check
+    if (this.blockchainAnalytics && transaction.fromAccount && transaction.toAccount) {
+      try {
+        // Analyze sender address
+        const senderAnalysis = await this.blockchainAnalytics.analyzeAddress(
+          transaction.fromAccount,
+          transaction
+        );
+        
+        // Analyze recipient address
+        const recipientAnalysis = await this.blockchainAnalytics.analyzeAddress(
+          transaction.toAccount,
+          transaction
+        );
+        
+        // Process analytics results
+        for (const analysis of [...senderAnalysis, ...recipientAnalysis]) {
+          if (analysis.riskScore > 50) {
+            riskFactors.push({
+              type: `blockchain_analytics_${analysis.provider.toLowerCase()}`,
+              weight: 0.8,
+              value: `${analysis.address} - Risk: ${analysis.riskLevel}`,
+              contribution: analysis.riskScore * 0.8,
+              description: `Blockchain analytics detected ${analysis.riskLevel} risk`,
+              metadata: {
+                provider: analysis.provider,
+                address: analysis.address,
+                categories: analysis.categories,
+                exposures: analysis.exposures
+              }
+            });
+            riskScore += Math.round(analysis.riskScore * 0.5);
+            this.monitoringStats.blockchainAnalyticsChecks++;
+          }
+        }
+      } catch (error) {
+        logger.error('Blockchain analytics check failed', { error, transactionId: transaction.id });
+      }
+    }
 
     // Risk factor: Large transaction
     const amountThreshold = this.config.thresholds.transactionAmount[transaction.currency] || 10000;
@@ -489,7 +579,13 @@ export class TransactionMonitor extends EventEmitter {
       thresholds,
       recommendation,
       provider: 'internal-engine',
-      checkedAt: new Date()
+      checkedAt: new Date(),
+      mlPatterns: mlPatterns.length > 0 ? mlPatterns.map(p => ({
+        type: p.type,
+        name: p.name,
+        confidence: p.confidence,
+        riskScore: p.riskScore
+      })) : undefined
     };
   }
 
@@ -664,6 +760,15 @@ export class TransactionMonitor extends EventEmitter {
 
   private isDecentralizedUser(user: User | DecentralizedUser): user is DecentralizedUser {
     return 'did' in user;
+  }
+  
+  /**
+   * Get related transactions for ML analysis
+   */
+  private async getRelatedTransactions(userId: string, timestamp: Date): Promise<Transaction[]> {
+    // In production, this would query the database for the user's recent transactions
+    // For now, return empty array - the ML system will handle this gracefully
+    return [];
   }
 
   /**

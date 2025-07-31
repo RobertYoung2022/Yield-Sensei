@@ -260,4 +260,28 @@ export interface AuthConfig {
     loginAttempts: number;
     windowMs: number; // milliseconds
   };
+}
+
+// Decentralized authentication types
+export interface SessionCapability {
+  action: string;                       // What action is allowed
+  resource: string;                     // What resource it applies to
+  conditions?: string[];                // Conditions that must be met
+  expiresAt?: Date;                     // When this capability expires
+}
+
+export interface SessionProof {
+  type: 'wallet-signature' | 'did-auth' | 'zk-proof';
+  challenge: string;
+  response: string;
+  timestamp: Date;
+  signature: string;
+}
+
+export interface DecentralizedIdentityService {
+  verifyIdentity(did: string, proof: SessionProof): Promise<boolean>;
+  getIdentityCapabilities(did: string): Promise<SessionCapability[]>;
+  revokeIdentity(did: string): Promise<void>;
+  verifyDID(did: string, proof: SessionProof): Promise<boolean>;
+  createDecentralizedIdentity(did: string, walletAddress: string): Promise<any>;
 } 

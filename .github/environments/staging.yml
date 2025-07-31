@@ -1,0 +1,121 @@
+# Staging Environment Configuration
+name: staging
+url: https://staging.yieldsensei.com
+
+# Environment protection rules
+protection_rules:
+  required_reviewers: 1
+  wait_timer: 300 # 5 minutes
+  prevent_self_review: true
+
+# Environment variables (non-sensitive)
+variables:
+  NODE_ENV: staging
+  LOG_LEVEL: info
+  API_BASE_URL: https://staging-api.yieldsensei.com
+  FRONTEND_URL: https://staging.yieldsensei.com
+  CORS_ORIGIN: https://staging.yieldsensei.com
+  RATE_LIMIT_WINDOW_MS: 900000
+  RATE_LIMIT_MAX_REQUESTS: 500
+  PERFORMANCE_MONITORING_ENABLED: true
+  DEBUG_MODE: false
+  MOCK_EXTERNAL_APIS: false
+  SKIP_BLOCKCHAIN_VALIDATION: false
+
+# Deployment configuration
+deployment:
+  auto_deploy: false
+  deploy_on_push: false
+  branches:
+    - main
+    - release/*
+  
+  # Pre-deployment checks
+  required_checks:
+    - security-validation
+    - type-safety
+    - unit-tests
+    - integration-tests
+    - performance-tests
+    - e2e-tests
+    
+  # Pre-deployment approvals
+  required_approvals:
+    - team: "backend-team"
+      count: 1
+    - team: "security-team"
+      count: 1
+    
+  # Post-deployment validation
+  health_checks:
+    - api_health
+    - database_connection
+    - redis_connection
+    - clickhouse_connection
+    - configuration_validation
+    - security_validation
+    - performance_baseline
+    
+  # Rollback configuration
+  rollback:
+    auto_rollback_on_failure: true
+    rollback_timeout: 600 # 10 minutes
+    health_check_timeout: 300 # 5 minutes
+
+# Monitoring and alerting
+monitoring:
+  enabled: true
+  retention_days: 30
+  alerting:
+    enabled: true
+    channels:
+      - slack: "#staging-alerts"
+      - email: "staging-alerts@yieldsensei.com"
+  
+  # Performance monitoring
+  performance:
+    response_time_threshold: 2000 # 2 seconds
+    error_rate_threshold: 0.05 # 5%
+    uptime_threshold: 0.99 # 99%
+
+# Security configuration
+security:
+  ssl_enabled: true
+  hsts_enabled: true
+  csrf_protection: true
+  rate_limiting: true
+  
+  # Security scanning
+  vulnerability_scanning:
+    enabled: true
+    schedule: "daily"
+    
+  # Compliance
+  compliance_standards:
+    - SOC2
+    - PCI-DSS
+    - GDPR
+
+# Resource limits
+resources:
+  cpu_limit: "2"
+  memory_limit: "4Gi"
+  storage_limit: "50Gi"
+  
+  # Auto-scaling
+  auto_scaling:
+    enabled: true
+    min_replicas: 2
+    max_replicas: 5
+    cpu_threshold: 70
+    memory_threshold: 80
+
+# Backup and disaster recovery
+backup:
+  enabled: true
+  schedule: "0 2 * * *" # Daily at 2 AM
+  retention_days: 30
+  
+  disaster_recovery:
+    rpo: 60 # Recovery Point Objective - 1 hour
+    rto: 30 # Recovery Time Objective - 30 minutes

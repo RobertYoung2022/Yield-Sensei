@@ -1,0 +1,220 @@
+{
+  "notifications": {
+    "slack": {
+      "enabled": true,
+      "webhook_url_secret": "SLACK_WEBHOOK_URL",
+      "channels": {
+        "general": {
+          "events": ["workflow_success", "workflow_failure", "scheduled_test_complete"],
+          "conditions": {
+            "branches": ["main", "develop"]
+          }
+        },
+        "development": {
+          "events": ["pr_check_failure", "security_alert", "performance_regression"],
+          "conditions": {
+            "severity": ["high", "critical"]
+          }
+        },
+        "security": {
+          "events": ["security_vulnerability", "compliance_failure", "audit_alert"],
+          "conditions": {
+            "severity": ["medium", "high", "critical"]
+          }
+        }
+      }
+    },
+    "email": {
+      "enabled": true,
+      "smtp_config": {
+        "server": "smtp.gmail.com",
+        "port": 465,
+        "username_secret": "EMAIL_USERNAME",
+        "password_secret": "EMAIL_PASSWORD"
+      },
+      "recipients": {
+        "team_leads": {
+          "addresses_secret": "TEAM_LEADS_EMAIL",
+          "events": ["workflow_failure", "security_alert", "quality_gate_failure"],
+          "conditions": {
+            "branches": ["main"],
+            "severity": ["high", "critical"]
+          }
+        },
+        "developers": {
+          "addresses_secret": "DEVELOPERS_EMAIL", 
+          "events": ["scheduled_test_complete", "performance_regression"],
+          "conditions": {
+            "frequency": "daily"
+          }
+        },
+        "security_team": {
+          "addresses_secret": "SECURITY_TEAM_EMAIL",
+          "events": ["security_vulnerability", "compliance_failure"],
+          "conditions": {
+            "severity": ["medium", "high", "critical"]
+          }
+        }
+      }
+    },
+    "github": {
+      "enabled": true,
+      "actions": {
+        "create_issue": {
+          "events": ["workflow_failure", "security_alert", "quality_gate_failure"],
+          "conditions": {
+            "branches": ["main"],
+            "consecutive_failures": 2
+          },
+          "labels": ["bug", "ci-failure", "priority-high"],
+          "assignees": ["@yield-sensei/core-team"]
+        },
+        "pr_comment": {
+          "events": ["pr_check_complete", "performance_regression", "security_alert"],
+          "conditions": {
+            "event_name": "pull_request"
+          }
+        }
+      }
+    },
+    "teams": {
+      "enabled": false,
+      "webhook_url_secret": "TEAMS_WEBHOOK_URL",
+      "channels": {
+        "general": {
+          "events": ["workflow_failure", "security_alert"],
+          "conditions": {
+            "branches": ["main"]
+          }
+        }
+      }
+    }
+  },
+  "templates": {
+    "slack": {
+      "workflow_success": {
+        "color": "good",
+        "title": "✅ Workflow Successful",
+        "fields": [
+          {
+            "title": "Repository",
+            "value": "${GITHUB_REPOSITORY}",
+            "short": true
+          },
+          {
+            "title": "Branch",
+            "value": "${GITHUB_REF_NAME}",
+            "short": true
+          },
+          {
+            "title": "Commit",
+            "value": "${GITHUB_SHA:0:8}",
+            "short": true
+          },
+          {
+            "title": "Duration",
+            "value": "${WORKFLOW_DURATION}",
+            "short": true
+          }
+        ]
+      },
+      "workflow_failure": {
+        "color": "danger",
+        "title": "❌ Workflow Failed",
+        "fields": [
+          {
+            "title": "Repository",
+            "value": "${GITHUB_REPOSITORY}",
+            "short": true
+          },
+          {
+            "title": "Branch",
+            "value": "${GITHUB_REF_NAME}",
+            "short": true
+          },
+          {
+            "title": "Failed Job",
+            "value": "${FAILED_JOB}",
+            "short": true
+          },
+          {
+            "title": "Error",
+            "value": "${ERROR_MESSAGE}",
+            "short": false
+          }
+        ],
+        "actions": [
+          {
+            "type": "button",
+            "text": "View Workflow",
+            "url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          }
+        ]
+      },
+      "security_alert": {
+        "color": "warning",
+        "title": "🔒 Security Alert",
+        "fields": [
+          {
+            "title": "Issue Type",
+            "value": "${SECURITY_ISSUE_TYPE}",
+            "short": true
+          },
+          {
+            "title": "Severity",
+            "value": "${SECURITY_SEVERITY}",
+            "short": true
+          },
+          {
+            "title": "Description",
+            "value": "${SECURITY_DESCRIPTION}",
+            "short": false
+          }
+        ]
+      }
+    },
+    "email": {
+      "workflow_failure": {
+        "subject": "🚨 YieldSensei CI/CD Failure - ${GITHUB_REF_NAME}",
+        "template": "workflow_failure.html"
+      },
+      "security_alert": {
+        "subject": "🔒 Security Alert - ${SECURITY_ISSUE_TYPE}",
+        "template": "security_alert.html"
+      },
+      "scheduled_test_complete": {
+        "subject": "📊 YieldSensei Daily Test Report - ${TEST_DATE}",
+        "template": "test_report.html"
+      }
+    }
+  },
+  "rate_limiting": {
+    "slack": {
+      "max_per_hour": 10,
+      "max_per_day": 50
+    },
+    "email": {
+      "max_per_hour": 5,
+      "max_per_day": 20
+    }
+  },
+  "escalation": {
+    "rules": [
+      {
+        "condition": "consecutive_failures >= 3 AND branch == 'main'",
+        "action": "escalate_to_team_leads",
+        "delay_minutes": 0
+      },
+      {
+        "condition": "security_severity == 'critical'",
+        "action": "immediate_alert_all",
+        "delay_minutes": 0
+      },
+      {
+        "condition": "workflow_duration > 60 AND branch == 'main'",
+        "action": "performance_alert",
+        "delay_minutes": 15
+      }
+    ]
+  }
+}

@@ -544,7 +544,7 @@ export class RuleEngine extends EventEmitter {
   private checkUserViolation(user: User, rule: ComplianceRule): ComplianceViolation | null {
     // Example: Check KYC compliance
     if (rule.category === 'kyc-aml' && rule.name.includes('KYC')) {
-      const requiredLevel = rule.actions[0]?.parameters?.kycLevel;
+      const requiredLevel = rule.actions[0]?.parameters?.['kycLevel'];
       const userLevel = user.kycStatus.level;
       
       const levelHierarchy = { 'basic': 1, 'enhanced': 2, 'professional': 3, 'institutional': 4 };

@@ -1,0 +1,202 @@
+# Production Environment Configuration
+name: production
+url: https://yieldsensei.com
+
+# Environment protection rules
+protection_rules:
+  required_reviewers: 2
+  wait_timer: 1800 # 30 minutes
+  prevent_self_review: true
+  deployment_branch_policy:
+    protected_branches: true
+    custom_branch_policies: false
+
+# Environment variables (non-sensitive)
+variables:
+  NODE_ENV: production
+  LOG_LEVEL: warn
+  API_BASE_URL: https://api.yieldsensei.com
+  FRONTEND_URL: https://yieldsensei.com
+  CORS_ORIGIN: https://yieldsensei.com
+  RATE_LIMIT_WINDOW_MS: 900000
+  RATE_LIMIT_MAX_REQUESTS: 100
+  PERFORMANCE_MONITORING_ENABLED: true
+  DEBUG_MODE: false
+  MOCK_EXTERNAL_APIS: false
+  SKIP_BLOCKCHAIN_VALIDATION: false
+
+# Deployment configuration
+deployment:
+  auto_deploy: false
+  deploy_on_push: false
+  manual_approval_required: true
+  branches:
+    - main
+  
+  # Pre-deployment checks
+  required_checks:
+    - security-validation
+    - type-safety
+    - unit-tests
+    - integration-tests
+    - performance-tests
+    - e2e-tests
+    - security-audit
+    - compliance-check
+    - load-testing
+    
+  # Pre-deployment approvals
+  required_approvals:
+    - team: "backend-team"
+      count: 2
+    - team: "security-team"
+      count: 1
+    - team: "devops-team"
+      count: 1
+    - user: "tech-lead"
+      required: true
+    
+  # Deployment strategy
+  strategy:
+    type: "blue-green"
+    canary_percentage: 10
+    rollout_duration: 1800 # 30 minutes
+    
+  # Post-deployment validation
+  health_checks:
+    - api_health
+    - database_connection
+    - redis_connection
+    - clickhouse_connection
+    - configuration_validation
+    - security_validation
+    - performance_baseline
+    - ssl_certificate_validation
+    - cdn_validation
+    - external_service_integration
+    
+  # Rollback configuration
+  rollback:
+    auto_rollback_on_failure: true
+    rollback_timeout: 300 # 5 minutes
+    health_check_timeout: 180 # 3 minutes
+    critical_error_threshold: 0.01 # 1%
+
+# Monitoring and alerting
+monitoring:
+  enabled: true
+  retention_days: 365
+  alerting:
+    enabled: true
+    priority: "high"
+    channels:
+      - slack: "#production-alerts"
+      - email: "production-alerts@yieldsensei.com"
+      - pagerduty: "production-incidents"
+      - sms: "+1234567890"
+  
+  # Performance monitoring
+  performance:
+    response_time_threshold: 1000 # 1 second
+    error_rate_threshold: 0.01 # 1%
+    uptime_threshold: 0.999 # 99.9%
+    
+  # Business metrics
+  business_metrics:
+    - transaction_volume
+    - user_activity
+    - revenue_impact
+    - security_incidents
+
+# Security configuration
+security:
+  ssl_enabled: true
+  hsts_enabled: true
+  csrf_protection: true
+  rate_limiting: true
+  waf_enabled: true
+  ddos_protection: true
+  
+  # Security scanning
+  vulnerability_scanning:
+    enabled: true
+    schedule: "hourly"
+    immediate_alert_on_critical: true
+    
+  # Compliance
+  compliance_standards:
+    - SOC2
+    - PCI-DSS
+    - GDPR
+    - HIPAA
+    - ISO27001
+    
+  # Audit logging
+  audit_logging:
+    enabled: true
+    retention_years: 7
+    real_time_monitoring: true
+
+# Resource limits
+resources:
+  cpu_limit: "4"
+  memory_limit: "8Gi"
+  storage_limit: "500Gi"
+  
+  # Auto-scaling
+  auto_scaling:
+    enabled: true
+    min_replicas: 3
+    max_replicas: 20
+    cpu_threshold: 60
+    memory_threshold: 70
+    custom_metrics:
+      - transaction_rate
+      - queue_depth
+      - response_time
+
+# High availability
+high_availability:
+  multi_zone: true
+  replica_count: 3
+  load_balancing: true
+  circuit_breaker: true
+  
+  # Chaos engineering
+  chaos_testing:
+    enabled: true
+    schedule: "weekly"
+    impact_limit: "minimal"
+
+# Backup and disaster recovery
+backup:
+  enabled: true
+  schedule: "0 1,13 * * *" # Twice daily at 1 AM and 1 PM
+  retention_days: 90
+  cross_region_replication: true
+  encryption_at_rest: true
+  
+  disaster_recovery:
+    rpo: 15 # Recovery Point Objective - 15 minutes
+    rto: 15 # Recovery Time Objective - 15 minutes
+    automated_failover: true
+    geo_redundancy: true
+
+# Compliance and governance
+compliance:
+  data_residency: "US"
+  data_classification: "confidential"
+  privacy_controls: true
+  
+  # Regulatory requirements
+  regulations:
+    - SOX
+    - GDPR
+    - CCPA
+    - PCI-DSS
+    
+  # Change management
+  change_management:
+    approval_required: true
+    emergency_override: false
+    documentation_required: true

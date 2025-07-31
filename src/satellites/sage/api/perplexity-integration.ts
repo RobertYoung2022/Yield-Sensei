@@ -7,9 +7,7 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { EventEmitter } from 'events';
 import { 
   ProtocolData, 
-  RWAData, 
-  ModelPrediction,
-  FeatureImportance 
+  RWAData
 } from '../types';
 import Logger from '@/shared/logging/logger';
 
@@ -592,13 +590,14 @@ export class PerplexityIntegration extends EventEmitter {
   private generateSources(content: string): ResearchSource[] {
     // Simplified source generation
     // In a real implementation, this would parse actual sources from the response
+    const isLongContent = content.length > 500;
     const mockSources: ResearchSource[] = [
       {
         title: 'Market Research Report',
         url: 'https://example.com/market-report',
         domain: 'example.com',
         snippet: 'Comprehensive market analysis and trends',
-        relevance: 0.9
+        relevance: isLongContent ? 0.9 : 0.7
       },
       {
         title: 'Regulatory Database',

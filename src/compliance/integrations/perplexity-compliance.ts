@@ -81,7 +81,7 @@ export class PerplexityComplianceClient extends EventEmitter {
 
   constructor() {
     super();
-    this.apiKey = process.env.PERPLEXITY_API_KEY || '';
+    this.apiKey = process.env['PERPLEXITY_API_KEY'] || '';
   }
 
   async initialize(): Promise<void> {
@@ -333,7 +333,7 @@ export class PerplexityComplianceClient extends EventEmitter {
 
   private generateRegulatoryUpdatePrompt(query: ComplianceResearchQuery): string {
     const categoryFilter = query.category ? ` related to ${query.category}` : '';
-    const lookbackDays = query.context.lookbackDays || 30;
+    const lookbackDays = query.context['lookbackDays'] || 30;
 
     return `
 Please research the latest regulatory updates and changes in ${query.jurisdiction} for financial services and digital assets${categoryFilter} from the last ${lookbackDays} days.
@@ -358,7 +358,7 @@ Please cite specific sources and provide publication dates where available.
   }
 
   private generateJurisdictionAnalysisPrompt(query: ComplianceResearchQuery): string {
-    const businessType = query.context.businessType || 'digital assets';
+    const businessType = query.context['businessType'] || 'digital assets';
 
     return `
 Please provide a comprehensive analysis of compliance requirements for ${businessType} businesses operating in ${query.jurisdiction}.
@@ -385,7 +385,7 @@ Focus on practical compliance guidance for implementation.
   }
 
   private generateRiskAssessmentPrompt(query: ComplianceResearchQuery): string {
-    const userProfile = query.context.userProfile;
+    const userProfile = query.context['userProfile'];
 
     return `
 Please assess compliance risks for a user profile in ${query.jurisdiction} with the following characteristics:
@@ -415,7 +415,7 @@ Focus on actionable compliance guidance.
   }
 
   private generateComplianceGapPrompt(query: ComplianceResearchQuery): string {
-    const currentRules = query.context.currentRules;
+    const currentRules = query.context['currentRules'];
 
     return `
 Please analyze compliance gaps for ${query.category} in ${query.jurisdiction}.

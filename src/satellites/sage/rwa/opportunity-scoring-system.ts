@@ -8,10 +8,7 @@ import { EventEmitter } from 'events';
 import { 
   RWAData, 
   RWAType, 
-  CollateralInfo, 
-  RegulatoryStatus,
-  ModelPrediction,
-  FeatureImportance
+  CollateralInfo
 } from '../types';
 import Logger from '@/shared/logging/logger';
 
@@ -158,6 +155,9 @@ export class RWAOpportunityScoringSystem extends EventEmitter {
 
       // Start periodic updates
       this.startPeriodicUpdates();
+
+      // Mark system as running
+      this.isRunning = true;
 
       logger.info('RWA Opportunity Scoring System initialized successfully');
     } catch (error) {
@@ -681,7 +681,7 @@ export class RWAOpportunityScoringSystem extends EventEmitter {
     return collateralTypes[collateral.type] || 0.5;
   }
 
-  private assessIssuerCredit(issuer: string): number {
+  private assessIssuerCredit(_issuer: string): number {
     // Placeholder for issuer credit assessment
     // In a real implementation, this would query credit rating agencies
     return 0.7; // Default moderate credit quality

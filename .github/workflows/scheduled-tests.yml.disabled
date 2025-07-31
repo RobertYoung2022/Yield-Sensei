@@ -1,0 +1,378 @@
+name: Scheduled Comprehensive Tests
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+    # Run at 6 PM UTC on Fridays for weekend monitoring
+    - cron: '0 18 * * 5'
+  workflow_dispatch:
+    inputs:
+      test_depth:
+        description: 'Test depth level'
+        required: true
+        default: 'comprehensive'
+        type: choice
+        options:
+          - comprehensive
+          - extended
+          - stress
+
+jobs:
+  # Comprehensive satellite testing
+  satellite-tests:
+    name: Satellite Tests - ${{ matrix.satellite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        satellite:
+          - echo
+          - sage
+          - bridge
+          - aegis
+          - pulse
+          - forge
+          - oracle
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Setup Rust (for Aegis)
+        if: matrix.satellite == 'aegis'
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: '1.75.0'
+          override: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ${{ matrix.satellite }} satellite tests
+        run: |
+          npm test -- \
+            --testPathPattern="satellites/${{ matrix.satellite }}" \
+            --coverage \
+            --json \
+            --outputFile=satellite-${{ matrix.satellite }}-results.json
+
+      - name: Run ${{ matrix.satellite }} integration tests
+        run: |
+          npm test -- \
+            --testPathPattern="integration.*${{ matrix.satellite }}" \
+            --json \
+            --outputFile=satellite-${{ matrix.satellite }}-integration.json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: satellite-${{ matrix.satellite }}-results
+          path: |
+            satellite-${{ matrix.satellite }}-*.json
+            coverage/
+
+  # Extended integration testing
+  extended-integration:
+    name: Extended Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: yieldsensei_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+      
+      clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        ports:
+          - 8123:8123
+          - 9000:9000
+        options: >-
+          --health-cmd "wget --spider -q localhost:8123/ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup test databases
+        run: |
+          # PostgreSQL setup
+          PGPASSWORD=testpass psql -h localhost -U postgres -d yieldsensei_test < scripts/init-db.sql
+          
+          # ClickHouse setup
+          curl -s "http://localhost:8123/?query=CREATE DATABASE IF NOT EXISTS yieldsensei_test"
+
+      - name: Run extended integration tests
+        run: |
+          npm test -- \
+            --testPathPattern="integration" \
+            --testTimeout=30000 \
+            --json \
+            --outputFile=extended-integration-results.json
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/yieldsensei_test
+          REDIS_URL: redis://localhost:6379
+          CLICKHOUSE_URL: http://localhost:8123
+
+      - name: Run cross-database tests
+        run: |
+          npm test -- \
+            --testPathPattern="cross-database|data-flow" \
+            --json \
+            --outputFile=cross-database-results.json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: extended-integration-results
+          path: |
+            *-results.json
+
+  # Stress testing
+  stress-tests:
+    name: Stress Tests
+    if: github.event.inputs.test_depth == 'stress' || github.event.schedule == '0 18 * * 5'
+    runs-on: ubuntu-latest-16gb # Use larger runner
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run memory stress tests
+        run: |
+          node --max-old-space-size=8192 \
+            node_modules/.bin/jest \
+            --testPathPattern="stress|load" \
+            --json \
+            --outputFile=stress-memory-results.json
+        env:
+          STRESS_TEST_MEMORY: true
+          STRESS_TEST_ITERATIONS: 10000
+
+      - name: Run concurrency stress tests
+        run: |
+          npm test -- \
+            --testPathPattern="stress.*concurrent" \
+            --json \
+            --outputFile=stress-concurrent-results.json
+        env:
+          STRESS_TEST_CONCURRENT_USERS: 1000
+          STRESS_TEST_DURATION: 300
+
+      - name: Analyze stress test results
+        run: |
+          node scripts/analyze-stress-tests.js \
+            stress-memory-results.json \
+            stress-concurrent-results.json
+
+      - name: Upload stress test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: stress-test-results
+          path: |
+            stress-*-results.json
+            stress-analysis-report.html
+
+  # Security scanning
+  security-scan:
+    name: Comprehensive Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security validation suite
+        run: |
+          npm run security:validate:all
+          npm run security:audit:comprehensive
+
+      - name: Run OWASP dependency check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'YieldSensei'
+          path: '.'
+          format: 'ALL'
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Upload security results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: |
+            security-report*.json
+            dependency-check-report.*
+
+  # Performance benchmarking
+  performance-benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run performance benchmarks
+        run: |
+          npm run test:performance:benchmark
+          
+      - name: Compare with baseline
+        run: |
+          # Download previous benchmark results
+          curl -s https://api.github.com/repos/${{ github.repository }}/actions/artifacts \
+            | jq '.artifacts[] | select(.name == "benchmark-baseline") | .archive_download_url' \
+            | head -1 \
+            | xargs -I {} curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" {} \
+            | tar -xz || true
+          
+          # Compare results
+          node scripts/compare-benchmarks.js \
+            benchmark-baseline.json \
+            benchmark-results.json \
+            > benchmark-comparison.md
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            benchmark-results.json
+            benchmark-comparison.md
+
+      - name: Update benchmark baseline
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: benchmark-results.json
+
+  # Report generation
+  comprehensive-report:
+    name: Generate Comprehensive Report
+    needs: [satellite-tests, extended-integration, stress-tests, security-scan, performance-benchmark]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: test-artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Generate comprehensive report
+        run: |
+          npm install -g @nrwl/nx
+          node scripts/generate-comprehensive-report.js test-artifacts > comprehensive-report.md
+
+      - name: Create issue if tests failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('comprehensive-report.md', 'utf8');
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Scheduled Test Failure - ${new Date().toISOString().split('T')[0]}`,
+              body: report,
+              labels: ['test-failure', 'automated']
+            });
+            
+            console.log(`Created issue #${issue.data.number}`);
+
+      - name: Upload comprehensive report
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-test-report
+          path: comprehensive-report.md
+
+      - name: Send report via email
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: YieldSensei Scheduled Test Report - ${{ job.status }}
+          body: file://comprehensive-report.md
+          to: ${{ secrets.REPORT_EMAIL_RECIPIENTS }}
+          from: YieldSensei CI/CD

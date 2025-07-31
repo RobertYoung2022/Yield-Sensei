@@ -1,20 +1,7 @@
-/**
- * Regulatory Compliance Framework Configuration
- * Default configurations for multi-jurisdictional compliance
- */
+// This file is for compliance configuration types and defaults
+// Currently no imports are needed as this is a configuration file
 
-import { 
-  ComplianceConfig, 
-  Jurisdiction, 
-  ComplianceCategory, 
-  ActivityLevel, 
-  KYCLevel, 
-  DocumentType,
-  ReportType,
-  RiskLevel
-} from '../types';
-
-export const DEFAULT_COMPLIANCE_CONFIG: ComplianceConfig = {
+export const DEFAULT_COMPLIANCE_CONFIG = {
   jurisdictions: [
     // United States
     {

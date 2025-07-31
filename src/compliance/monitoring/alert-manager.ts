@@ -334,7 +334,7 @@ export class AlertManager extends EventEmitter {
         }
         break;
       case 'sms':
-        if (!channel.credentials?.apiKey) {
+        if (!channel.credentials?.['apiKey']) {
           throw new Error('SMS channel requires API key');
         }
         break;

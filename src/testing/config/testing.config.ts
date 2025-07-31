@@ -55,7 +55,7 @@ export class TestingConfig {
       database: {
         setup: 'clean',
         teardown: 'clean',
-        connectionString: process.env.TEST_DATABASE_URL || 'mongodb://localhost:27017/yieldsensei_test',
+        connectionString: process.env['TEST_DATABASE_URL'] || 'mongodb://localhost:27017/yieldsensei_test',
       },
       externalServices: {
         mock: true,
@@ -167,7 +167,7 @@ export class TestingConfig {
    * Load configuration based on environment
    */
   private loadConfiguration(): TestConfig {
-    const environment = process.env.NODE_ENV || 'development';
+    const environment = process.env['NODE_ENV'] || 'development';
     
     const baseConfig: TestConfig = {
       environment: environment as 'development' | 'staging' | 'production' | 'test',
@@ -210,13 +210,13 @@ export class TestingConfig {
   private getBaseUrl(environment: string): string {
     switch (environment) {
       case 'production':
-        return process.env.PRODUCTION_API_URL || 'https://api.yieldsensei.com';
+        return process.env['PRODUCTION_API_URL'] || 'https://api.yieldsensei.com';
       case 'staging':
-        return process.env.STAGING_API_URL || 'https://staging-api.yieldsensei.com';
+        return process.env['STAGING_API_URL'] || 'https://staging-api.yieldsensei.com';
       case 'test':
-        return process.env.TEST_API_URL || 'http://localhost:3000';
+        return process.env['TEST_API_URL'] || 'http://localhost:3000';
       default:
-        return process.env.DEV_API_URL || 'http://localhost:3000';
+        return process.env['DEV_API_URL'] || 'http://localhost:3000';
     }
   }
 
@@ -518,11 +518,11 @@ export class TestingConfig {
    * Get environment-specific configuration
    */
   public getEnvironmentConfig(environment: string): TestConfig {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = environment;
+    const originalEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = environment;
     
     const config = new TestingConfig();
-    process.env.NODE_ENV = originalEnv;
+    process.env['NODE_ENV'] = originalEnv;
     
     return config.getConfig();
   }

@@ -1,0 +1,62 @@
+# Development Environment Configuration
+name: development
+url: https://dev.yieldsensei.com
+
+# Environment protection rules
+protection_rules:
+  required_reviewers: 0
+  wait_timer: 0
+  prevent_self_review: false
+
+# Environment variables (non-sensitive)
+variables:
+  NODE_ENV: development
+  LOG_LEVEL: debug
+  API_BASE_URL: https://dev-api.yieldsensei.com
+  FRONTEND_URL: https://dev.yieldsensei.com
+  CORS_ORIGIN: https://dev.yieldsensei.com
+  RATE_LIMIT_WINDOW_MS: 900000
+  RATE_LIMIT_MAX_REQUESTS: 1000
+  PERFORMANCE_MONITORING_ENABLED: true
+  DEBUG_MODE: true
+  MOCK_EXTERNAL_APIS: true
+  SKIP_BLOCKCHAIN_VALIDATION: true
+
+# Deployment configuration
+deployment:
+  auto_deploy: true
+  deploy_on_push: true
+  branches:
+    - develop
+    - feature/*
+  
+  # Pre-deployment checks
+  required_checks:
+    - security-validation
+    - type-safety
+    - unit-tests
+    
+  # Post-deployment validation
+  health_checks:
+    - api_health
+    - database_connection
+    - redis_connection
+    - configuration_validation
+
+# Monitoring and alerting
+monitoring:
+  enabled: true
+  retention_days: 7
+  alerting:
+    enabled: false
+    channels: []
+
+# Resource limits
+resources:
+  cpu_limit: "1"
+  memory_limit: "2Gi"
+  storage_limit: "10Gi"
+  
+  # Auto-scaling (disabled for development)
+  auto_scaling:
+    enabled: false

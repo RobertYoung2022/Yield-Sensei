@@ -78,6 +78,8 @@ jest.mock('@/core/messaging/bus', () => {
         averageLatency: 5,
         connectionStatus: 'connected'
     }));
+    mockMessageBus.prototype.on = jest.fn();
+    mockMessageBus.prototype.removeAllListeners = jest.fn();
     return { MessageBus: mockMessageBus };
 });
 

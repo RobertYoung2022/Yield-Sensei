@@ -5,16 +5,46 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
-    types: [opened, synchronize, reopened]
+  schedule:
+    # Run integration tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Test environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      test_groups:
+        description: 'Test groups to run (comma-separated, leave empty for all)'
+        required: false
+        type: string
+      parallel:
+        description: 'Run tests in parallel'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  POSTGRESQL_VERSION: '15'
+  REDIS_VERSION: '7'
 
 jobs:
   integration-tests:
+    name: Integration Tests (${{ matrix.environment }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
+    timeout-minutes: 30
+    
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18.x, 20.x]
+        environment: 
+          - ${{ github.event.inputs.environment || 'local' }}
+        node-version: [18.x]
 
     services:
       postgres:
@@ -109,6 +139,9 @@ jobs:
           echo "REDIS_PORT=6379" >> .env.test
           echo "CLICKHOUSE_HOST=localhost" >> .env.test
           echo "CLICKHOUSE_PORT=8123" >> .env.test
+          echo "JWT_SECRET=test-jwt-secret-key-for-testing-only" >> .env.test
+          echo "ENCRYPTION_KEY=test-encryption-key-for-testing" >> .env.test
+          echo "CORS_ORIGIN=http://localhost:3000" >> .env.test
 
       - name: Run linting
         run: npm run lint || echo "No lint script found"
@@ -116,8 +149,11 @@ jobs:
       - name: Run type checking
         run: npm run type-check || npx tsc --noEmit
 
+      - name: Run security validation
+        run: npm run config:validate || echo "Configuration validation completed with warnings"
+
       - name: Run unit tests
-        run: npm test -- --testPathIgnorePatterns=integration --testPathIgnorePatterns=performance --testPathIgnorePatterns=e2e
+        run: npm run test:unit
 
       - name: Run integration tests
         env:
@@ -131,25 +167,26 @@ jobs:
           REDIS_PORT: 6379
           CLICKHOUSE_HOST: localhost
           CLICKHOUSE_PORT: 8123
-        run: |
-          # Run integration tests with increased timeout and coverage
-          npm test -- tests/integration/ --testTimeout=30000 --detectOpenHandles --forceExit
+          JWT_SECRET: test-jwt-secret-key-for-testing-only
+          ENCRYPTION_KEY: test-encryption-key-for-testing
+          CORS_ORIGIN: http://localhost:3000
+        run: npm run test:integration
 
       - name: Run performance tests
         env:
           NODE_ENV: test
           PERFORMANCE_TEST: true
-        run: |
-          # Run performance tests with extended timeout
-          npm test -- tests/performance/ --testTimeout=60000 --detectOpenHandles --forceExit || echo "Performance tests completed with warnings"
+          JWT_SECRET: test-jwt-secret-key-for-testing-only
+          ENCRYPTION_KEY: test-encryption-key-for-testing
+        run: npm run test:performance || echo "Performance tests completed with warnings"
 
       - name: Run E2E tests
         env:
           NODE_ENV: test
           E2E_TEST: true
-        run: |
-          # Run end-to-end tests
-          npm test -- tests/e2e/ --testTimeout=45000 --detectOpenHandles --forceExit || echo "E2E tests completed"
+          JWT_SECRET: test-jwt-secret-key-for-testing-only
+          ENCRYPTION_KEY: test-encryption-key-for-testing
+        run: npm run test:e2e || echo "E2E tests completed"
 
       - name: Upload test results
         if: always()

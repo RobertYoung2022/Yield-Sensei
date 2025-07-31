@@ -329,4 +329,197 @@ export interface AlertEvent {
   message: string;
   timestamp: Date;
   data?: any;
-} 
+}
+
+// Extended types for full Sage implementation
+
+// Enhanced RWA Score types
+export interface RWAScore {
+  overallScore: number;
+  riskAdjustedReturn: number;
+  confidence: number;
+  recommendations: Recommendation[];
+  factors: ScoringFactor[];
+  metadata: {
+    calculatedAt: Date;
+    version: string;
+    model: string;
+  };
+}
+
+export interface ScoringFactor {
+  category: string;
+  score: number;
+  weight: number;
+  description: string;
+  impact: 'positive' | 'negative' | 'neutral';
+  confidence?: number;
+  sourceData?: any;
+}
+
+// Enhanced Compliance types
+export interface ComplianceAssessment {
+  entityId: string;
+  entityType: 'protocol' | 'rwa';
+  overallScore: number;
+  complianceLevel: 'compliant' | 'partial' | 'non-compliant';
+  ruleEvaluations: Array<{
+    ruleId: string;
+    ruleName: string;
+    status: 'compliant' | 'partial' | 'violation';
+    score: number;
+    details: string;
+    recommendations?: string[];
+  }>;
+  violations: Array<{
+    ruleId: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    description: string;
+    remediation: string;
+    deadline?: Date;
+  }>;
+  recommendations: Recommendation[];
+  assessedAt: Date;
+  nextReviewDate: Date;
+  jurisdiction: string;
+}
+
+// Enhanced TVL Analysis
+export interface TVLAnalysis {
+  health: 'healthy' | 'declining' | 'volatile' | 'growing';
+  trend: 'upward' | 'downward' | 'stable' | 'volatile';
+  score: number;
+  growthRate: number;
+  volatilityScore: number;
+}
+
+// Perplexity API Integration types
+export interface PerplexityResponse {
+  content: string;
+  sources?: string[];
+  timestamp: Date;
+  model: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+export interface ResearchQuery {
+  query: string;
+  context?: Record<string, any>;
+  sources?: string[];
+  depth?: 'shallow' | 'medium' | 'deep';
+  language?: string;
+}
+
+export interface ResearchResult {
+  summary: string;
+  keyFindings: string[];
+  sources: ResearchSource[];
+  confidence: number;
+  recommendations: string[];
+  metadata: Record<string, any>;
+}
+
+export interface ResearchSource {
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  relevance: number;
+}
+
+// Sage Agent Configuration
+export interface SageAgentConfig {
+  name: string;
+  capabilities: string[];
+  enableCaching?: boolean;
+  enablePerplexity?: boolean;
+  enableMLAnalysis?: boolean;
+  riskTolerance?: number;
+  performanceThresholds?: {
+    rwaScoring: number;
+    protocolAnalysis: number;
+    complianceAssessment: number;
+  };
+  apiKeys?: {
+    perplexity?: string;
+    other?: Record<string, string>;
+  };
+}
+
+// Analysis Request and Result types
+export interface SageAnalysisRequest {
+  type: 'rwa_analysis' | 'protocol_analysis' | 'compliance_assessment' | 'comprehensive_analysis' | 'yield_optimized_analysis' | 'cross_chain_rwa_analysis' | 'fundamental_analysis' | 'investment_decision' | 'enhanced_rwa_analysis' | 'validation_workflow' | 'consistency_validation' | 'performance_test' | 'resilient_analysis' | 'contextual_analysis' | 'integration_test' | 'contract_test';
+  data: RWAData | ProtocolData;
+  requirements: string[];
+  context?: Record<string, any>;
+  marketData?: any;
+  yieldContext?: any;
+  bridgeData?: any;
+  portfolioContext?: any;
+  sessionId?: string;
+  fallbackOptions?: {
+    skipSentiment?: boolean;
+    useCachedData?: boolean;
+    degradedMode?: boolean;
+  };
+}
+
+export interface SageAnalysisResult {
+  requestId?: string;
+  rwaScore?: RWAScore;
+  protocolAnalysis?: ProtocolAnalysis;
+  complianceAssessment?: ComplianceAssessment;
+  recommendations: Recommendation[];
+  metadata: {
+    processedAt: Date;
+    duration: number;
+    version: string;
+    degradedMode?: boolean;
+    missingComponents?: string[];
+  };
+  // Additional fields for specific analysis types
+  netYield?: number;
+  crossChainRisks?: any;
+  liquidityScore?: number;
+  comparativeAnalysis?: any;
+  diversificationScore?: number;
+  recommendation?: Recommendation;
+  baseScore?: number;
+  sessionContext?: any;
+}
+
+// Health and Status types
+export interface ComponentHealth {
+  component: string;
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'offline';
+  lastCheck: Date;
+  uptime: number;
+  errorRate: number;
+  responseTime: number;
+  issues?: string[];
+}
+
+export interface SageAgentStatus {
+  status: 'initializing' | 'ready' | 'processing' | 'degraded' | 'offline';
+  health: 'healthy' | 'degraded' | 'unhealthy';
+  components: ComponentHealth[];
+  startedAt: Date;
+  lastActivity: Date;
+  processedRequests: number;
+  errorCount: number;
+  averageResponseTime: number;
+}
+
+// Position and Portfolio types
+export interface Position {
+  id: string;
+  type: 'rwa' | 'protocol' | 'token';
+  value: number;
+  expectedReturn: number;
+  riskScore: number;
+  metadata?: Record<string, any>;
+}

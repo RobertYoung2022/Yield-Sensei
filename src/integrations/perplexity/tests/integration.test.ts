@@ -11,7 +11,7 @@ import { ExportService } from '../services/export.service';
 import { DEFAULT_PERPLEXITY_CONFIG } from '../config/default.config';
 
 // Integration tests require actual API configuration
-const isIntegrationTest = process.env.PERPLEXITY_API_KEY && process.env.RUN_INTEGRATION_TESTS;
+const isIntegrationTest = process.env['PERPLEXITY_API_KEY'] && process.env['RUN_INTEGRATION_TESTS'];
 
 describe('Perplexity Integration Tests', () => {
   let client: PerplexityClient;
@@ -29,7 +29,7 @@ describe('Perplexity Integration Tests', () => {
     // Initialize with actual configuration
     const config = {
       ...DEFAULT_PERPLEXITY_CONFIG,
-      apiKey: process.env.PERPLEXITY_API_KEY!,
+      apiKey: process.env['PERPLEXITY_API_KEY']!,
       rateLimit: {
         ...DEFAULT_PERPLEXITY_CONFIG.rateLimit!,
         maxRequestsPerMinute: 10, // Lower rate for integration tests

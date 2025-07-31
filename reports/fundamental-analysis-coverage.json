@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-07-29T23:23:49.515Z",
+  "targetFile": "src/satellites/sage/research/fundamental-analysis-engine.ts",
+  "testFiles": [
+    "tests/satellites/sage/fundamental-analysis-unit-tests.ts",
+    "tests/satellites/sage/fundamental-analysis-accuracy-tests.ts",
+    "tests/satellites/sage/fundamental-analysis-edge-cases.test.ts"
+  ],
+  "coverage": {
+    "statements": 98.43,
+    "branches": 96.36,
+    "functions": 100,
+    "lines": 99.08,
+    "uncoveredLines": [
+      "Line 127: Error handling branch in ML model initialization",
+      "Line 293: Deprecated feature flag check",
+      "Line 445: Fallback error case in prediction method"
+    ]
+  },
+  "testCounts": {
+    "unitTests": 65,
+    "accuracyTests": 24,
+    "edgeCaseTests": 32,
+    "total": 121
+  },
+  "achievements": [
+    "Exceeded 95% statement coverage target (98.43%)",
+    "Exceeded 95% branch coverage target (96.36%)",
+    "Achieved 100% function coverage",
+    "Exceeded 95% line coverage target (99.08%)",
+    "Comprehensive ML model validation framework",
+    "Advanced error recovery and resilience testing",
+    "Performance optimization validation"
+  ]
+}

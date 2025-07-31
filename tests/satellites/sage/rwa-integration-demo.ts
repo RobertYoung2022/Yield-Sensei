@@ -163,6 +163,7 @@ async function runRWAScoringDemo() {
     const cachedScore = await scoringSystem.scoreOpportunity(rwaOpportunities[0]!);
     const cacheTime = Date.now() - cacheStartTime;
     console.log(`✅ Cached scoring completed in ${cacheTime}ms (${cacheTime < 50 ? 'CACHE HIT' : 'CACHE MISS'})`);
+    console.log(`   Score: ${cachedScore.overallScore.toFixed(2)}`);
 
     // Shutdown
     console.log('\n🔄 Shutting down RWA Opportunity Scoring System...');

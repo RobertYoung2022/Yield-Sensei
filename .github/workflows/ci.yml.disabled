@@ -1,0 +1,480 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, release/* ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run comprehensive tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - unit
+          - integration
+          - performance
+          - security
+          - satellites
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20.x'
+  RUST_VERSION: '1.75.0'
+  
+jobs:
+  # Quick validation checks
+  validation:
+    name: Validation
+    runs-on: ubuntu-latest
+    outputs:
+      skip_tests: ${{ steps.check_skip.outputs.skip }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check skip conditions
+        id: check_skip
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" =~ \[skip\ ci\] ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check_skip.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check_skip.outputs.skip != 'true'
+        run: npm ci
+
+      - name: Run linting
+        if: steps.check_skip.outputs.skip != 'true'
+        run: npm run lint || true
+
+      - name: Check TypeScript
+        if: steps.check_skip.outputs.skip != 'true'
+        run: npm run typecheck
+
+      - name: Check security vulnerabilities
+        if: steps.check_skip.outputs.skip != 'true'
+        run: npm audit --audit-level=high || true
+
+  # Unit tests - run in parallel across different Node versions
+  unit-tests:
+    name: Unit Tests (Node ${{ matrix.node-version }})
+    needs: validation
+    if: needs.validation.outputs.skip_tests != 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['18.x', '20.x', '21.x']
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests (shard ${{ matrix.shard }}/4)
+        run: |
+          npm test -- \
+            --testPathPattern="unit|satellites" \
+            --shard=${{ matrix.shard }}/4 \
+            --coverage \
+            --coverageReporters=json \
+            --json \
+            --outputFile=test-results-unit-${{ matrix.node-version }}-${{ matrix.shard }}.json
+        env:
+          NODE_ENV: test
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-unit-${{ matrix.node-version }}-${{ matrix.shard }}
+          path: |
+            test-results-unit-*.json
+            coverage/coverage-final.json
+
+  # Integration tests
+  integration-tests:
+    name: Integration Tests
+    needs: validation
+    if: needs.validation.outputs.skip_tests != 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: yieldsensei_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for services
+        run: |
+          until pg_isready -h localhost -p 5432; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          until redis-cli -h localhost ping; do
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+
+      - name: Run database migrations
+        run: npm run db:migrate:test
+        env:
+          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/yieldsensei_test
+
+      - name: Run integration tests
+        run: |
+          npm test -- \
+            --testPathPattern="integration|e2e" \
+            --coverage \
+            --coverageReporters=json \
+            --json \
+            --outputFile=test-results-integration.json
+        env:
+          NODE_ENV: test
+          CI: true
+          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/yieldsensei_test
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-integration
+          path: |
+            test-results-integration.json
+            coverage/coverage-final.json
+
+  # Performance tests
+  performance-tests:
+    name: Performance Tests
+    needs: validation
+    if: |
+      needs.validation.outputs.skip_tests != 'true' &&
+      (github.event_name == 'schedule' || 
+       github.event_name == 'workflow_dispatch' ||
+       contains(github.event.head_commit.message, '[perf]'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run performance tests
+        run: |
+          npm test -- \
+            --testPathPattern="performance" \
+            --json \
+            --outputFile=test-results-performance.json
+        env:
+          NODE_ENV: test
+          CI: true
+          PERFORMANCE_TEST: true
+
+      - name: Analyze performance results
+        run: |
+          node scripts/analyze-performance.js test-results-performance.json
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          path: |
+            test-results-performance.json
+            performance-report.html
+
+  # Security tests
+  security-tests:
+    name: Security Tests
+    needs: validation
+    if: needs.validation.outputs.skip_tests != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security tests
+        run: |
+          npm test -- \
+            --testPathPattern="security" \
+            --json \
+            --outputFile=test-results-security.json
+        env:
+          NODE_ENV: test
+          CI: true
+
+      - name: Run security validation
+        run: |
+          npm run security:validate
+          npm run security:audit
+
+      - name: Upload security results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-results
+          path: |
+            test-results-security.json
+            security-report.json
+
+  # Rust tests for Aegis satellite
+  rust-tests:
+    name: Rust Tests (Aegis)
+    needs: validation
+    if: needs.validation.outputs.skip_tests != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src/satellites/aegis/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run Rust tests
+        run: |
+          cd src/satellites/aegis
+          cargo test --all-features -- --test-threads=1
+          cargo clippy -- -D warnings
+          cargo fmt -- --check
+
+      - name: Run Rust benchmarks
+        if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[bench]')
+        run: |
+          cd src/satellites/aegis
+          cargo bench
+
+  # Aggregate results and generate reports
+  test-results:
+    name: Aggregate Test Results
+    needs: [unit-tests, integration-tests, performance-tests, security-tests, rust-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: test-artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install report dependencies
+        run: |
+          npm install -g jest-junit jest-html-reporter
+
+      - name: Generate test report
+        run: |
+          node scripts/aggregate-test-results.js test-artifacts > test-summary.json
+          
+      - name: Generate coverage report
+        run: |
+          npx nyc merge test-artifacts coverage/merged-coverage.json
+          npx nyc report --reporter=html --reporter=text-summary
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('test-summary.json', 'utf8'));
+            
+            const comment = `## Test Results Summary
+            
+            **Total Tests:** ${summary.totalTests}
+            **Passed:** ${summary.passed} ✅
+            **Failed:** ${summary.failed} ❌
+            **Skipped:** ${summary.skipped} ⏭️
+            
+            **Coverage:** ${summary.coverage}%
+            
+            <details>
+            <summary>Detailed Results</summary>
+            
+            ${summary.details}
+            
+            </details>`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Upload final reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-test-reports
+          path: |
+            test-summary.json
+            coverage/
+            test-report.html
+
+  # Quality gates
+  quality-gate:
+    name: Quality Gate Check
+    needs: test-results
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download test summary
+        uses: actions/download-artifact@v4
+        with:
+          name: final-test-reports
+          path: reports
+
+      - name: Check quality gates
+        run: |
+          node scripts/check-quality-gates.js reports/test-summary.json
+        env:
+          MIN_COVERAGE: 80
+          MAX_FAILING_TESTS: 0
+          MAX_SECURITY_ISSUES: 0
+
+  # Deploy (only on main branch)
+  deploy:
+    name: Deploy
+    needs: quality-gate
+    if: |
+      success() && 
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy notification
+        run: |
+          echo "Deploy step would run here"
+          # Add actual deployment steps
+
+  # Notification
+  notify:
+    name: Send Notifications
+    needs: [test-results, quality-gate]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [[ "${{ needs.quality-gate.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: github.event_name != 'pull_request'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.status.outputs.status }}
+          text: |
+            ${{ steps.status.outputs.emoji }} *${{ github.workflow }}* ${{ steps.status.outputs.status }}
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
