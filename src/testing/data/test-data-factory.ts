@@ -8,60 +8,37 @@ import { faker } from '@faker-js/faker';
 // Import all satellite types
 import type {
   OracleFeed,
-  PriceData,
-  RWAProtocol,
-  DataSource,
-  MarketData,
-  ValidationResult
+  RWAProtocol
 } from '../../satellites/oracle/types';
 
 import type {
   SentimentData,
-  SocialMediaPost,
-  InfluencerData,
-  TrendData,
-  SentimentAnalysis
+  SocialPlatform
 } from '../../satellites/echo/types';
 
 import type {
   YieldOpportunity,
-  PortfolioOptimization,
+  YieldStrategy,
   ValidatorInfo,
-  LiquidStakingPosition,
-  RiskMetrics
+  StrategyType,
+  RiskFactor,
+  SustainabilityCategory,
+  SustainabilityAnalysis
 } from '../../satellites/pulse/types';
 
-import type {
-  RWAAsset,
-  ComplianceCheck,
-  AuditEvent,
-  RegulatoryFramework,
-  DocumentVerification
-} from '../../satellites/sage/types';
-
-import type {
-  SecurityThreat,
-  SecurityIncident,
-  ThreatIntelligence,
-  SecurityMetrics,
-  VulnerabilityReport
-} from '../../satellites/aegis/types';
-
-import type {
-  TradeOrder,
-  LiquidityPool,
-  CrossChainTransaction,
-  BridgeOperation,
-  GasOptimization
-} from '../../satellites/forge/types';
-
-import type {
-  CrossChainMessage,
-  BridgeTransaction,
-  ChainInfo,
-  InteroperabilityProtocol,
-  RelayerInfo
-} from '../../satellites/bridge/types';
+// Local types for test data
+export interface PriceData {
+  symbol: string;
+  price: number;
+  priceUsd: number;
+  volume24h: number;
+  marketCap: number;
+  supply: number;
+  change1h: number;
+  change24h: number;
+  change7d: number;
+  timestamp: Date;
+}
 
 // Configuration types
 export interface DataFactoryConfig {
@@ -142,20 +119,26 @@ export class TestDataFactory {
   // ========================================
 
   createOracleFeed(options: Partial<OracleFeed> = {}): OracleFeed {
-    const symbol = options.symbol || faker.helpers.arrayElement(this.cryptoSymbols);
-    const basePrice = this.getRealisticPrice(symbol);
-
     return {
       id: options.id || `oracle_feed_${faker.string.alphanumeric(8)}`,
-      symbol,
-      price: options.price || this.addVariance(basePrice, 0.05),
-      volume: options.volume || faker.number.float({ min: 1000000, max: 10000000000 }),
-      marketCap: options.marketCap || faker.number.float({ min: 100000000, max: 1000000000000 }),
-      change24h: options.change24h || faker.number.float({ min: -0.2, max: 0.2 }),
-      timestamp: options.timestamp || new Date(),
-      source: options.source || faker.helpers.arrayElement(['binance', 'coinbase', 'kraken', 'ftx']),
-      confidence: options.confidence || faker.number.float({ min: 0.8, max: 1.0 }),
+      name: options.name || faker.company.name(),
+      provider: options.provider || faker.helpers.arrayElement(['binance', 'coinbase', 'kraken', 'ftx']),
+      endpoint: options.endpoint || `https://api.${faker.internet.domainName()}/v1/data`,
+      type: options.type || faker.helpers.arrayElement(['price', 'rwa', 'event', 'identity', 'credit']),
+      status: options.status || faker.helpers.arrayElement(['active', 'inactive', 'deprecated']),
+      reliability: options.reliability || faker.number.float({ min: 0.8, max: 1.0 }),
+      accuracy: options.accuracy || faker.number.float({ min: 0.8, max: 1.0 }),
       lastUpdate: options.lastUpdate || new Date(),
+      updateFrequency: options.updateFrequency || faker.number.int({ min: 60, max: 3600 }),
+      configuration: options.configuration || {
+        timeout: 5000,
+        retries: 3,
+        validationRules: [],
+        aggregationMethod: 'median',
+        minSources: 2,
+        maxDeviation: 0.05,
+        historicalWindow: 86400
+      },
       ...options
     };
   }
@@ -183,19 +166,37 @@ export class TestDataFactory {
     return {
       id: options.id || `rwa_protocol_${faker.string.alphanumeric(8)}`,
       name: options.name || `${faker.company.name()} RWA Protocol`,
-      type: options.type || faker.helpers.arrayElement(['real_estate', 'commodities', 'bonds', 'equities']),
-      tokenAddress: options.tokenAddress || `0x${faker.string.hexadecimal({ length: 40, casing: 'lower' })}`,
-      chain: options.chain || faker.helpers.arrayElement(this.blockchains),
+      description: options.description || faker.lorem.sentences(2),
+      assetType: options.assetType || faker.helpers.arrayElement(['real_estate', 'treasury_bills', 'corporate_bonds', 'commodities', 'art_collectibles', 'carbon_credits', 'infrastructure', 'private_equity', 'debt_instruments']),
+      assetIssuer: options.assetIssuer || faker.company.name(),
       totalValueLocked: options.totalValueLocked || faker.number.float({ min: 1000000, max: 1000000000 }),
-      assetCount: options.assetCount || faker.number.int({ min: 10, max: 10000 }),
-      apr: options.apr || faker.number.float({ min: 0.02, max: 0.15 }),
-      riskRating: options.riskRating || faker.helpers.arrayElement(['AAA', 'AA', 'A', 'BBB', 'BB']),
-      compliance: options.compliance || {
-        framework: faker.helpers.arrayElement(this.regulatoryFrameworks),
-        status: faker.helpers.arrayElement(['compliant', 'pending', 'non_compliant']),
-        lastAudit: faker.date.recent({ days: 90 }),
-        nextAudit: faker.date.future({ years: 1 })
+      tokenSupply: options.tokenSupply || faker.number.float({ min: 1000000, max: 100000000 }),
+      assetClaims: options.assetClaims || [],
+      team: options.team || {
+        members: [],
+        advisors: [],
+        organization: faker.company.name(),
+        headquarters: faker.location.city()
       },
+      financials: options.financials || {
+        revenue: [],
+        expenses: [],
+        assets: [],
+        liabilities: [],
+        auditedStatements: [],
+        cashFlow: []
+      },
+      regulatory: options.regulatory || {
+        jurisdiction: [faker.location.countryCode()],
+        licenses: [],
+        compliance: [],
+        filings: [],
+        restrictions: []
+      },
+      auditReports: options.auditReports || [],
+      riskFactors: options.riskFactors || [],
+      createdAt: options.createdAt || faker.date.past(),
+      updatedAt: options.updatedAt || faker.date.recent(),
       ...options
     };
   }
@@ -228,27 +229,35 @@ export class TestDataFactory {
     return {
       id: options.id || `sentiment_${faker.string.alphanumeric(8)}`,
       content: options.content || this.generateCryptoSentimentText(),
-      source: options.source || faker.helpers.arrayElement(this.socialPlatforms),
-      author: options.author || faker.internet.userName(),
+      source: options.source || faker.helpers.arrayElement([SocialPlatform.TWITTER, SocialPlatform.DISCORD, SocialPlatform.TELEGRAM, SocialPlatform.REDDIT]),
+      author: options.author || {
+        id: faker.string.alphanumeric(8),
+        username: faker.internet.userName(),
+        followersCount: faker.number.int({ min: 100, max: 1000000 }),
+        verified: faker.datatype.boolean(),
+        influence: faker.number.float({ min: 0, max: 100 })
+      },
       timestamp: options.timestamp || new Date(),
-      platform: options.platform || faker.helpers.arrayElement(this.socialPlatforms),
       engagement: options.engagement || {
         likes: faker.number.int({ min: 0, max: 10000 }),
-        shares: faker.number.int({ min: 0, max: 1000 }),
-        comments: faker.number.int({ min: 0, max: 500 }),
-        views: faker.number.int({ min: 100, max: 100000 })
+        retweets: faker.number.int({ min: 0, max: 1000 }),
+        replies: faker.number.int({ min: 0, max: 500 }),
+        views: faker.number.int({ min: 100, max: 100000 }),
+        shares: faker.number.int({ min: 0, max: 1000 })
       },
       metadata: options.metadata || {
-        hashtags: faker.helpers.arrayElements(['#Bitcoin', '#Ethereum', '#DeFi', '#Crypto', '#HODL'], 3),
-        mentions: faker.helpers.arrayElements(['@binance', '@coinbase', '@uniswap'], 2),
-        language: 'en',
-        location: faker.location.countryCode()
+        url: faker.internet.url(),
+        threadId: faker.string.alphanumeric(10),
+        channelId: faker.string.alphanumeric(8),
+        language: 'en' as const,
+        isRetweet: faker.datatype.boolean(),
+        parentId: faker.datatype.boolean() ? faker.string.alphanumeric(10) : undefined
       },
       ...options
     };
   }
 
-  createSocialMediaPost(options: Partial<SocialMediaPost> = {}): SocialMediaPost {
+  createSocialMediaPost(options: Partial<any> = {}): any {
     return {
       id: options.id || `post_${faker.string.alphanumeric(10)}`,
       platform: options.platform || faker.helpers.arrayElement(this.socialPlatforms),
@@ -290,7 +299,7 @@ export class TestDataFactory {
     };
   }
 
-  createInfluencerData(options: Partial<InfluencerData> = {}): InfluencerData {
+  createInfluencerData(options: Partial<any> = {}): any {
     return {
       id: options.id || `influencer_${faker.string.alphanumeric(8)}`,
       username: options.username || faker.internet.userName(),
@@ -316,9 +325,36 @@ export class TestDataFactory {
       protocol: options.protocol || faker.helpers.arrayElement(this.defiProtocols),
       chain: options.chain || faker.helpers.arrayElement(this.blockchains),
       asset: options.asset || faker.helpers.arrayElement(this.cryptoSymbols),
-      strategy: options.strategy || faker.helpers.arrayElement(['lending', 'liquidity_mining', 'staking', 'farming']),
-      apy: options.apy || faker.number.float({ min: 0.01, max: 0.25 }),
+      strategy: options.strategy || {
+        type: faker.helpers.arrayElement([StrategyType.LENDING, StrategyType.YIELD_FARMING, StrategyType.LIQUID_STAKING]),
+        name: `${faker.company.name()} Strategy`,
+        description: faker.lorem.sentences(2),
+        complexity: faker.helpers.arrayElement(['simple', 'intermediate', 'advanced'] as const),
+        components: [],
+        allocations: [],
+        rebalanceFrequency: faker.number.int({ min: 3600, max: 86400 }),
+        exitStrategy: {
+          triggers: [],
+          maxSlippage: 0.05,
+          timeoutDuration: 3600,
+          emergencyWithdrawal: true,
+          partialExitAllowed: true
+        },
+        gasEfficiency: faker.number.float({ min: 0.5, max: 1.0 })
+      },
+      apy: options.apy || {
+        current: faker.number.float({ min: 0.01, max: 0.25 }),
+        historical: Array.from({ length: 30 }, () => faker.number.float({ min: 0.01, max: 0.30 })),
+        projected: faker.number.float({ min: 0.01, max: 0.20 }),
+        confidence: faker.number.float({ min: 0.6, max: 0.95 }),
+        trend: faker.helpers.arrayElement(['increasing', 'decreasing', 'stable'] as const)
+      },
       tvl: options.tvl || faker.number.float({ min: 1000000, max: 1000000000 }),
+      liquidity: {
+        depth: faker.number.float({ min: 100000, max: 10000000 }),
+        withdrawalTime: faker.number.int({ min: 60, max: 3600 }),
+        fees: faker.number.float({ min: 0.001, max: 0.01 })
+      },
       risk: options.risk || faker.helpers.arrayElement(['low', 'medium', 'high']),
       lockPeriod: options.lockPeriod || faker.number.int({ min: 0, max: 365 }),
       minimumDeposit: options.minimumDeposit || faker.number.float({ min: 0.01, max: 1000 }),

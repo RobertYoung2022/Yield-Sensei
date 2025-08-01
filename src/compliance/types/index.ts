@@ -397,6 +397,10 @@ export interface MonitoringConfig {
     velocityLimits: Record<string, number>;
     riskScores: Record<RiskLevel, number>;
   };
+  blockchainAnalytics?: {
+    chainalysis?: any;
+    trmLabs?: any;
+  };
 }
 
 export interface KYCConfig {

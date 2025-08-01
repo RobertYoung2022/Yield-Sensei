@@ -7,7 +7,7 @@
 
 import { EventEmitter } from 'events';
 import Logger from '@/shared/logging/logger';
-import { AgentId, Message, MessageType } from '@/types';
+import { AgentId } from '@/types';
 
 const logger = Logger.getLogger('satellite-network');
 
@@ -66,7 +66,7 @@ export interface NetworkLink {
 /**
  * Network Topology State
  */
-export interface NetworkTopology {
+export interface NetworkTopologyState {
   nodes: Map<AgentId, SatelliteNode>;
   links: Map<string, NetworkLink>;
   topology: NetworkTopology;
@@ -156,7 +156,7 @@ export const DEFAULT_SATELLITE_NETWORK_CONFIG: SatelliteNetworkConfig = {
  */
 export class SatelliteNetworkManager extends EventEmitter {
   private config: SatelliteNetworkConfig;
-  private topology: NetworkTopology;
+  private topology: NetworkTopologyState;
   private discoveryInterval?: NodeJS.Timeout;
   private heartbeatInterval?: NodeJS.Timeout;
   private routingTable: Map<AgentId, NetworkLink[]> = new Map();
@@ -340,7 +340,7 @@ export class SatelliteNetworkManager extends EventEmitter {
   /**
    * Get network topology information
    */
-  getTopology(): NetworkTopology {
+  getTopology(): NetworkTopologyState {
     return {
       ...this.topology,
       nodes: new Map(this.topology.nodes),
@@ -536,12 +536,12 @@ export class SatelliteNetworkManager extends EventEmitter {
     for (const [nodeId, prevLink] of previous) {
       if (nodeId !== sourceId && prevLink) {
         const route: NetworkLink[] = [];
-        let currentLink = prevLink;
+        let currentLink: NetworkLink | null = prevLink;
         
         while (currentLink) {
           route.unshift(currentLink);
           const prevNode = previous.get(currentLink.from);
-          currentLink = prevNode || null;
+          currentLink = prevNode ?? null;
         }
         
         this.routingTable.set(nodeId, route);

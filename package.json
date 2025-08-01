@@ -249,6 +249,7 @@
   "devDependencies": {
     "@babel/core": "^7.28.0",
     "@babel/preset-env": "^7.28.0",
+    "@faker-js/faker": "^9.9.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.0",
     "@types/cookie-parser": "^1.4.9",

@@ -17,7 +17,7 @@ const logger = Logger.getLogger('satellite-message-bus');
 /**
  * Satellite-specific message types
  */
-export type SatelliteMessageType = MessageType | 
+export type SatelliteMessageType = MessageType 
   | 'satellite_discovery'
   | 'satellite_handshake' 
   | 'satellite_topology_update'

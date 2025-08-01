@@ -9,13 +9,10 @@ import { Logger } from 'winston';
 import { createLogger, format, transports } from 'winston';
 import { 
   SandwichDetector, 
-  SandwichAttackPattern, 
-  MEVProtectionConfig, 
-  TransactionAnalysis 
+  SandwichAttackPattern
 } from '../mev/sandwich-detector';
 import { 
-  FlashloanArbitrageDetector, 
-  FlashloanArbitrageOpportunity 
+  FlashloanArbitrageDetector
 } from '../mev/flashloan-arbitrage-detector';
 
 export interface MEVProtectionTestConfig {
@@ -181,15 +178,13 @@ export interface MEVProtectionTestReport {
 export class MEVProtectionValidator extends EventEmitter {
   private logger: Logger;
   private config: MEVProtectionTestConfig;
-  private sandwichDetector: SandwichDetector;
-  private flashloanDetector: FlashloanArbitrageDetector;
+  private sandwichDetector!: SandwichDetector;
+  private flashloanDetector!: FlashloanArbitrageDetector;
   private isRunning: boolean = false;
-  private testResults: MEVProtectionTestReport;
+  private testResults!: MEVProtectionTestReport;
 
   // Attack simulation data
-  private historicalAttacks: any[] = [];
   private knownAttackPatterns: SandwichAttackPattern[] = [];
-  private marketDataProvider: any;
 
   constructor(config: MEVProtectionTestConfig) {
     super();
@@ -1111,7 +1106,7 @@ export class MEVProtectionValidator extends EventEmitter {
     return { ...this.testResults };
   }
 
-  isRunning(): boolean {
+  getIsRunning(): boolean {
     return this.isRunning;
   }
 

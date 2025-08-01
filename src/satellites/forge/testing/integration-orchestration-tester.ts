@@ -353,7 +353,7 @@ export class IntegrationOrchestrationTester extends EventEmitter {
   private isRunning: boolean = false;
   private componentConnections: Map<string, any> = new Map();
   private messageQueues: Map<string, any> = new Map();
-  private testResults: IntegrationTestReport;
+  private testResults!: IntegrationTestReport;
 
   constructor(config: IntegrationTestConfig) {
     super();
@@ -484,7 +484,7 @@ export class IntegrationOrchestrationTester extends EventEmitter {
     ];
 
     for (const point of integrationPoints) {
-      if (this.config.satelliteEndpoints[point.to] || point.to === 'orchestrator') {
+      if ((this.config.satelliteEndpoints as any)[point.to] || point.to === 'orchestrator') {
         const result = await this.testComponentIntegration(point);
         this.testResults.componentIntegrationTests.push(result);
         this.updateTestCounts(result.success);
@@ -682,6 +682,7 @@ export class IntegrationOrchestrationTester extends EventEmitter {
       queueType: this.config.messageQueueConfig?.type || 'unknown',
       topic,
       testType: scenario.type,
+      testResult,
       messages: messageMetrics,
       performance: performanceMetrics,
       reliability: reliabilityMetrics,
@@ -719,7 +720,10 @@ export class IntegrationOrchestrationTester extends EventEmitter {
     const initialStates = await this.captureComponentStates(scenario.components);
     
     // Trigger state change
-    await this.triggerStateChange(scenario.components[0], testState);
+    const firstComponent = scenario.components[0];
+    if (firstComponent) {
+      await this.triggerStateChange(firstComponent, testState);
+    }
     
     // Wait for synchronization
     await this.waitForSynchronization(scenario.type);
@@ -769,7 +773,7 @@ export class IntegrationOrchestrationTester extends EventEmitter {
     ];
 
     for (const scenario of failureScenarios) {
-      if (this.config.satelliteEndpoints[scenario.component] || scenario.component === 'orchestrator') {
+      if ((this.config.satelliteEndpoints as any)[scenario.component] || scenario.component === 'orchestrator') {
         const result = await this.testFailover(scenario);
         this.testResults.failoverTests.push(result);
         this.updateTestCounts(result.validation.functionalityRestored);
@@ -1891,7 +1895,7 @@ export class IntegrationOrchestrationTester extends EventEmitter {
     return { ...this.testResults };
   }
 
-  isRunning(): boolean {
+  getIsRunning(): boolean {
     return this.isRunning;
   }
 

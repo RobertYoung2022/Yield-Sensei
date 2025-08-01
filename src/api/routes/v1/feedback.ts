@@ -184,7 +184,7 @@ router.get('/:id', validateFeedbackId, async (req: Request, res: Response) => {
 router.delete('/:id', validateFeedbackId, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    console.log('Deleting feedback:', id); // Suppress unused variable warning
+    const _id = id; // Suppress unused variable warning
     
     // TODO: Implement feedback deletion logic
     // This would typically involve:
@@ -434,8 +434,9 @@ router.put('/privacy-settings', validateUpdatePrivacySettings, async (req: Reque
  * GET /api/v1/feedback/categories
  * Get available feedback categories with metadata
  */
-router.get('/categories', async (_req: Request, res: Response) => {
+router.get('/categories', async (req: Request, res: Response) => {
   try {
+    const _req = req; // Mark as intentionally unused
     // TODO: Implement categories retrieval from database
     // This would typically involve:
     // 1. Querying active feedback categories

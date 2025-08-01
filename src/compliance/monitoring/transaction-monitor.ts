@@ -11,8 +11,6 @@ import {
   MonitoringConfig,
   ComplianceFlag,
   AMLCheck,
-  SanctionsCheck,
-  ComplianceViolation,
   RiskLevel
 } from '../types';
 import {
@@ -20,7 +18,7 @@ import {
   DecentralizedTransaction
 } from '../types/decentralized-types';
 import { MLPatternRecognition, TransactionPattern } from '../ml/pattern-recognition';
-import { BlockchainAnalyticsService, AnalyticsResult } from '../integrations/blockchain-analytics';
+import { BlockchainAnalyticsService } from '../integrations/blockchain-analytics';
 
 const logger = Logger.getLogger('transaction-monitor');
 
@@ -169,10 +167,13 @@ export class TransactionMonitor extends EventEmitter {
     const startTime = Date.now();
 
     try {
+      const userId = 'id' in user ? user.id : user.did;
+      const transactionAmount = 'amount' in transaction ? transaction.amount : transaction.amountCategory;
+      
       logger.debug('Screening transaction for AML', {
         transactionId: transaction.id,
-        userId: user.id,
-        amount: transaction.amount,
+        userId,
+        amount: transactionAmount,
         type: transaction.type
       });
 
@@ -196,7 +197,7 @@ export class TransactionMonitor extends EventEmitter {
       // Emit screening completed event
       this.emit('transaction_screened', {
         transactionId: transaction.id,
-        userId: user.id,
+        userId,
         result: amlResult,
         processingTime: Date.now() - startTime,
         timestamp: new Date()
@@ -238,16 +239,17 @@ export class TransactionMonitor extends EventEmitter {
       const flags: ComplianceFlag[] = [];
 
       // Check daily transaction count
-      if (metrics.dailyCount > velocityLimits['daily_transaction_count']) {
+      const dailyLimit = velocityLimits['daily_transaction_count'];
+      if (dailyLimit && metrics.dailyCount > dailyLimit) {
         flags.push({
           type: 'velocity-anomaly',
           severity: 'medium',
-          description: `Daily transaction count exceeded: ${metrics.dailyCount} > ${velocityLimits['daily_transaction_count']}`,
+          description: `Daily transaction count exceeded: ${metrics.dailyCount} > ${dailyLimit}`,
           source: 'transaction-monitor',
           confidence: 0.9,
           timestamp: new Date(),
           metadata: {
-            limit: velocityLimits.daily_transaction_count,
+            limit: velocityLimits['daily_transaction_count'],
             current: metrics.dailyCount,
             timeframe: 'daily'
           }
@@ -255,16 +257,16 @@ export class TransactionMonitor extends EventEmitter {
       }
 
       // Check daily volume
-      if (metrics.dailyVolume > velocityLimits.daily_transaction_volume) {
+      if (metrics.dailyVolume > (velocityLimits['daily_transaction_volume'] || Infinity)) {
         flags.push({
           type: 'velocity-anomaly',
           severity: 'high',
-          description: `Daily transaction volume exceeded: ${metrics.dailyVolume} > ${velocityLimits.daily_transaction_volume}`,
+          description: `Daily transaction volume exceeded: ${metrics.dailyVolume} > ${velocityLimits['daily_transaction_volume']}`,
           source: 'transaction-monitor',
           confidence: 0.95,
           timestamp: new Date(),
           metadata: {
-            limit: velocityLimits.daily_transaction_volume,
+            limit: velocityLimits['daily_transaction_volume'],
             current: metrics.dailyVolume,
             timeframe: 'daily'
           }
@@ -272,16 +274,16 @@ export class TransactionMonitor extends EventEmitter {
       }
 
       // Check weekly volume
-      if (metrics.weeklyVolume > velocityLimits.weekly_transaction_volume) {
+      if (metrics.weeklyVolume > (velocityLimits['weekly_transaction_volume'] || Infinity)) {
         flags.push({
           type: 'velocity-anomaly',
           severity: 'high',
-          description: `Weekly transaction volume exceeded: ${metrics.weeklyVolume} > ${velocityLimits.weekly_transaction_volume}`,
+          description: `Weekly transaction volume exceeded: ${metrics.weeklyVolume} > ${velocityLimits['weekly_transaction_volume']}`,
           source: 'transaction-monitor',
           confidence: 0.9,
           timestamp: new Date(),
           metadata: {
-            limit: velocityLimits.weekly_transaction_volume,
+            limit: velocityLimits['weekly_transaction_volume'],
             current: metrics.weeklyVolume,
             timeframe: 'weekly'
           }
@@ -289,16 +291,16 @@ export class TransactionMonitor extends EventEmitter {
       }
 
       // Check monthly volume
-      if (metrics.monthlyVolume > velocityLimits.monthly_transaction_volume) {
+      if (metrics.monthlyVolume > (velocityLimits['monthly_transaction_volume'] || Infinity)) {
         flags.push({
           type: 'velocity-anomaly',
           severity: 'critical',
-          description: `Monthly transaction volume exceeded: ${metrics.monthlyVolume} > ${velocityLimits.monthly_transaction_volume}`,
+          description: `Monthly transaction volume exceeded: ${metrics.monthlyVolume} > ${velocityLimits['monthly_transaction_volume']}`,
           source: 'transaction-monitor',
           confidence: 0.95,
           timestamp: new Date(),
           metadata: {
-            limit: velocityLimits.monthly_transaction_volume,
+            limit: velocityLimits['monthly_transaction_volume'],
             current: metrics.monthlyVolume,
             timeframe: 'monthly'
           }
@@ -322,10 +324,10 @@ export class TransactionMonitor extends EventEmitter {
       return {
         limitExceeded,
         limit: Math.max(
-          velocityLimits.daily_transaction_count,
-          velocityLimits.daily_transaction_volume,
-          velocityLimits.weekly_transaction_volume,
-          velocityLimits.monthly_transaction_volume
+          velocityLimits['daily_transaction_count'] || 0,
+          velocityLimits['daily_transaction_volume'] || 0,
+          velocityLimits['weekly_transaction_volume'] || 0,
+          velocityLimits['monthly_transaction_volume'] || 0
         ),
         current: Math.max(metrics.dailyCount, metrics.dailyVolume, metrics.weeklyVolume, metrics.monthlyVolume),
         timeframe: 'mixed',
@@ -474,17 +476,20 @@ export class TransactionMonitor extends EventEmitter {
     }
     
     // Blockchain Analytics Check
-    if (this.blockchainAnalytics && transaction.fromAccount && transaction.toAccount) {
+    const fromAccount = 'fromAccount' in transaction ? transaction.fromAccount : transaction.from;
+    const toAccount = 'toAccount' in transaction ? transaction.toAccount : transaction.to;
+    
+    if (this.blockchainAnalytics && fromAccount && toAccount) {
       try {
         // Analyze sender address
         const senderAnalysis = await this.blockchainAnalytics.analyzeAddress(
-          transaction.fromAccount,
+          fromAccount,
           transaction
         );
         
         // Analyze recipient address
         const recipientAnalysis = await this.blockchainAnalytics.analyzeAddress(
-          transaction.toAccount,
+          toAccount,
           transaction
         );
         

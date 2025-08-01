@@ -621,6 +621,12 @@ export interface OracleSatelliteConfig {
     maxDeviationPercent: number;
     historicalWindowDays: number;
     anomalyDetection: AnomalyDetectionConfig;
+    enableCrossValidation?: boolean;
+    enableHistoricalValidation?: boolean;  
+    minConsensusSize?: number;
+    validationTimeout?: number;
+    enableCaching?: boolean;
+    cacheTtl?: number;
   };
   rwa: {
     enableValidation: boolean;
@@ -633,6 +639,15 @@ export interface OracleSatelliteConfig {
       high: number;
     };
     requiredDocuments: string[];
+    enablePerplexityResearch?: boolean;
+    enableSECFilingAnalysis?: boolean;
+    enableTeamVerification?: boolean;
+    enableFinancialAnalysis?: boolean;
+    legitimacyThreshold?: number;
+    perplexityApiKey?: string;
+    secApiKey?: string;
+    maxConcurrentValidations?: number;
+    validationTimeout?: number;
   };
   dataSources: {
     maxConcurrent: number;
@@ -640,6 +655,7 @@ export interface OracleSatelliteConfig {
     retryAttempts: number;
     cachingEnabled: boolean;
     loadBalancing: boolean;
+    timeout?: number;
   };
   perplexity: {
     apiKey: string;
@@ -655,6 +671,22 @@ export interface OracleSatelliteConfig {
     enableMetrics: boolean;
     enableAlerts: boolean;
     alertEndpoints: string[];
+  };
+  offChainVerification?: {
+    enabled: boolean;
+    timeout: number;
+    retries: number;
+    providers: string[];
+    enableCryptographicProofs?: boolean;
+    enableTemporalValidation?: boolean;
+    enableSchemaValidation?: boolean;
+    enableConsistencyChecks?: boolean;
+    maxDataAge?: number;
+    minConsistencyThreshold?: number;
+    cryptographicAlgorithm?: 'sha256' | 'sha512' | 'blake2b';
+    proofValidationTimeout?: number;
+    enableAuditTrail?: boolean;
+    auditRetentionDays?: number;
   };
 }
 

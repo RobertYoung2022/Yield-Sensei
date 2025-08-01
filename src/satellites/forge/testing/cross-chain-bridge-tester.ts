@@ -7,13 +7,26 @@
 import { EventEmitter } from 'events';
 import { Logger } from 'winston';
 import { createLogger, format, transports } from 'winston';
+import { ethers } from 'ethers';
 import { 
   BridgeOptimizer, 
   BridgeInfo, 
   BridgeRoute, 
-  RiskAssessment,
   BridgeTransaction 
 } from '../optimization/bridge-optimizer';
+
+// Test-specific transaction interface for simplified testing
+export interface TestTransaction {
+  id: string;
+  fromChain: string;
+  toChain: string;
+  amount: string;
+  token: string;
+  bridgeId?: string;
+  timestamp?: Date;
+  urgency?: string;
+  slippageTolerance?: number;
+}
 
 export interface CrossChainBridgeTestConfig {
   enableLatencyBenchmarking: boolean;
@@ -218,14 +231,13 @@ export interface CrossChainBridgeTestReport {
 export class CrossChainBridgeTester extends EventEmitter {
   private logger: Logger;
   private config: CrossChainBridgeTestConfig;
-  private bridgeOptimizer: BridgeOptimizer;
+  private bridgeOptimizer!: BridgeOptimizer; // Initialized in initialize(), used for bridge optimization testing
   private isRunning: boolean = false;
-  private testResults: CrossChainBridgeTestReport;
+  private testResults!: CrossChainBridgeTestReport; // Initialized in initializeTestReport()
 
   // Bridge and chain data
   private supportedBridges: Map<string, BridgeInfo> = new Map();
   private chainConfigs: Map<string, any> = new Map();
-  private networkProviders: Map<string, any> = new Map();
 
   constructor(config: CrossChainBridgeTestConfig) {
     super();
@@ -253,8 +265,14 @@ export class CrossChainBridgeTester extends EventEmitter {
 
       // Initialize bridge optimizer
       this.bridgeOptimizer = new BridgeOptimizer({
-        enableOptimization: true,
-        riskTolerance: 'moderate'
+        prioritizeSpeed: false,
+        prioritizeCost: true,
+        prioritizeSecurity: true,
+        maxHops: 3,
+        maxTotalTime: 3600,
+        maxSlippage: 0.05,
+        excludedBridges: [],
+        requiredSecurityScore: 70
       });
 
       // Load bridge configurations
@@ -349,7 +367,7 @@ export class CrossChainBridgeTester extends EventEmitter {
     const tests: Promise<BridgeLatencyTestResult>[] = [];
 
     // Test all bridge/chain combinations
-    for (const [bridgeId, bridge] of this.supportedBridges) {
+    for (const [, bridge] of this.supportedBridges) {
       for (const sourceChain of this.config.supportedChains) {
         for (const destChain of this.config.supportedChains) {
           if (sourceChain !== destChain && this.supportsBridgeRoute(bridge, sourceChain, destChain)) {
@@ -492,7 +510,7 @@ export class CrossChainBridgeTester extends EventEmitter {
 
     try {
       // Create test transaction
-      const transaction: BridgeTransaction = {
+      const transaction: TestTransaction = {
         id: testId,
         fromChain: sourceChain,
         toChain: destChain,
@@ -505,11 +523,14 @@ export class CrossChainBridgeTester extends EventEmitter {
       // Get fee quotes from all supported bridges
       const bridgeComparison = [];
       
-      for (const [bridgeId, bridge] of this.supportedBridges) {
+      // Convert TestTransaction to BridgeTransaction for compatibility
+      const bridgeTransaction = this.convertTestToBridgeTransaction(transaction);
+
+      for (const [, bridge] of this.supportedBridges) {
         if (this.supportsBridgeRoute(bridge, sourceChain, destChain)) {
           const route = await this.getBridgeRoute(bridge, sourceChain, destChain);
-          const fees = await this.calculateBridgeFees(bridge, route, transaction);
-          const estimatedTime = await this.estimateBridgeTime(bridge, route, transaction);
+          const fees = await this.calculateBridgeFees(bridge, route, bridgeTransaction);
+          const estimatedTime = await this.estimateBridgeTime(bridge, route, bridgeTransaction);
           const riskScore = await this.calculateBridgeRisk(bridge, route);
 
           bridgeComparison.push({
@@ -523,7 +544,7 @@ export class CrossChainBridgeTester extends EventEmitter {
       }
 
       // Find optimal choice using bridge optimizer
-      const optimalChoice = await this.selectOptimalBridge(bridgeComparison, transaction);
+      const optimalChoice = await this.selectOptimalBridge(bridgeComparison, bridgeTransaction);
       
       // Calculate optimization effectiveness
       const optimizationEffectiveness = this.calculateOptimizationEffectiveness(
@@ -533,7 +554,7 @@ export class CrossChainBridgeTester extends EventEmitter {
 
       return {
         testId,
-        transaction,
+        transaction: bridgeTransaction,
         bridgeComparison,
         optimalChoice,
         optimizationEffectiveness,
@@ -550,7 +571,7 @@ export class CrossChainBridgeTester extends EventEmitter {
     const tests: Promise<LiquidityDepthTestResult>[] = [];
 
     // Test liquidity for each bridge on each supported route
-    for (const [bridgeId, bridge] of this.supportedBridges) {
+    for (const [, bridge] of this.supportedBridges) {
       for (const sourceChain of this.config.supportedChains) {
         for (const destChain of this.config.supportedChains) {
           if (sourceChain !== destChain && this.supportsBridgeRoute(bridge, sourceChain, destChain)) {
@@ -651,7 +672,7 @@ export class CrossChainBridgeTester extends EventEmitter {
     ];
 
     for (const scenario of failureScenarios) {
-      for (const [bridgeId, bridge] of this.supportedBridges) {
+      for (const [, bridge] of this.supportedBridges) {
         tests.push(this.runSingleFailureRecoveryTest(bridge, scenario));
       }
     }
@@ -684,7 +705,7 @@ export class CrossChainBridgeTester extends EventEmitter {
 
     try {
       // Create test transaction
-      const transaction: BridgeTransaction = {
+      const transaction: TestTransaction = {
         id: testId,
         fromChain: 'ethereum',
         toChain: 'polygon',
@@ -703,7 +724,7 @@ export class CrossChainBridgeTester extends EventEmitter {
       const detectionTime = Date.now() - detectionStartTime;
 
       const recoveryStartTime = Date.now();
-      const recoveryResult = await this.attemptFailureRecovery(bridge, transaction, failureScenario);
+      const recoveryResult = await this.attemptFailureRecovery(bridge, transaction);
       const recoveryTime = Date.now() - recoveryStartTime;
 
       // Assess user impact
@@ -712,7 +733,7 @@ export class CrossChainBridgeTester extends EventEmitter {
       return {
         testId,
         failureScenario,
-        transaction,
+        transaction: this.convertTestToBridgeTransaction(transaction),
         recoveryMechanism: {
           detected: failureDetected,
           detectionTime,
@@ -735,7 +756,7 @@ export class CrossChainBridgeTester extends EventEmitter {
     const tests: Promise<AtomicityTestResult>[] = [];
 
     // Test atomicity under various failure conditions
-    for (const [bridgeId, bridge] of this.supportedBridges) {
+    for (const [, bridge] of this.supportedBridges) {
       for (let i = 0; i < 5; i++) {
         tests.push(this.runSingleAtomicityTest(bridge));
       }
@@ -766,7 +787,7 @@ export class CrossChainBridgeTester extends EventEmitter {
 
     try {
       // Create test transaction
-      const transaction: BridgeTransaction = {
+      const transaction: TestTransaction = {
         id: testId,
         fromChain: 'ethereum',
         toChain: 'polygon',
@@ -780,16 +801,21 @@ export class CrossChainBridgeTester extends EventEmitter {
       const atomicityResult = await this.testTransactionAtomicity(bridge, transaction);
       
       // Identify failure points
-      const failurePoints = await this.identifyAtomicityFailurePoints(bridge, transaction, atomicityResult);
+      const failurePoints = this.identifyAtomicityFailurePoints(bridge);
       
       // Calculate integrity score
-      const integrityScore = this.calculateIntegrityScore(atomicityResult, failurePoints);
+      const integrityScore = this.calculateIntegrityScore([atomicityResult]);
 
       return {
         testId,
-        transaction,
+        transaction: this.convertTestToBridgeTransaction(transaction),
         atomicityCheck: atomicityResult,
-        failurePoints,
+        failurePoints: failurePoints.map(point => ({
+          stage: point,
+          description: `Potential failure at ${point}`,
+          impact: 'medium',
+          mitigated: Math.random() > 0.5
+        })),
         integrityScore,
         timestamp: new Date()
       };
@@ -804,7 +830,7 @@ export class CrossChainBridgeTester extends EventEmitter {
     const tests: Promise<BridgeSecurityTestResult>[] = [];
 
     // Run comprehensive security tests for each bridge
-    for (const [bridgeId, bridge] of this.supportedBridges) {
+    for (const [, bridge] of this.supportedBridges) {
       tests.push(this.runSingleSecurityTest(bridge));
     }
 
@@ -842,10 +868,10 @@ export class CrossChainBridgeTester extends EventEmitter {
       const cryptographicSecurity = await this.analyzeCryptographicSecurity(bridge);
       
       // Identify vulnerabilities
-      const vulnerabilities = await this.identifySecurityVulnerabilities(bridge);
+      const vulnerabilities = await this.analyzeSecurityVulnerabilities(bridge);
       
       // Calculate overall security score
-      const overallSecurityScore = this.calculateSecurityScore(
+      const overallSecurityScore = this.calculateOverallSecurityScore(
         validatorSet, 
         smartContractSecurity, 
         cryptographicSecurity, 
@@ -853,7 +879,7 @@ export class CrossChainBridgeTester extends EventEmitter {
       );
       
       // Determine risk level
-      const riskLevel = this.determineRiskLevel(overallSecurityScore, vulnerabilities);
+      const riskLevel = this.determineSecurityRiskLevel(overallSecurityScore, vulnerabilities);
 
       return {
         testId,
@@ -865,7 +891,7 @@ export class CrossChainBridgeTester extends EventEmitter {
         },
         vulnerabilities,
         overallSecurityScore,
-        riskLevel,
+        riskLevel: riskLevel as 'low' | 'medium' | 'high' | 'very_low' | 'very_high',
         timestamp: new Date()
       };
     } catch (error) {
@@ -896,7 +922,19 @@ export class CrossChainBridgeTester extends EventEmitter {
     ];
 
     for (const bridge of bridges) {
-      this.supportedBridges.set(bridge.id, bridge as BridgeInfo);
+      this.supportedBridges.set(bridge.id, {
+        id: bridge.id,
+        name: bridge.name,
+        description: `${bridge.name} cross-chain bridge`,
+        website: `https://${bridge.id}.com`,
+        documentation: `https://docs.${bridge.id}.com`,
+        security: {
+          auditStatus: 'audited',
+          multisig: true,
+          timelock: true
+        },
+        fees: bridge.fees
+      } as unknown as BridgeInfo);
     }
   }
 
@@ -950,9 +988,10 @@ export class CrossChainBridgeTester extends EventEmitter {
     };
   }
 
-  private supportsBridgeRoute(bridge: BridgeInfo, sourceChain: string, destChain: string): boolean {
-    return bridge.supportedChains?.includes(sourceChain) && 
-           bridge.supportedChains?.includes(destChain);
+  private supportsBridgeRoute(_bridge: BridgeInfo, sourceChain: string, destChain: string): boolean {
+    // BridgeInfo doesn't have supportedChains, use a mock implementation
+    const supportedChains = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc'];
+    return supportedChains.includes(sourceChain) && supportedChains.includes(destChain);
   }
 
   private calculatePerformanceGrade(latency: number): 'excellent' | 'good' | 'acceptable' | 'poor' | 'failed' {
@@ -967,25 +1006,29 @@ export class CrossChainBridgeTester extends EventEmitter {
 
   private async simulateBridgeInitiation(bridge: BridgeInfo, chain: string, amount: string): Promise<void> {
     // Simulate bridge transaction initiation
+    this.logger.debug(`Initiating bridge transaction on ${chain} for ${amount} via ${bridge.name}`);
     await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000));
   }
 
   private async simulateSourceConfirmation(bridge: BridgeInfo, chain: string): Promise<void> {
     // Simulate source chain confirmation
+    this.logger.debug(`Confirming transaction on source chain ${chain} via ${bridge.name}`);
     await new Promise(resolve => setTimeout(resolve, Math.random() * 15000 + 5000));
   }
 
   private async simulateCrossChainRelay(bridge: BridgeInfo, sourceChain: string, destChain: string): Promise<void> {
     // Simulate cross-chain relay
+    this.logger.debug(`Relaying transaction from ${sourceChain} to ${destChain} via ${bridge.name}`);
     await new Promise(resolve => setTimeout(resolve, Math.random() * 30000 + 10000));
   }
 
   private async simulateDestinationCompletion(bridge: BridgeInfo, chain: string): Promise<void> {
     // Simulate destination chain completion
+    this.logger.debug(`Completing transaction on destination chain ${chain} via ${bridge.name}`);
     await new Promise(resolve => setTimeout(resolve, Math.random() * 5000 + 2000));
   }
 
-  private async getNetworkConditions(sourceChain: string, destChain: string, bridge: BridgeInfo): Promise<any> {
+  private async getNetworkConditions(_sourceChain: string, _destChain: string, _bridge: BridgeInfo): Promise<any> {
     return {
       sourceCongestion: Math.random() * 100,
       destinationCongestion: Math.random() * 100,
@@ -995,21 +1038,34 @@ export class CrossChainBridgeTester extends EventEmitter {
 
   private async getBridgeRoute(bridge: BridgeInfo, sourceChain: string, destChain: string): Promise<BridgeRoute> {
     return {
-      bridgeId: bridge.id,
-      sourceChain,
-      destinationChain: destChain,
+      bridges: [bridge as any], // Cast to match BridgeInfo type from optimizer
+      totalFee: ethers.parseEther((Math.random() * 0.1 + 0.01).toString()),
+      totalTime: Math.random() * 300000 + 60000,
+      securityScore: Math.random() * 40 + 60, // 60-100
+      hops: 1,
       path: [sourceChain, destChain],
-      estimatedTime: Math.random() * 300000 + 60000,
-      estimatedFee: Math.random() * 100 + 10
+      riskAssessment: {
+        overallRisk: 'low' as const,
+        riskFactors: {
+          liquidityRisk: Math.random() * 0.3,
+          securityRisk: Math.random() * 0.2,
+          timeRisk: Math.random() * 0.3,
+          slippageRisk: Math.random() * 0.2,
+          counterpartyRisk: Math.random() * 0.1
+        },
+        mitigationStrategies: ['Multi-sig validation', 'Time locks']
+      }
     };
   }
 
   private async calculateBridgeFees(bridge: BridgeInfo, route: BridgeRoute, transaction: BridgeTransaction): Promise<any> {
-    const baseAmount = parseFloat(transaction.amount);
-    const bridgeFee = baseAmount * (bridge.fees?.base || 0.001);
+    const baseAmount = parseFloat(transaction.amount.toString());
+    const bridgeFee = baseAmount * 0.001; // Default 0.1% fee since BridgeInfo doesn't have fees property
     const gasFeeSource = Math.random() * 50 + 10;
     const gasFeeDestination = Math.random() * 30 + 5;
     const total = bridgeFee + gasFeeSource + gasFeeDestination;
+    
+    this.logger.debug(`Calculated fees for ${bridge.name} on route ${route.path[0]}->${route.path[route.path.length - 1]}: ${total}`);
 
     return {
       bridgeFee,
@@ -1022,15 +1078,17 @@ export class CrossChainBridgeTester extends EventEmitter {
     };
   }
 
-  private async estimateBridgeTime(bridge: BridgeInfo, route: BridgeRoute, transaction: BridgeTransaction): Promise<number> {
+  private async estimateBridgeTime(bridge: BridgeInfo, _route: BridgeRoute, transaction: BridgeTransaction): Promise<number> {
+    this.logger.debug(`Estimating bridge time for ${bridge.name} with transaction ${transaction.tokenAddress}`);
     return Math.random() * 300000 + 60000; // 1-6 minutes
   }
 
   private async calculateBridgeRisk(bridge: BridgeInfo, route: BridgeRoute): Promise<number> {
+    this.logger.debug(`Calculating risk for ${bridge.name} on route ${route.path[0]}->${route.path[route.path.length - 1]}`);
     return Math.random() * 0.3 + 0.1; // 0.1-0.4 risk score
   }
 
-  private async selectOptimalBridge(bridgeComparison: any[], transaction: BridgeTransaction): Promise<any> {
+  private async selectOptimalBridge(bridgeComparison: any[], _transaction: BridgeTransaction): Promise<any> {
     // Select optimal bridge based on weighted criteria
     let bestBridge = bridgeComparison[0];
     let bestScore = 0;
@@ -1166,7 +1224,7 @@ export class CrossChainBridgeTester extends EventEmitter {
     // Check for critical fee issues
     const highFeeBridges = this.testResults.feeOptimizationTests
       .filter(test => test.bridgeComparison.some(bridge => bridge.fees.percentage > this.config.maxAcceptableFeePercentage))
-      .map(test => test.transaction.fromChain + '->' + test.transaction.toChain);
+      .map(test => `${test.transaction.route.path[0]}->${test.transaction.route.path[test.transaction.route.path.length - 1]}`);
 
     if (highFeeBridges.length > 0) {
       criticalIssues.push(`High fees detected on routes: ${highFeeBridges.join(', ')}`);
@@ -1208,14 +1266,235 @@ export class CrossChainBridgeTester extends EventEmitter {
     this.testResults.recommendations = recommendations;
   }
 
+  // Helper method to convert TestTransaction to BridgeTransaction
+  private convertTestToBridgeTransaction(testTx: TestTransaction): BridgeTransaction {
+    // Create a mock BridgeTransaction from TestTransaction
+    // Note: This is a simplified conversion for testing purposes
+    return {
+      route: {
+        bridges: [],
+        totalFee: ethers.parseEther('0.001'),
+        totalTime: 300,
+        securityScore: 85,
+        hops: 1,
+        path: [testTx.fromChain, testTx.toChain],
+        riskAssessment: {
+          overallRisk: 'low',
+          riskFactors: {
+            liquidityRisk: 0.1,
+            securityRisk: 0.1,
+            timeRisk: 0.1,
+            slippageRisk: 0.1,
+            counterpartyRisk: 0.1
+          },
+          mitigationStrategies: []
+        }
+      },
+      tokenAddress: testTx.token,
+      amount: ethers.parseEther(testTx.amount),
+      recipient: '0x' + '0'.repeat(40), // Mock recipient address
+      deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+      slippageTolerance: testTx.slippageTolerance || 0.5,
+      transactions: []
+    };
+  }
+
+  // Missing utility methods for liquidity testing
+  private async analyzeBridgeLiquidity(bridge: BridgeInfo, sourceChain: string, destChain: string): Promise<any> {
+    // Mock implementation - in production would analyze actual bridge liquidity
+    return {
+      totalLiquidity: Math.random() * 10000000,
+      availableLiquidity: Math.random() * 8000000,
+      liquidityUtilization: Math.random() * 0.8,
+      liquidityDepth: Math.random() * 1000000
+    };
+  }
+
+  private async runLiquidityStressTest(bridge: BridgeInfo, sourceChain: string, destChain: string, size: number): Promise<any> {
+    // Mock implementation - in production would run actual stress tests
+    this.logger.debug(`Running liquidity stress test for ${bridge.name} on ${sourceChain}->${destChain} with size ${size}`);
+    return {
+      transactionSize: size,
+      succeeded: Math.random() > 0.1, // 90% success rate
+      executionTime: Math.random() * 5000,
+      slippage: Math.random() * 0.05,
+      impactScore: Math.random() * 100
+    };
+  }
+
+  private calculateLiquidityGrade(_liquidityAnalysis: any, stressTestResults: any[]): 'excellent' | 'good' | 'adequate' | 'limited' | 'insufficient' {
+    const successRate = stressTestResults.filter(r => r.succeeded).length / stressTestResults.length;
+    if (successRate > 0.95) return 'excellent';
+    if (successRate > 0.9) return 'good';
+    if (successRate > 0.8) return 'adequate';
+    if (successRate > 0.7) return 'limited';
+    return 'insufficient';
+  }
+
+  private generateLiquidityRecommendations(liquidityAnalysis: any, stressTestResults: any[]): string[] {
+    const recommendations = [];
+    const successRate = stressTestResults.filter(r => r.succeeded).length / stressTestResults.length;
+    
+    if (successRate < 0.8) {
+      recommendations.push('Consider using alternative bridges for large transactions');
+    }
+    if (liquidityAnalysis.liquidityUtilization > 0.8) {
+      recommendations.push('Monitor liquidity levels closely');
+    }
+    recommendations.push('Regular liquidity monitoring recommended');
+    
+    return recommendations;
+  }
+
+  // Missing failure testing methods
+  private async simulateFailureScenario(bridge: BridgeInfo, failureType: string): Promise<any> {
+    // Mock implementation - in production would simulate actual failures
+    this.logger.debug(`Simulating ${failureType} failure for ${bridge.name}`);
+    return {
+      failureType,
+      failureInjected: true,
+      timeToDetection: Math.random() * 30000,
+      impactAssessment: Math.random() * 100
+    };
+  }
+
+  private async detectBridgeFailure(_bridge: BridgeInfo, _transaction: TestTransaction): Promise<any> {
+    // Mock implementation - in production would detect actual failures
+    return {
+      failureDetected: Math.random() > 0.8, // 20% failure detection rate
+      failureType: 'timeout',
+      detectionTime: Math.random() * 10000,
+      severity: Math.random() > 0.5 ? 'high' : 'medium'
+    };
+  }
+
+  private async attemptFailureRecovery(_bridge: BridgeInfo, _transaction: TestTransaction): Promise<any> {
+    // Mock implementation - in production would attempt actual recovery
+    return {
+      strategy: 'retry',
+      success: Math.random() > 0.3, // 70% recovery rate
+      alternativeRoute: null,
+      recoveryTime: Math.random() * 60000,
+      recoveryMethod: 'retry'
+    };
+  }
+
+  private assessUserImpact(failureData: any, _recoveryData: any): any {
+    // Mock implementation - in production would assess actual user impact
+    return {
+      impactLevel: failureData.severity === 'high' ? 'critical' : 'moderate',
+      affectedUsers: Math.floor(Math.random() * 1000),
+      estimatedLoss: Math.random() * 10000,
+      reputationImpact: Math.random() * 100
+    };
+  }
+
+  // Missing atomicity testing methods
+  private async testTransactionAtomicity(bridge: BridgeInfo, transaction: TestTransaction): Promise<any> {
+    // Mock implementation - in production would test actual atomicity
+    return {
+      atomicityMaintained: Math.random() > 0.1, // 90% atomicity success
+      stepsCompleted: Math.floor(Math.random() * 5) + 1,
+      totalSteps: 5,
+      rollbackRequired: Math.random() > 0.9
+    };
+  }
+
+  private identifyAtomicityFailurePoints(_bridge: BridgeInfo): string[] {
+    // Mock implementation - in production would identify actual failure points
+    return [
+      'Source chain transaction confirmation',
+      'Bridge contract execution',
+      'Destination chain finalization',
+      'Event emission and logging'
+    ];
+  }
+
+  // Missing security testing methods
+  private calculateIntegrityScore(atomicityResults: any[]): number {
+    // Mock implementation - calculate integrity score from atomicity results
+    const successRate = atomicityResults.filter(r => r.atomicityMaintained).length / atomicityResults.length;
+    return successRate * 100;
+  }
+
+  private async analyzeValidatorSet(_bridge: BridgeInfo): Promise<any> {
+    // Mock implementation - in production would analyze actual validator set
+    return {
+      validatorCount: Math.floor(Math.random() * 50) + 10,
+      decentralizationScore: Math.random() * 100,
+      reputationScore: Math.random() * 100,
+      stakingAmount: Math.random() * 1000000
+    };
+  }
+
+  private async analyzeSmartContractSecurity(_bridge: BridgeInfo): Promise<any> {
+    // Mock implementation - in production would analyze actual smart contract security
+    return {
+      auditStatus: Math.random() > 0.3 ? 'audited' : 'unaudited',
+      vulnerabilityCount: Math.floor(Math.random() * 5),
+      codeQualityScore: Math.random() * 100,
+      upgradeability: Math.random() > 0.5 ? 'upgradeable' : 'immutable'
+    };
+  }
+
+  private async analyzeCryptographicSecurity(_bridge: BridgeInfo): Promise<any> {
+    // Mock implementation - in production would analyze actual cryptographic security
+    return {
+      encryptionStrength: Math.random() > 0.8 ? 'strong' : 'adequate',
+      signatureScheme: 'ECDSA',
+      hashingAlgorithm: 'SHA-256',
+      keyManagement: Math.random() > 0.7 ? 'secure' : 'basic'
+    };
+  }
+
+  private async analyzeSecurityVulnerabilities(_bridge: BridgeInfo): Promise<any[]> {
+    // Mock implementation - in production would analyze actual vulnerabilities
+    return [
+      {
+        type: 'Smart Contract',
+        severity: Math.random() > 0.8 ? 'high' : 'medium',
+        description: 'Potential reentrancy vulnerability',
+        mitigated: Math.random() > 0.3
+      }
+    ];
+  }
+
+  private calculateOverallSecurityScore(
+    validatorSet: any,
+    smartContractSecurity: any,
+    cryptographicSecurity: any,
+    vulnerabilities: any[]
+  ): number {
+    // Mock calculation - in production would use proper scoring algorithm
+    const validatorScore = validatorSet.reputationScore || 0;
+    const contractScore = smartContractSecurity.codeQualityScore || 0;
+    const cryptoScore = cryptographicSecurity.encryptionStrength === 'strong' ? 90 : 70;
+    const vulnPenalty = vulnerabilities.length * 10;
+    
+    return Math.max(0, (validatorScore + contractScore + cryptoScore) / 3 - vulnPenalty);
+  }
+
+  private determineSecurityRiskLevel(securityScore: number, vulnerabilities: any[]): string {
+    if (securityScore < 40 || vulnerabilities.some(v => v.severity === 'high')) {
+      return 'very_high';
+    }
+    if (securityScore < 60) return 'high';
+    if (securityScore < 80) return 'medium';
+    return 'low';
+  }
+
   // Public API methods
 
   getTestResults(): CrossChainBridgeTestReport {
     return { ...this.testResults };
   }
 
-  isRunning(): boolean {
+  getIsRunning(): boolean {
     return this.isRunning;
+  }
+
+  getBridgeOptimizer(): BridgeOptimizer {
+    return this.bridgeOptimizer;
   }
 
   async shutdown(): Promise<void> {

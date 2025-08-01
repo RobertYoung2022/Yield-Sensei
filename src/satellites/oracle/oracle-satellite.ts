@@ -24,6 +24,7 @@ import { OffChainDataVerifier, OffChainDataVerifierConfig } from './verification
 import { DataSourceManager, DataSourceManagerConfig } from './sources/data-source-manager';
 import { PerplexityClient, PerplexityClientConfig } from './sources/perplexity-client';
 import { getUnifiedAIClient, UnifiedAIClient } from '../../integrations/ai/unified-ai-client';
+import { AnalysisRequest } from '../../integrations/ai/types';
 
 export class OracleSatelliteAgent extends EventEmitter {
   private static instance: OracleSatelliteAgent;
@@ -224,7 +225,7 @@ export class OracleSatelliteAgent extends EventEmitter {
       }
 
       // Perform validation
-      const result = await this.oracleValidator.validateFeed(feed);
+      const result = await this.oracleValidator!.validateFeed(feed);
 
       // Update feed reliability based on result
       await this.updateFeedReliability(feed, result);
@@ -234,10 +235,12 @@ export class OracleSatelliteAgent extends EventEmitter {
 
       // Emit validation event
       this.emit('oracle_validated', {
-        type: 'oracle_feed_validated',
-        feedId,
-        result,
-        timestamp: new Date()
+        type: 'data_updated',
+        source: feedId,
+        data: result,
+        severity: result.isValid ? 'info' : 'warning',
+        timestamp: new Date(),
+        metadata: { feedId, validationResult: result }
       } as OracleEvent);
 
       // Check for anomalies
@@ -259,10 +262,14 @@ export class OracleSatelliteAgent extends EventEmitter {
 
     for (const [feedId] of this.oracleFeeds) {
       const promise = this.validateOracleFeed(feedId)
-        .then(result => results.set(feedId, result))
+        .then(result => {
+          results.set(feedId, result);
+          return Promise.resolve();
+        })
         .catch(error => {
           this.logger.error('Failed to validate oracle feed:', error, { feedId });
           // Continue with other validations
+          return Promise.resolve();
         });
       
       validationPromises.push(promise);
@@ -300,7 +307,7 @@ export class OracleSatelliteAgent extends EventEmitter {
       }
 
       // Perform comprehensive validation
-      const result = await this.rwaValidator.validateProtocol(protocol);
+      const result = await this.rwaValidator!.validateProtocol(protocol);
 
       // Update protocol status based on validation
       await this.updateProtocolStatus(protocol, result);
@@ -310,7 +317,7 @@ export class OracleSatelliteAgent extends EventEmitter {
 
       // Emit validation event
       this.emit('rwa_validated', {
-        type: 'rwa_protocol_validated',
+        type: 'validation_completed',
         protocol: protocolId,
         data: result,
         severity: this.calculateEventSeverity(result),
@@ -335,10 +342,14 @@ export class OracleSatelliteAgent extends EventEmitter {
 
     for (const [protocolId] of this.rwaProtocols) {
       const promise = this.validateRWAProtocol(protocolId)
-        .then(result => results.set(protocolId, result))
+        .then(result => {
+          results.set(protocolId, result);
+          return Promise.resolve();
+        })
         .catch(error => {
           this.logger.error('Failed to validate RWA protocol:', error, { protocolId });
           // Continue with other validations
+          return Promise.resolve();
         });
       
       validationPromises.push(promise);
@@ -442,14 +453,17 @@ export class OracleSatelliteAgent extends EventEmitter {
         context 
       });
 
-      const analysisRequest = {
+      const analysisRequest: AnalysisRequest = {
         content: JSON.stringify(data, null, 2),
-        analysisType: 'data_validation',
+        analysisType: 'classification',
         context: `Validate ${dataType} data for accuracy and legitimacy. ${context || ''}`,
-        systemPrompt: this.buildValidationSystemPrompt(dataType)
+        options: { 
+          systemPrompt: this.buildValidationSystemPrompt(dataType),
+          validationType: 'data_validation'
+        }
       };
 
-      const response = await this.unifiedAIClient.analyzeContent(analysisRequest);
+      const response = await this.unifiedAIClient!.analyzeContent!(analysisRequest);
 
       if (!response.success) {
         throw new Error(`AI validation failed: ${response.error}`);
@@ -514,7 +528,7 @@ export class OracleSatelliteAgent extends EventEmitter {
           if (response.success) {
             consensusResults.push({
               provider,
-              result: response.data?.text,
+              result: response.data?.text || '',
               confidence: this.extractConfidenceScore(response.data?.text)
             });
           }
@@ -550,11 +564,12 @@ export class OracleSatelliteAgent extends EventEmitter {
 
       this.logger.info('Performing AI-powered anomaly detection', { context });
 
-      const analysisRequest = {
+      const analysisRequest: AnalysisRequest = {
         content: JSON.stringify(data, null, 2),
-        analysisType: 'anomaly_detection',
+        analysisType: 'classification',
         context: `Detect anomalies and unusual patterns in this data. ${context || ''}`,
-        systemPrompt: `You are an expert data analyst specializing in financial and blockchain data anomaly detection.
+        options: {
+          systemPrompt: `You are an expert data analyst specializing in financial and blockchain data anomaly detection.
         Analyze the provided data for:
         1. Statistical outliers and unusual patterns
         2. Potential data corruption or manipulation
@@ -567,10 +582,12 @@ export class OracleSatelliteAgent extends EventEmitter {
         - confidence: number (0-1)
         - anomalies: array of detected anomalies
         - explanation: detailed explanation
-        - recommendations: suggested actions`
+        - recommendations: suggested actions`,
+          validationType: 'anomaly_detection'
+        }
       };
 
-      const response = await this.unifiedAIClient.analyzeContent(analysisRequest);
+      const response = await this.unifiedAIClient!.analyzeContent!(analysisRequest);
 
       if (!response.success) {
         throw new Error(`AI anomaly detection failed: ${response.error}`);
@@ -578,13 +595,13 @@ export class OracleSatelliteAgent extends EventEmitter {
 
       let anomalyResult;
       try {
-        anomalyResult = JSON.parse(response.data?.analysis || response.data?.result || '{}');
+        anomalyResult = JSON.parse(response.data?.result || '{}');
       } catch {
         // Fallback to text analysis if JSON parsing fails
         anomalyResult = {
-          isAnomaly: response.data?.analysis?.includes('anomaly') || false,
+          isAnomaly: response.data?.result?.includes('anomaly') || false,
           confidence: 0.5,
-          explanation: response.data?.analysis || response.data?.result,
+          explanation: response.data?.result,
           anomalies: []
         };
       }
@@ -691,7 +708,7 @@ export class OracleSatelliteAgent extends EventEmitter {
         medium: 0.6,
         high: 0.8
       },
-      perplexityApiKey: this.config.rwa.perplexityApiKey || process.env.PERPLEXITY_API_KEY || '',
+      perplexityApiKey: this.config.rwa.perplexityApiKey || process.env['PERPLEXITY_API_KEY'] || '',
       secApiKey: this.config.rwa.secApiKey,
       maxConcurrentValidations: this.config.rwa.maxConcurrentValidations || 5,
       validationTimeout: this.config.rwa.validationTimeout || 60000
