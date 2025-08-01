@@ -80,13 +80,13 @@ export class DatabaseManager extends EventEmitter {
     this.schemaManager = new PostgreSQLSchemaManager();
     // Set this instance on the schema manager to avoid circular dependency
     this.schemaManager.setDatabaseManager(this);
-    // TODO: Re-enable ClickHouse after fixing client configuration
-    // this.clickhouseManager = ClickHouseManager.getInstance();
+    // Initialize ClickHouse manager
+    this.clickhouseManager = ClickHouseManager.getInstance();
     
-    // TODO: Re-enable integration components after fixing circular dependencies
-    // this.integrationManager = DatabaseIntegrationManager.getInstance();
-    // this.cdcManager = CDCManager.getInstance();
-    // this.unifiedQueryManager = UnifiedQueryManager.getInstance();
+    // Initialize integration components
+    this.integrationManager = DatabaseIntegrationManager.getInstance();
+    this.cdcManager = CDCManager.getInstance();
+    this.unifiedQueryManager = UnifiedQueryManager.getInstance();
     
     // Initialize Redis manager with config
     const redisConfig: RedisConfig = {
@@ -168,7 +168,10 @@ export class DatabaseManager extends EventEmitter {
       // Initialize PostgreSQL schema after connection is established
       await this.initializeSchema();
 
-      logger.info('All database connections and schema initialized successfully');
+      // Initialize integration components after core databases are connected
+      await this.initializeIntegrationComponents();
+
+      logger.info('All database connections, schema, and integration components initialized successfully');
       this.emit('initialized');
     } catch (error: unknown) {
       logger.error('Failed to initialize databases:', error as Error);
@@ -309,6 +312,42 @@ export class DatabaseManager extends EventEmitter {
     } catch (error) {
       logger.error('Schema initialization failed:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Initialize integration components (CDC, Integration Manager, etc.)
+   */
+  private async initializeIntegrationComponents(): Promise<void> {
+    try {
+      logger.info('Initializing database integration components...');
+
+      // Initialize CDC Manager if available
+      if (this.cdcManager) {
+        try {
+          await this.cdcManager.initialize();
+          logger.info('CDC Manager initialized successfully');
+        } catch (error) {
+          logger.warn('CDC Manager initialization failed, continuing without CDC:', error);
+        }
+      }
+
+      // Initialize Database Integration Manager if available
+      if (this.integrationManager) {
+        try {
+          await this.integrationManager.initialize();
+          logger.info('Database Integration Manager initialized successfully');
+        } catch (error) {
+          logger.warn('Database Integration Manager initialization failed, continuing without integration features:', error);
+        }
+      }
+
+      // UnifiedQueryManager doesn't need explicit initialization - it's ready to use
+
+      logger.info('Database integration components initialization completed');
+    } catch (error) {
+      logger.error('Integration components initialization failed:', error);
+      // Don't throw here - integration components are optional
     }
   }
 

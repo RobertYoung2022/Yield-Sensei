@@ -92,6 +92,100 @@ export const analyticsRequestSchema = z.object({
   period: z.enum(['1d', '1w', '1m', '3m', '6m', '1y', 'all']).default('1m'),
 });
 
+// Feedback validation schemas
+export const submitFeedbackSchema = z.object({
+  category: z.enum([
+    'ai_recommendation',
+    'risk_setting',
+    'educational_content',
+    'ui_experience',
+    'portfolio_suggestion',
+    'yield_opportunity',
+    'risk_assessment',
+    'market_insight',
+    'strategy_recommendation',
+    'general'
+  ]),
+  feedbackType: z.enum(['rating', 'thumbs', 'text', 'structured', 'implicit']),
+  contentType: z.string().min(1).max(100),
+  contentId: z.string().max(255).optional(),
+  rating: z.number().min(1).max(5).optional(),
+  thumbsRating: z.boolean().optional(),
+  textFeedback: z.string().max(2000).optional(),
+  structuredData: z.record(z.any()).optional(),
+  privacyLevel: z.enum(['anonymous', 'pseudonymous', 'identified']).optional(),
+  tags: z.array(z.string()).max(10).optional(),
+  contentContext: z.record(z.any()).optional(),
+  pageContext: z.record(z.any()).optional(),
+}).refine((data) => {
+  // Ensure required feedback data is provided based on type
+  if (data.feedbackType === 'rating' && !data.rating) return false;
+  if (data.feedbackType === 'thumbs' && data.thumbsRating === undefined) return false;
+  if (data.feedbackType === 'text' && !data.textFeedback) return false;
+  if (data.feedbackType === 'structured' && (!data.structuredData || Object.keys(data.structuredData).length === 0)) return false;
+  return true;
+}, {
+  message: "Required feedback data must be provided based on feedback type"
+});
+
+export const feedbackIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const feedbackAnalyticsRequestSchema = z.object({
+  contentType: z.string().optional(),
+  contentId: z.string().optional(),
+  category: z.enum([
+    'ai_recommendation',
+    'risk_setting',
+    'educational_content',
+    'ui_experience',
+    'portfolio_suggestion',
+    'yield_opportunity',
+    'risk_assessment',
+    'market_insight',
+    'strategy_recommendation',
+    'general'
+  ]).optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+  timePeriod: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
+  groupBy: z.array(z.enum(['contentType', 'category', 'sentiment'])).default([]),
+});
+
+export const feedbackFilterSchema = z.object({
+  category: z.enum([
+    'ai_recommendation',
+    'risk_setting',
+    'educational_content',
+    'ui_experience',
+    'portfolio_suggestion',
+    'yield_opportunity',
+    'risk_assessment',
+    'market_insight',
+    'strategy_recommendation',
+    'general'
+  ]).optional(),
+  feedbackType: z.enum(['rating', 'thumbs', 'text', 'structured', 'implicit']).optional(),
+  sentiment: z.enum(['very_negative', 'negative', 'neutral', 'positive', 'very_positive', 'unknown']).optional(),
+  hasText: z.boolean().optional(),
+  rating: z.number().min(1).max(5).optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+});
+
+export const updatePrivacySettingsSchema = z.object({
+  feedbackCollectionConsent: z.boolean().optional(),
+  analyticsConsent: z.boolean().optional(),
+  improvementConsent: z.boolean().optional(),
+  researchConsent: z.boolean().optional(),
+  defaultPrivacyLevel: z.enum(['anonymous', 'pseudonymous', 'identified']).optional(),
+  allowSentimentAnalysis: z.boolean().optional(),
+  allowContentPersonalization: z.boolean().optional(),
+  retentionPeriodDays: z.number().min(1).max(3650).optional(),
+  autoDeletionEnabled: z.boolean().optional(),
+});
+
 // Generic validation middleware factory
 export function validateRequest(schema: z.ZodSchema, location: 'body' | 'query' | 'params' = 'body') {
   return (req: Request, _res: Response, next: NextFunction) => {
@@ -129,4 +223,11 @@ export const validateRiskAssessmentRequest = validateRequest(riskAssessmentReque
 export const validateUpdateUserPreferences = validateRequest(updateUserPreferencesSchema);
 export const validateAnalyticsRequest = validateRequest(analyticsRequestSchema, 'query');
 export const validatePagination = validateRequest(paginationSchema, 'query');
-export const validateFilter = validateRequest(filterSchema, 'query'); 
+export const validateFilter = validateRequest(filterSchema, 'query');
+
+// Feedback validation middlewares
+export const validateSubmitFeedback = validateRequest(submitFeedbackSchema);
+export const validateFeedbackId = validateRequest(feedbackIdSchema, 'params');
+export const validateFeedbackAnalyticsRequest = validateRequest(feedbackAnalyticsRequestSchema, 'query');
+export const validateFeedbackFilter = validateRequest(feedbackFilterSchema, 'query');
+export const validateUpdatePrivacySettings = validateRequest(updatePrivacySettingsSchema); 

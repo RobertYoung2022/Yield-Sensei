@@ -114,7 +114,21 @@ export const DEFAULT_PULSE_CONFIG: PulseSatelliteConfig = {
     maxRiskThreshold: 0.7,
     autoIntegration: false,
     communitySubmissions: true,
-    researchDepth: 'comprehensive'
+    researchDepth: 'comprehensive',
+    // ElizaOS integration
+    enableElizaOS: true,
+    elizaosPlugins: [
+      'defi-llama-monitor',
+      'twitter-defi-scanner',
+      'github-defi-tracker',
+      'discord-community-monitor',
+      'institutional-flow-detector'
+    ],
+    discoveryThreshold: 0.7,
+    // Web scraping
+    enableWebScraping: true,
+    // Social intelligence
+    enableSocialIntelligence: true
   },
   sustainabilityAnalysis: {
     enableRealTimeAnalysis: true,

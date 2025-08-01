@@ -22,3 +22,8 @@ class Logger {
 }
 
 export default Logger;
+
+// Named export for convenience
+export const getLogger = (options: { name: string, level?: string }) => {
+    return Logger.getLogger(options.name);
+};

@@ -20,6 +20,7 @@ import {
   BacktestResult
 } from '../types';
 import { getUnifiedAIClient } from '../../../integrations/ai/unified-ai-client';
+import { UnifiedYieldAnalysis, UnifiedYieldAnalysisConfig } from '../ai/unified-yield-analysis';
 import { APYPredictionModel } from './apy-prediction-model';
 import { SustainabilityDetector } from './sustainability-detector';
 
@@ -66,6 +67,7 @@ export class YieldOptimizationEngine extends EventEmitter {
   private sustainabilityDetector: SustainabilityDetector;
   private backtestingResults: Map<string, BacktestResult> = new Map();
   private historicalYieldData: Map<string, YieldHistory[]> = new Map();
+  private unifiedYieldAnalysis: UnifiedYieldAnalysis;
 
   private constructor(config: YieldOptimizationEngineConfig) {
     super();
@@ -132,6 +134,22 @@ export class YieldOptimizationEngine extends EventEmitter {
         });
         await this.sustainabilityDetector.initialize();
       }
+
+      // Initialize Unified Yield Analysis
+      this.unifiedYieldAnalysis = UnifiedYieldAnalysis.getInstance({
+        enableMultiProviderAnalysis: true,
+        preferredProviders: ['perplexity', 'anthropic', 'openai'],
+        analysisDepth: 'comprehensive',
+        enableRealTimeAnalysis: this.config.enableRealTimeOptimization,
+        cacheTTL: 3600000, // 1 hour
+        specializedPrompts: {
+          yieldOptimization: 'Analyze DeFi yield opportunity for optimal capital allocation',
+          sustainabilityDetection: 'Detect sustainability risks and ponzi characteristics in DeFi protocols',
+          protocolDiscovery: 'Evaluate new DeFi protocol for integration priority',
+          riskAssessment: 'Assess comprehensive risks for DeFi investment strategy'
+        }
+      });
+      await this.unifiedYieldAnalysis.initialize();
 
       // Load historical data for optimization
       await this.loadHistoricalData();
@@ -826,6 +844,57 @@ export class YieldOptimizationEngine extends EventEmitter {
         };
       }
       
+      // Add unified AI analysis for comprehensive insights
+      if (this.unifiedYieldAnalysis) {
+        try {
+          // Create a basic strategy for analysis
+          const strategy: YieldStrategy = {
+            type: opportunity.strategy.type,
+            name: `${opportunity.protocol} ${opportunity.asset} Strategy`,
+            description: `Yield farming on ${opportunity.protocol}`,
+            complexity: 'intermediate',
+            components: [],
+            allocations: [],
+            rebalanceFrequency: 604800000, // Weekly
+            exitStrategy: {
+              triggers: [],
+              maxSlippage: 0.01,
+              timeoutDuration: 300000,
+              emergencyWithdrawal: true,
+              partialExitAllowed: true
+            },
+            gasEfficiency: opportunity.requirements.gasOptimized ? 0.8 : 0.5
+          };
+          
+          const aiAnalysis = await this.unifiedYieldAnalysis.analyzeYieldOpportunity(
+            opportunity,
+            strategy
+          );
+          
+          // Merge AI insights into the opportunity
+          enhancedOpportunity.aiInsights = {
+            recommendation: aiAnalysis.analysis.recommendation,
+            confidence: aiAnalysis.analysis.confidence,
+            risks: aiAnalysis.analysis.risks,
+            opportunities: aiAnalysis.analysis.opportunities,
+            consensus: aiAnalysis.consensus
+          };
+          
+          // Update predictions with AI insights
+          if (aiAnalysis.predictions) {
+            enhancedOpportunity.apy.predicted = aiAnalysis.predictions.predictions[0]?.predictedApy || enhancedOpportunity.apy.predicted;
+          }
+          
+          // Update sustainability with AI insights
+          if (aiAnalysis.sustainability) {
+            enhancedOpportunity.sustainability.score = 
+              (enhancedOpportunity.sustainability.score + aiAnalysis.sustainability.score) / 2;
+          }
+        } catch (error) {
+          this.logger.warn('Failed to get AI analysis for opportunity:', error);
+        }
+      }
+      
       enhanced.push(enhancedOpportunity);
     }
     
@@ -1020,6 +1089,11 @@ export class YieldOptimizationEngine extends EventEmitter {
   async shutdown(): Promise<void> {
     try {
       this.logger.info('Shutting down Yield Optimization Engine...');
+
+      // Shutdown AI components
+      if (this.unifiedYieldAnalysis) {
+        await this.unifiedYieldAnalysis.shutdown();
+      }
 
       this.optimizationCache.clear();
       this.portfolioCache.clear();

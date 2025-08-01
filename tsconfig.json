@@ -31,6 +31,7 @@
     "composite": false,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
+    "downlevelIteration": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "moduleResolution": "node",

@@ -78,3 +78,63 @@ Implement a systematic approach to resolve all remaining TypeScript errors with 
    - Verify examples correctly demonstrate TypeScript best practices
    - Ensure coding standards documentation reflects the implemented solutions
    - Validate that knowledge transfer materials cover all major error patterns
+
+# Subtasks:
+## 1. Comprehensive Error Inventory and Categorization [pending]
+### Dependencies: None
+### Description: Catalog all 655 remaining TypeScript errors by file type (test, demo, non-critical component), group errors by common patterns (e.g., type definitions, null checks), and prioritize based on component dependencies and usage frequency.
+### Details:
+Establish a detailed error inventory, classify errors by root cause and affected area, and set up a tracking system to monitor progress and identify blockers.
+
+## 2. Resolution of TypeScript Errors in Test Files [pending]
+### Dependencies: 28.1
+### Description: Systematically resolve TypeScript errors in test files by applying proper typings to fixtures, mocks, and utility functions, and ensuring correct type assertions and async handling.
+### Details:
+Address type incompatibilities, add missing type definitions for testing libraries, and ensure all test code adheres to TypeScript best practices.
+
+## 3. Resolution of TypeScript Errors in Demo Files [pending]
+### Dependencies: 28.1
+### Description: Fix TypeScript errors in demo files by correcting type definitions, resolving prop type mismatches, and ensuring proper typing for demo data structures and API mocks.
+### Details:
+Implement interface definitions for demo components and utilities, and address generic type parameter issues.
+
+## 4. Resolution of TypeScript Errors in Non-Critical Components [pending]
+### Dependencies: 28.1
+### Description: Resolve TypeScript errors in non-critical components by applying consistent interface definitions, fixing type narrowing and union type handling, and ensuring proper typing for state and callbacks.
+### Details:
+Standardize typing across related components and address all callback parameter and return type issues.
+
+## 5. Utility Function Typing and Standardization [pending]
+### Dependencies: 28.2, 28.3, 28.4
+### Description: Standardize typing in utility functions by leveraging established utility types, applying consistent generic patterns, implementing type guards, and creating reusable type definitions.
+### Details:
+Ensure all utility functions follow best practices for error handling and type safety, referencing patterns from Task 16.
+
+## 6. Incremental Compilation and Progress Tracking [pending]
+### Dependencies: 28.2, 28.3, 28.4, 28.5
+### Description: Implement an incremental compilation strategy to verify error resolution progress, track error count reduction, and ensure each fixed file compiles without errors before merging.
+### Details:
+Automate compilation checks and maintain a dashboard to visualize progress and highlight remaining blockers.
+
+## 7. Documentation of Error Patterns and Solutions [pending]
+### Dependencies: 28.2, 28.3, 28.4, 28.5
+### Description: Document common TypeScript error patterns encountered and their solutions, create reference examples, and update coding standards with best practices.
+### Details:
+Produce clear documentation and code samples to facilitate future error prevention and onboarding.
+
+## 8. Knowledge Transfer and Team Enablement [pending]
+### Dependencies: 28.7
+### Description: Conduct knowledge sharing sessions to disseminate TypeScript patterns, error resolution strategies, and updated standards to the development team.
+### Details:
+Organize workshops or presentations, provide guidance for preventing similar errors, and ensure team alignment on TypeScript practices.
+
+## 9. Fix Core TypeScript Configuration Issues [pending]
+### Dependencies: None
+### Description: Address critical TypeScript configuration issues preventing compilation: path mapping (@/ aliases), esModuleInterop for ClickHouse, and downlevelIteration settings
+### Details:
+Fix immediate configuration issues in tsconfig.json:
+1. Configure path mapping for @/ aliases to resolve module resolution errors
+2. Enable esModuleInterop to fix ClickHouse client library compatibility
+3. Set appropriate compiler target and enable downlevelIteration for modern iteration features
+4. Verify configuration resolves the core compilation blockers identified in database integration
+

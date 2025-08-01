@@ -12,6 +12,7 @@ import transactionsRouter from './transactions';
 import usersRouter from './users';
 import analyticsRouter from './analytics';
 import docsRouter from './docs';
+import feedbackRouter from './feedback';
 
 const router = Router();
 
@@ -30,6 +31,7 @@ router.get('/', (_req, res) => {
       users: '/users',
       analytics: '/analytics',
       docs: '/docs',
+      feedback: '/feedback',
     },
     documentation: '/docs',
   });
@@ -44,5 +46,6 @@ router.use('/transactions', transactionsRouter);
 router.use('/users', usersRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/docs', docsRouter);
+router.use('/feedback', feedbackRouter);
 
 export default router; 
