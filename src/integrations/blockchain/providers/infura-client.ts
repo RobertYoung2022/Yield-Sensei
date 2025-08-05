@@ -4,7 +4,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from '../../../shared/utils/logger';
 import {
   BlockchainClient,
   BlockchainConfig,
@@ -17,7 +17,7 @@ import {
   BlockchainError
 } from '../types';
 
-const logger = Logger.getLogger('infura-client');
+const logger = getLogger('infura-client');
 
 interface InfuraRPCRequest {
   jsonrpc: string;

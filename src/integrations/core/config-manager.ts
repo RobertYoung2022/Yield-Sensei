@@ -6,7 +6,7 @@
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, watchFile } from 'fs';
 import { join } from 'path';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import {
   EnvironmentConfig,
   ServiceConfig,
@@ -14,7 +14,7 @@ import {
   ServiceMonitorConfig
 } from './types';
 
-const logger = Logger.getLogger('config-manager');
+const logger = getLogger('config-manager');
 
 export class ConfigManager extends EventEmitter {
   private config: EnvironmentConfig;

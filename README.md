@@ -1,13 +1,13 @@
-# SnikDis Crypto - Your DeFi, Your Way
+# YieldSensei - Your DeFi, Your Way
 
 ## 🚀 **AI-Powered DeFi Portfolio Management Made Simple**
 
-**SnikDis Crypto** (S-N-I-K-D-I-S) empowers users to manage DeFi portfolios with AI-driven simplicity. Our advanced satellite AI system handles the complexity while you focus on your investment goals.
+**YieldSensei** empowers users to manage DeFi portfolios with AI-driven simplicity. Our advanced satellite AI system handles the complexity while you focus on your investment goals.
 
-## 💎 **Why Choose SnikDis Crypto?**
+## 💎 **Why Choose YieldSensei?**
 
 ### **🎯 AI-Driven Simplicity**
-- **8 Specialized AI Satellites** work together to manage your entire DeFi portfolio
+- **2 Core AI Satellites** (Sage & Aegis) work together to manage your entire DeFi portfolio
 - **One-Click Portfolio Management** - Set your goals, let our AI handle the rest
 - **Real-Time Optimization** - Your portfolio adapts to market conditions automatically
 
@@ -21,35 +21,25 @@
 - **15%+ Annual Returns** target with <20% maximum drawdown
 - **60%+ Win Rate** across all strategies
 
-## 🏗️ **The SnikDis Satellite System**
+## 🏗️ **The YieldSensei Satellite System**
 
-Our revolutionary AI architecture uses 8 specialized satellites working in harmony:
+Our revolutionary AI architecture uses 2 core satellites working in harmony (MVP focus):
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│     SAGE        │    │     AEGIS       │    │     FORGE       │
-│  Market Research│    │ Risk Management │    │ Smart Contracts │
-│  RWA Analysis   │    │ Liquidation     │    │ MEV Protection  │
-│  Protocol Eval  │    │ Security        │    │ Cross-Chain     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│     PULSE       │    │     BRIDGE      │    │     ORACLE      │
-│ Yield Farming   │    │ Cross-Chain     │    │ Data Integrity  │
-│ Liquid Staking  │    │ Arbitrage       │    │ RWA Validation  │
-│ Optimization    │    │ Multi-Chain     │    │ Off-Chain Data  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
 ┌─────────────────┐    ┌─────────────────┐
-│     ECHO        │    │     FUEL        │
-│ Sentiment       │    │ Capital Mgmt    │
-│ Social Media    │    │ Gas Optimization│
-│ Community       │    │ Tax Management  │
+│     SAGE        │    │     AEGIS       │
+│  Market Research│    │ Risk Management │
+│  RWA Analysis   │    │ Liquidation     │
+│  Protocol Eval  │    │ Security        │
+│  AI Insights    │    │ Portfolio Guard │
 └─────────────────┘    └─────────────────┘
+         │                       │
+         └───────────────────────┘
+                   │
+         ┌─────────────────┐
+         │   YieldSensei   │
+         │   Core Engine   │
+         └─────────────────┘
 ```
 
 ## 🎯 **Key Benefits for Users**
@@ -73,9 +63,9 @@ Our revolutionary AI architecture uses 8 specialized satellites working in harmo
 
 ### **Quick Setup**
 ```bash
-# Clone SnikDis Crypto
+# Clone YieldSensei
 git clone <repository-url>
-cd SnikDis-Crypto
+cd YieldSensei
 
 # Install dependencies
 npm install
@@ -87,6 +77,26 @@ cp env.template .env
 # Start the platform
 npm run dev
 ```
+
+### **Key Dependencies**
+
+YieldSensei relies on cutting-edge blockchain and AI libraries:
+
+**Blockchain Integration:**
+- **ethers v6.15.0** - Ethereum blockchain interactions with latest v6 features
+- **@solana/web3.js v1.98.4** - Solana blockchain connectivity and operations
+- **ajv-formats v3.0.1** - JSON schema validation for API contracts
+
+**Development & Infrastructure:**
+- **TypeScript v5.9.2** - Latest TypeScript with enhanced type safety
+- **Node.js ≥18.0.0** - Modern JavaScript runtime
+- **Redis v5.7.0** - High-performance caching and message queuing
+- **PostgreSQL** - Primary database for persistent storage
+
+**AI & Data Processing:**
+- **@tensorflow/tfjs-node** - Machine learning capabilities
+- **@anthropic-ai/sdk** - AI model integration for decision making
+- **OpenAI SDK** - Advanced language model capabilities
 
 ### **First Steps**
 1. **Connect Your Wallet** - Secure, non-custodial integration
@@ -146,20 +156,53 @@ npm run dev
 - **Deployment Guide** - Production setup instructions
 - **Architecture Overview** - System design documentation
 
+### **Troubleshooting**
+
+**Common Dependency Issues:**
+
+**Node.js Version Conflicts:**
+```bash
+# Ensure you're using Node.js 18+ 
+node --version  # Should be ≥18.0.0
+```
+
+**TypeScript Compilation Errors:**
+```bash
+# Clean build artifacts
+npm run clean
+
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
+
+# Run type checking
+npm run typecheck
+```
+
+**Module Resolution Issues:**
+- Ensure `tsconfig-paths` is installed: `npm install tsconfig-paths --save-dev`
+- Check that your IDE supports TypeScript path mapping
+- Verify `baseUrl` and `paths` in `tsconfig.json`
+
+**Blockchain Connection Issues:**
+- For Solana: Ensure RPC endpoint is accessible
+- For Ethereum: Verify provider URLs and API keys
+- Check network connectivity and firewall settings
+
 ## 📄 **License & Terms**
 
 [License details to be determined]
 
 ## 🔗 **Quick Links**
 
-- **Live Demo**: [demo.snikdis.com](https://demo.snikdis.com)
-- **Documentation**: [docs.snikdis.com](https://docs.snikdis.com)
-- **API Reference**: [api.snikdis.com](https://api.snikdis.com)
-- **Community**: [community.snikdis.com](https://community.snikdis.com)
+- **Live Demo**: [demo.yieldsensei.com](https://demo.yieldsensei.com)
+- **Documentation**: [docs.yieldsensei.com](https://docs.yieldsensei.com)
+- **API Reference**: [api.yieldsensei.com](https://api.yieldsensei.com)
+- **Community**: [community.yieldsensei.com](https://community.yieldsensei.com)
 
 ---
 
-**SnikDis Crypto** - Your DeFi, Your Way: Powered by SnikDis Crypto
+**YieldSensei** - Your DeFi, Your Way: Powered by AI-Driven Simplicity
 
-*Transform your DeFi experience with AI-driven simplicity.*
+*Transform your DeFi experience with intelligent portfolio management.*
 

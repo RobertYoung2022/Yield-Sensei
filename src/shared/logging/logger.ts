@@ -1,21 +1,18 @@
 
-import { createLogger, format, transports, Logger as WinstonLogger } from 'winston';
+/**
+ * Shared Logger Infrastructure - Legacy Compatibility Layer
+ * Maintains backward compatibility while using new shared logger system
+ */
+
+import { getLogger as getSharedLogger, LogLevel, ILogger } from '../utils/logger';
 
 class Logger {
-    private static loggers: Map<string, WinstonLogger> = new Map();
+    private static loggers: Map<string, ILogger> = new Map();
 
-    public static getLogger(serviceName: string): WinstonLogger {
+    public static getLogger(serviceName: string): ILogger {
         if (!this.loggers.has(serviceName)) {
-            const newLogger = createLogger({
-                level: 'info',
-                format: format.combine(
-                    format.timestamp(),
-                    format.json()
-                ),
-                defaultMeta: { service: serviceName },
-                transports: [new transports.Console()],
-            });
-            this.loggers.set(serviceName, newLogger);
+            const logger = getSharedLogger(serviceName);
+            this.loggers.set(serviceName, logger);
         }
         return this.loggers.get(serviceName)!;
     }
@@ -23,7 +20,11 @@ class Logger {
 
 export default Logger;
 
-// Named export for convenience
+// Named export for convenience - backward compatibility
 export const getLogger = (options: { name: string, level?: string }) => {
-    return Logger.getLogger(options.name);
+    const logLevel = options.level ? options.level as LogLevel : LogLevel.INFO;
+    return getSharedLogger(options.name, { level: logLevel });
 };
+
+// Re-export types and utilities from shared logger
+export * from '../utils/logger';

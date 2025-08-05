@@ -7,11 +7,11 @@
 
 import { EventEmitter } from 'events';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 import { AgentId } from '@/types';
 import { EncryptionManager } from './encryption-manager';
 
-const logger = Logger.getLogger('authentication-manager');
+const logger = getLogger('authentication-manager');
 
 /**
  * Authentication Method

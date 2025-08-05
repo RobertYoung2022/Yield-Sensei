@@ -6,10 +6,10 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 import { AgentId } from '@/types';
 
-const logger = Logger.getLogger('satellite-network');
+const logger = getLogger('satellite-network');
 
 /**
  * Satellite Network Node Types

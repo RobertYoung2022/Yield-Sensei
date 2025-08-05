@@ -4,9 +4,9 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import Logger from '../../shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 
-const logger = Logger.getLogger('validate-env');
+const logger = getLogger('validate-env');
 
 // Required environment variables for API functionality
 const requiredEnvVars = [

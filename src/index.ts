@@ -1,67 +1,39 @@
 /**
  * YieldSensei Multi-Agent DeFi Investment Advisor
- * Main application entry point
+ * Main application entry point - MVP version
  */
 
+import { getLogger } from "./shared/utils/logger";
 
-import { OrchestrationEngine } from './core/orchestration/engine';
-import { DatabaseManager } from './shared/database/manager';
-import Logger from "./shared/logging/logger";
-
-const logger = Logger.getLogger('main');
+const logger = getLogger('main');
 
 async function main() {
   try {
-    logger.info('🚀 Starting YieldSensei Multi-Agent System');
+    logger.info('🚀 Starting YieldSensei MVP API Server');
     
-    // Initialize database connections
-    logger.info('📊 Initializing database connections...');
-    const dbManager = DatabaseManager.getInstance();
-    try {
-      await dbManager.initialize();
-      logger.info('✅ Database connections initialized successfully');
-    } catch (error) {
-      logger.warn('⚠️  Database connections failed - continuing without databases for testing:', error instanceof Error ? error.message : 'Unknown error');
-    }
+    // For MVP, we just start the API server
+    // The API server is defined in src/api/index.ts and will auto-start
+    logger.info('📡 API Server starting automatically from src/api/index.ts');
     
-    // Initialize orchestration engine
-    logger.info('🤖 Initializing orchestration engine...');
-    const orchestrator = OrchestrationEngine.getInstance();
-    try {
-      await orchestrator.initialize();
-      logger.info('✅ Orchestration engine initialized successfully');
-    } catch (error) {
-      logger.warn('⚠️  Orchestration engine initialization failed - continuing for testing:', error instanceof Error ? error.message : 'Unknown error');
-    }
+    // Import and run the API server
+    await import('./api/index');
     
-    // Start all satellite agents
-    logger.info('🛰️  Starting satellite agents...');
-    try {
-      await orchestrator.startAllAgents();
-      logger.info('✅ Satellite agents started successfully');
-    } catch (error) {
-      logger.warn('⚠️  Satellite agent startup failed - continuing for testing:', error instanceof Error ? error.message : 'Unknown error');
-    }
+    // Keep the process alive
+    logger.info('✅ YieldSensei MVP is running successfully');
     
     // Setup graceful shutdown
-    process.on('SIGTERM', async () => {
+    process.on('SIGTERM', () => {
       logger.info('🛑 Received SIGTERM, shutting down gracefully...');
-      await orchestrator.shutdown();
-      await dbManager.close();
       process.exit(0);
     });
     
-    process.on('SIGINT', async () => {
+    process.on('SIGINT', () => {
       logger.info('🛑 Received SIGINT, shutting down gracefully...');
-      await orchestrator.shutdown();
-      await dbManager.close();
       process.exit(0);
     });
-    
-    logger.info('✅ YieldSensei is running successfully');
     
   } catch (error) {
-    logger.error('❌ Failed to start YieldSensei:', error);
+    logger.error('❌ Failed to start YieldSensei MVP:', undefined, error as Error);
     process.exit(1);
   }
 }

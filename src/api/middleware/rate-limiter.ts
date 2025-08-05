@@ -6,7 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { RateLimitError } from './error-handler';
-import Logger from '../../shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 
 // Extend Request interface to include user
 declare global {
@@ -20,7 +20,7 @@ declare global {
   }
 }
 
-const logger = Logger.getLogger('rate-limiter');
+const logger = getLogger('rate-limiter');
 
 // Use existing Redis client from shared module
 import { RedisManager } from '../../shared/database/redis-manager';

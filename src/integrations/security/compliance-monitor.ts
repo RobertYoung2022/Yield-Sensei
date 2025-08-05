@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '../../shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import {
   ComplianceRule,
   ComplianceRequirement,
@@ -16,7 +16,7 @@ import {
   SecurityEvent
 } from './types';
 
-const logger = Logger.getLogger('compliance-monitor');
+const logger = getLogger('compliance-monitor');
 
 export interface ComplianceViolation {
   id: string;

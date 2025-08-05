@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Redis Cluster Management Script for YieldSensei DeFi Platform
 # Manages Redis master-replica setup with Sentinel high availability
 

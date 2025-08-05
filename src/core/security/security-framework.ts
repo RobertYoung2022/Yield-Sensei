@@ -6,13 +6,13 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import { AgentId } from '@/types';
 import { EncryptionManager, EncryptionConfig, DEFAULT_ENCRYPTION_CONFIG } from './encryption-manager';
 import { AuthenticationManager, AuthConfig, DEFAULT_AUTH_CONFIG, Permission } from './authentication-manager';
 import { SatelliteMessageBus } from '../communication/satellite-message-bus';
 
-const logger = Logger.getLogger('security-framework');
+const logger = getLogger('security-framework');
 
 /**
  * Security Policy

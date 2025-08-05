@@ -6,11 +6,11 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 import { AgentId, Message, MessageType } from '@/types';
 import { SatelliteNetworkManager, NetworkLink, SatelliteNode } from './satellite-network-manager';
 
-const logger = Logger.getLogger('satellite-routing');
+const logger = getLogger('satellite-routing');
 
 /**
  * Routing Strategy Types

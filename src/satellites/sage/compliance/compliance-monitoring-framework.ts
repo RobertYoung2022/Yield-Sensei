@@ -10,9 +10,9 @@ import {
   RWAData, 
   ProtocolData 
 } from '../types';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 
-const logger = Logger.getLogger('compliance-monitoring');
+const logger = getLogger('compliance-monitoring');
 
 /**
  * Compliance Monitoring Configuration

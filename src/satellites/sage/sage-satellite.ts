@@ -26,9 +26,9 @@ import { RWAOpportunityScoringSystem, RWAScoringConfig } from './rwa/opportunity
 import { ComplianceMonitoringFramework, ComplianceMonitoringConfig } from './compliance/compliance-monitoring-framework';
 import { getUnifiedAIClient, UnifiedAIClient } from '@/integrations/ai/unified-ai-client';
 import { UnifiedAIClientConfig } from '@/integrations/ai/types';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 
-const logger = Logger.getLogger('sage-satellite');
+const logger = getLogger('sage-satellite');
 
 /**
  * Sage Satellite Configuration
@@ -312,6 +312,132 @@ export class SageSatelliteAgent extends EventEmitter implements SatelliteAgent {
   }
 
   // Public API methods
+  
+  /**
+   * Process portfolio analysis request for this satellite
+   */
+  async processPortfolioAnalysis(request: any): Promise<any> {
+    try {
+      logger.info('Processing portfolio analysis request in Sage satellite', { 
+        userId: request.userId,
+        portfolioValue: request.portfolioValue 
+      });
+
+      if (!this._isRunning) {
+        throw new Error('Sage satellite is not running');
+      }
+
+      // Validate request
+      if (!request || !request.userId) {
+        throw new Error('Invalid portfolio analysis request: missing userId');
+      }
+
+      const result = {
+        success: true,
+        satellite: 'sage',
+        userId: request.userId,
+        timestamp: new Date(),
+        analysis: {},
+        warnings: [],
+        errors: []
+      };
+
+      try {
+        // Fundamental analysis using our core engine
+        const fundamentalAnalysis = await this.fundamentalAnalysisEngine.analyzePortfolio({
+          userId: request.userId,
+          portfolioValue: request.portfolioValue,
+          holdings: request.holdings || [],
+          riskProfile: request.riskProfile || 'moderate'
+        });
+
+        result.analysis.fundamentalAnalysis = {
+          overallScore: fundamentalAnalysis.overallScore,
+          riskScore: fundamentalAnalysis.riskAssessment.overallRisk,
+          yieldScore: fundamentalAnalysis.yieldAnalysis.projectedYield,
+          diversificationScore: fundamentalAnalysis.diversificationAnalysis.score,
+          recommendations: fundamentalAnalysis.recommendations.map(rec => rec.type),
+          confidence: fundamentalAnalysis.confidence
+        };
+
+        // RWA scoring if user has RWA holdings
+        if (request.holdings && request.holdings.some((h: any) => h.type === 'rwa')) {
+          const rwaHoldings = request.holdings.filter((h: any) => h.type === 'rwa');
+          const rwaScores = await Promise.all(
+            rwaHoldings.map((holding: any) => this.rwaScoringSystem.scoreOpportunity({
+              id: holding.id,
+              type: holding.assetType,
+              issuer: holding.issuer,
+              yield: holding.currentYield,
+              collateral: holding.collateralData,
+              regulatoryStatus: holding.regulatoryStatus
+            }))
+          );
+
+          result.analysis.rwaAnalysis = {
+            totalRWAExposure: rwaHoldings.reduce((sum: number, h: any) => sum + h.value, 0),
+            averageRWAScore: rwaScores.reduce((sum, score) => sum + score.overallScore, 0) / rwaScores.length,
+            highestRatedRWA: rwaScores.reduce((max, score) => score.overallScore > max.overallScore ? score : max),
+            recommendations: rwaScores.flatMap(score => score.recommendations.map(rec => rec.action))
+          };
+        }
+
+        // Compliance assessment
+        const complianceAssessment = await this.complianceFramework.assessPortfolioCompliance({
+          userId: request.userId,
+          holdings: request.holdings || [],
+          jurisdiction: request.jurisdiction || 'US'
+        });
+
+        result.analysis.complianceAnalysis = {
+          overallScore: complianceAssessment.overallScore,
+          riskLevel: complianceAssessment.riskLevel,
+          violations: complianceAssessment.violations.length,
+          recommendations: complianceAssessment.recommendations.map(rec => rec.description)
+        };
+
+        // Market research if requested
+        if (request.includeMarketResearch) {
+          const marketResearch = await this.researchMarket(
+            `portfolio optimization for ${request.portfolioValue} portfolio`,
+            request.jurisdiction
+          );
+
+          result.analysis.marketResearch = {
+            summary: marketResearch.summary.substring(0, 500) + '...',
+            keyFindings: marketResearch.keyFindings.slice(0, 3),
+            confidence: marketResearch.confidence
+          };
+        }
+
+        logger.info('Sage portfolio analysis completed successfully', {
+          userId: request.userId,
+          fundamentalScore: result.analysis.fundamentalAnalysis?.overallScore,
+          complianceScore: result.analysis.complianceAnalysis?.overallScore
+        });
+
+      } catch (error) {
+        logger.error('Error during Sage portfolio analysis:', error);
+        result.errors.push('sage_analysis_failed');
+        result.success = false;
+      }
+
+      return result;
+
+    } catch (error) {
+      logger.error('Sage portfolio analysis failed:', error);
+      return {
+        success: false,
+        satellite: 'sage',
+        userId: request.userId,
+        timestamp: new Date(),
+        error: error instanceof Error ? error.message : 'Unknown error',
+        warnings: [],
+        errors: ['sage_processing_failed']
+      };
+    }
+  }
+
   async analyzeProtocol(protocolData: ProtocolData): Promise<ProtocolAnalysis> {
     try {
       logger.info('Starting protocol analysis', { protocolId: protocolData.id });

@@ -4,9 +4,9 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import Logger from '../../shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 
-const logger = Logger.getLogger('request-logger');
+const logger = getLogger('request-logger');
 
 export function requestLogger(
   req: Request,
@@ -14,14 +14,18 @@ export function requestLogger(
   next: NextFunction
 ): void {
   const startTime = Date.now();
-  const requestId = req.headers['x-request-id'] || generateRequestId();
+  const requestIdHeader = req.headers['x-request-id'];
+  const requestId = Array.isArray(requestIdHeader) ? requestIdHeader[0] : (requestIdHeader || generateRequestId());
+  
+  // Ensure requestId is always a string
+  const finalRequestId = requestId || generateRequestId();
 
   // Add request ID to response headers
-  res.setHeader('X-Request-ID', requestId);
+  res.setHeader('X-Request-ID', finalRequestId);
 
   // Log request details
   const requestLog = {
-    requestId,
+    requestId: finalRequestId,
     method: req.method,
     url: req.url,
     ip: req.ip,
@@ -41,7 +45,7 @@ export function requestLogger(
   res.send = function(data: any): Response {
     const responseTime = Date.now() - startTime;
     const responseLog = {
-      requestId,
+      requestId: finalRequestId,
       statusCode: res.statusCode,
       responseTime: `${responseTime}ms`,
       contentLength: data ? data.length : 0,

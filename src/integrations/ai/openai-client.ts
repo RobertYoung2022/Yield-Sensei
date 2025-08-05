@@ -4,7 +4,7 @@
  */
 
 import OpenAI from 'openai';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import { 
   AIServiceClient, 
   AIServiceConfig, 
@@ -18,7 +18,7 @@ import {
   AI_MODELS
 } from './types';
 
-const logger = Logger.getLogger('openai-client');
+const logger = getLogger('openai-client');
 
 export class OpenAIClient implements AIServiceClient {
   public readonly provider = 'openai' as const;

@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger, LogContext } from '../../shared/utils/logger';
 import { 
   BlockchainClient,
   BlockchainProvider,
@@ -24,7 +24,7 @@ import { InfuraClient } from './providers/infura-client';
 import { AlchemyClient } from './providers/alchemy-client';
 import { QuickNodeClient } from './providers/quicknode-client';
 
-const logger = Logger.getLogger('blockchain-provider-manager');
+const logger = getLogger('blockchain-provider-manager');
 
 interface ProviderStats {
   successCount: number;
@@ -53,7 +53,11 @@ export class BlockchainProviderManager extends EventEmitter {
 
   async initialize(): Promise<void> {
     try {
-      logger.info('Initializing Blockchain Provider Manager...');
+      logger.info('Initializing Blockchain Provider Manager', {
+        providersCount: this.config.providers.length,
+        loadBalancingStrategy: this.config.loadBalancing.strategy,
+        healthCheckInterval: this.config.healthCheckInterval
+      });
 
       // Initialize providers
       await this.initializeProviders();
@@ -61,9 +65,12 @@ export class BlockchainProviderManager extends EventEmitter {
       // Start health monitoring
       this.startHealthMonitoring();
 
-      logger.info('Blockchain Provider Manager initialized successfully');
+      logger.info('Blockchain Provider Manager initialized successfully', {
+        activeProviders: this.providers.size,
+        connectionPoolSize: this.connectionPool.getStats()
+      });
     } catch (error) {
-      logger.error('Failed to initialize Blockchain Provider Manager:', error);
+      logger.error('Failed to initialize Blockchain Provider Manager', {}, error as Error);
       throw error;
     }
   }
@@ -89,14 +96,15 @@ export class BlockchainProviderManager extends EventEmitter {
 
         logger.info('Provider initialized', { 
           provider: providerConfig.provider, 
-          network: providerConfig.network 
+          network: providerConfig.network,
+          providerKey: key,
+          apiKeyConfigured: !!providerConfig.apiKey
         });
       } catch (error) {
         logger.error('Failed to initialize provider', { 
           provider: providerConfig.provider, 
-          network: providerConfig.network, 
-          error 
-        });
+          network: providerConfig.network
+        }, error as Error);
       }
     }
   }

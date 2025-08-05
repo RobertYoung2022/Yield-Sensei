@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '../../shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import {
   AccessControlPolicy,
   AccessRule,
@@ -14,7 +14,7 @@ import {
   SecurityEvent
 } from './types';
 
-const logger = Logger.getLogger('access-control');
+const logger = getLogger('access-control');
 
 export interface AccessRequest {
   subject: string; // user ID, service ID, or role

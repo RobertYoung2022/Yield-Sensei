@@ -43,13 +43,24 @@
       "@/shared/*": ["shared/*"],
       "@/types/*": ["types/*"],
       "@/utils/*": ["utils/*"],
-      "@/config/*": ["config/*"]
+      "@/config/*": ["config/*"],
+      "@/compliance/*": ["compliance/*"],
+      "@/integrations/*": ["integrations/*"],
+      "@/api/*": ["api/*"],
+      "@/auth/*": ["auth/*"],
+      "@/docs/*": ["docs/*"],
+      "@/security/*": ["security/*"],
+      "@/testing/*": ["testing/*"],
+      "@/websocket/*": ["websocket/*"]
     }
   },
   "include": [
-    "src/**/*",
-    "tests/**/*",
-    "src/core/orchestration/state/pkg"
+    "src/api/**/*",
+    "src/shared/logging/**/*",
+    "src/shared/utils/**/*",
+    "src/shared/database/manager-simple.ts",
+    "src/types/**/*",
+    "src/index.ts"
   ],
   "files": [
     "src/core/orchestration/state/pkg/state.d.ts",
@@ -61,7 +72,21 @@
     "coverage",
     "docs",
     "**/*.spec.ts",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "**/__tests__/**/*",
+    "src/core/communication/satellite-message-bus.ts",
+    "src/core/communication/protocol.ts",
+    "src/core/communication/message-validator.ts",
+    "src/core/orchestration/engine.ts",
+    "src/core/messaging/bus.ts",
+    "src/core/security/security-framework.ts",
+    "src/core/communication/satellite-routing-engine.ts",
+    "src/core/communication/secure-satellite-protocol.ts",
+    "src/core/orchestration/satellite-factory.ts",
+    "src/core/security/authentication-manager.ts",
+    "src/core/security/encryption-manager.ts",
+    "src/core/communication/satellite-network-manager.ts",
+    "src/integrations/**/*"
   ],
   "ts-node": {
     "require": ["tsconfig-paths/register"]

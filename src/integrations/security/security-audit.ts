@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '../../shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import {
   SecurityIncident,
   SecurityEvidence,
@@ -20,7 +20,7 @@ import {
   SecurityEvent
 } from './types';
 
-const logger = Logger.getLogger('security-audit');
+const logger = getLogger('security-audit');
 
 export interface AnomalyAlert {
   id: string;

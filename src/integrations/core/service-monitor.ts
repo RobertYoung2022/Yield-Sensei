@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import { ServiceRegistry } from './service-registry';
 import { ConfigManager } from './config-manager';
 import {
@@ -16,7 +16,7 @@ import {
   ServiceRegistration
 } from './types';
 
-const logger = Logger.getLogger('service-monitor');
+const logger = getLogger('service-monitor');
 
 export class ServiceMonitor extends EventEmitter {
   private serviceRegistry: ServiceRegistry;

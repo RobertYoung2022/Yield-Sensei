@@ -7,10 +7,10 @@
 
 import { EventEmitter } from 'events';
 import { createHash, createHmac, randomBytes, createCipheriv, createDecipheriv } from 'crypto';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 import { AgentId } from '@/types';
 
-const logger = Logger.getLogger('encryption-manager');
+const logger = getLogger('encryption-manager');
 
 /**
  * Encryption Algorithm Types

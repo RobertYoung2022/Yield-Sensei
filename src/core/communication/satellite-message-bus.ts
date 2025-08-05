@@ -6,13 +6,13 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 import { AgentId, Message, MessageType } from '@/types';
 import { MessageBus, MessageBusConfig, DEFAULT_MESSAGE_BUS_CONFIG } from '../messaging/bus';
 import { SatelliteNetworkManager, SatelliteNetworkConfig, DEFAULT_SATELLITE_NETWORK_CONFIG } from './satellite-network-manager';
 import { SatelliteRoutingEngine, RoutingEngineConfig, DEFAULT_ROUTING_ENGINE_CONFIG, RoutingContext, QoSRequirements } from './satellite-routing-engine';
 
-const logger = Logger.getLogger('satellite-message-bus');
+const logger = getLogger('satellite-message-bus');
 
 /**
  * Satellite-specific message types

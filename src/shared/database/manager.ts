@@ -4,7 +4,7 @@
  */
 
 import { Pool } from 'pg';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from '../utils/logger';
 import { config } from '@/config/environment';
 import { EventEmitter } from 'events';
 import { PostgreSQLSchemaManager } from './schema-manager';
@@ -15,7 +15,7 @@ import { DatabaseIntegrationManager } from './integration-manager';
 import { CDCManager } from './cdc-manager';
 import { UnifiedQueryManager } from './unified-query';
 
-const logger = Logger.getLogger('database');
+const logger = getLogger('database');
 
 export interface DatabaseConfig {
   postgres: {

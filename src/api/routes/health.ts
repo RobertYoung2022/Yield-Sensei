@@ -4,12 +4,11 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { DatabaseManager } from '../../shared/database/manager';
-import { RedisManager } from '../../shared/database/redis-manager';
-import Logger from '../../shared/logging/logger';
+import { DatabaseManager, RedisManager } from '../../shared/database/manager-simple';
+import { getLogger } from "../../shared/utils/logger";
 
 const router = Router();
-const logger = Logger.getLogger('health-routes');
+const logger = getLogger('health-routes');
 
 interface HealthStatus {
   status: 'healthy' | 'unhealthy' | 'degraded';
@@ -62,11 +61,9 @@ router.get('/', async (_req: Request, res: Response) => {
     // Check database health
     try {
       const dbManager = DatabaseManager.getInstance();
-      const isHealthy = dbManager.isHealthy();
-      const healthMetrics = await dbManager.getHealthMetrics();
+      const healthCheck = await dbManager.healthCheck();
       healthStatus.services.database = {
-        status: isHealthy ? 'healthy' : 'unhealthy',
-        ...(healthMetrics.latency && { latency: healthMetrics.latency }),
+        status: healthCheck.status === 'healthy' ? 'healthy' : 'unhealthy'
       };
     } catch (error) {
       healthStatus.services.database = {
@@ -107,7 +104,7 @@ router.get('/', async (_req: Request, res: Response) => {
     res.status(statusCode).json(healthStatus);
 
   } catch (error) {
-    logger.error('Health check failed:', error);
+    logger.error('Health check failed:', undefined, error as Error);
     res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
@@ -126,12 +123,12 @@ router.get('/ready', async (_req: Request, res: Response) => {
     const dbManager = DatabaseManager.getInstance();
     const redisManager = RedisManager.getInstance();
 
-    const [dbHealthy, redisHealth] = await Promise.all([
-      Promise.resolve(dbManager.isHealthy()),
+    const [dbHealth, redisHealth] = await Promise.all([
+      dbManager.healthCheck(),
       redisManager.healthCheck(),
     ]);
 
-    const isReady = dbHealthy && redisHealth.status === 'healthy';
+    const isReady = dbHealth.status === 'healthy' && redisHealth.status === 'healthy';
 
     if (isReady) {
       res.status(200).json({
@@ -143,13 +140,13 @@ router.get('/ready', async (_req: Request, res: Response) => {
         status: 'not ready',
         timestamp: new Date().toISOString(),
         services: {
-          database: dbHealthy ? 'healthy' : 'unhealthy',
+          database: dbHealth.status,
           redis: redisHealth.status,
         },
       });
     }
   } catch (error) {
-    logger.error('Readiness check failed:', error);
+    logger.error('Readiness check failed:', undefined, error as Error);
     res.status(503).json({
       status: 'not ready',
       timestamp: new Date().toISOString(),

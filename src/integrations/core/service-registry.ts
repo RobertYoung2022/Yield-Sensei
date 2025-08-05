@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import {
   ServiceRegistration,
   ServiceHealth,
@@ -16,7 +16,7 @@ import {
   ServiceDiscoveryProvider
 } from './types';
 
-const logger = Logger.getLogger('service-registry');
+const logger = getLogger('service-registry');
 
 export class ServiceRegistry extends EventEmitter {
   private services: Map<string, ServiceRegistration> = new Map();

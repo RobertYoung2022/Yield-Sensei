@@ -316,6 +316,209 @@ export class AegisSatelliteAgent extends EventEmitter {
     this.emit('stopped');
   }
 
+  /**
+   * Process portfolio analysis request for this satellite
+   */
+  async processPortfolioAnalysis(request: any): Promise<any> {
+    try {
+      console.log('Processing portfolio analysis request in Aegis satellite', { 
+        userId: request.userId,
+        portfolioValue: request.portfolioValue 
+      });
+
+      if (!this.isRunning) {
+        throw new Error('Aegis satellite is not running');
+      }
+
+      // Validate request
+      if (!request || !request.userId) {
+        throw new Error('Invalid portfolio analysis request: missing userId');
+      }
+
+      const result = {
+        success: true,
+        satellite: 'aegis',
+        userId: request.userId,
+        timestamp: new Date(),
+        analysis: {},
+        warnings: [],
+        errors: []
+      };
+
+      try {
+        // Risk assessment analysis
+        const holdings = request.holdings || [];
+        
+        // Liquidation risk analysis
+        const liquidationRiskAnalysis = await this.analyzeLiquidationRisk(holdings);
+        
+        result.analysis.liquidationRisk = {
+          overallRisk: liquidationRiskAnalysis.overallRisk || 'low',
+          atRiskPositions: liquidationRiskAnalysis.atRiskPositions || 0,
+          totalCollateralAtRisk: liquidationRiskAnalysis.totalCollateralAtRisk || 0,
+          averageHealthFactor: liquidationRiskAnalysis.averageHealthFactor || 2.0,
+          recommendedActions: liquidationRiskAnalysis.recommendations || []
+        };
+
+        // Security analysis
+        if (request.includeSecurityAnalysis !== false) {
+          try {
+            const securityAnalysis = await this.analyzeSecurityRisks(holdings);
+            
+            result.analysis.securityRisk = {
+              overallSecurityScore: securityAnalysis.overallScore || 0.9,
+              vulnerabilities: securityAnalysis.vulnerabilities?.length || 0,
+              smartContractRisks: securityAnalysis.smartContractRisks || [],
+              protocolRisks: securityAnalysis.protocolRisks || [],
+              riskLevel: securityAnalysis.riskLevel || 'low'
+            };
+          } catch (error) {
+            console.warn('Failed security analysis for portfolio:', error);
+            result.warnings.push('security_analysis_failed');
+          }
+        }
+
+        // MEV protection analysis
+        if (request.includeMEVProtection !== false) {
+          try {
+            const mevAnalysis = await this.analyzeMEVRisks(holdings);
+            
+            result.analysis.mevProtection = {
+              exposureLevel: mevAnalysis.exposureLevel || 'medium',
+              protectionCoverage: mevAnalysis.protectionCoverage || 0.8,
+              estimatedMEVLoss: mevAnalysis.estimatedLoss || 0,
+              protectionRecommendations: mevAnalysis.recommendations || []
+            };
+          } catch (error) {
+            console.warn('Failed MEV protection analysis for portfolio:', error);
+            result.warnings.push('mev_protection_failed');
+          }
+        }
+
+        // Stress testing simulation
+        if (request.includeStressTesting !== false) {
+          try {
+            const stressTestScenarios = [
+              { name: 'Market Crash -30%', priceShocks: new Map([['ETH', -30], ['BTC', -30]]), timeHorizon: 24, volatilityMultiplier: 2 },
+              { name: 'Crypto Winter -50%', priceShocks: new Map([['ETH', -50], ['BTC', -50]]), timeHorizon: 168, volatilityMultiplier: 3 }
+            ];
+
+            const simulationPositions = holdings.map((holding: any) => ({
+              tokenAddress: holding.symbol || holding.id,
+              currentPrice: holding.price || 1,
+              collateralValue: holding.value || 0,
+              debtValue: holding.debtValue || 0,
+              liquidationThreshold: holding.liquidationThreshold || 0.75,
+              healthFactor: holding.healthFactor || 2.0
+            }));
+
+            const stressTestResults = await Promise.all(
+              stressTestScenarios.map(scenario => this.runStressTest(simulationPositions, scenario))
+            );
+            
+            result.analysis.stressTesting = {
+              scenariosRun: stressTestResults.length,
+              worstCaseHF: Math.min(...stressTestResults.map(r => r.worstCaseHealthFactor.toNumber())),
+              potentialLoss: Math.max(...stressTestResults.map(r => r.totalLoss.toNumber())),
+              passRate: stressTestResults.filter(r => r.worstCaseHealthFactor.gt(1.0)).length / stressTestResults.length,
+              recommendations: stressTestResults.some(r => r.worstCaseHealthFactor.lt(1.0)) 
+                ? ['increase_collateral', 'reduce_leverage', 'diversify_exposure']
+                : ['maintain_positions']
+            };
+          } catch (error) {
+            console.warn('Failed stress testing for portfolio:', error);
+            result.warnings.push('stress_testing_failed');
+          }
+        }
+
+        // Portfolio health monitoring
+        const activeAlerts = Array.from(this.alerts.values()).filter(alert => !alert.acknowledgedAt);
+        
+        result.analysis.portfolioHealth = {
+          totalPositions: holdings.length,
+          activeAlerts: activeAlerts.length,
+          criticalAlerts: activeAlerts.filter(alert => alert.riskLevel === RiskLevel.Critical).length,
+          healthScore: Math.max(0, 1 - (activeAlerts.length * 0.1)), // Simple health scoring
+          lastMonitoringCheck: new Date()
+        };
+
+        console.log('Aegis portfolio analysis completed successfully', {
+          userId: request.userId,
+          overallRisk: result.analysis.liquidationRisk?.overallRisk,
+          securityScore: result.analysis.securityRisk?.overallSecurityScore
+        });
+
+      } catch (error) {
+        console.error('Error during Aegis portfolio analysis:', error);
+        result.errors.push('aegis_analysis_failed');
+        result.success = false;
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('Aegis portfolio analysis failed:', error);
+      return {
+        success: false,
+        satellite: 'aegis',
+        userId: request.userId,
+        timestamp: new Date(),
+        error: error instanceof Error ? error.message : 'Unknown error',
+        warnings: [],
+        errors: ['aegis_processing_failed']
+      };
+    }
+  }
+
+  // Helper methods for portfolio analysis
+  private async analyzeLiquidationRisk(holdings: any[]): Promise<any> {
+    const atRiskPositions = holdings.filter(h => h.healthFactor && h.healthFactor < 1.5).length;
+    const totalCollateralAtRisk = holdings
+      .filter(h => h.healthFactor && h.healthFactor < 1.5)
+      .reduce((sum, h) => sum + (h.value || 0), 0);
+    
+    const avgHealthFactor = holdings.length > 0
+      ? holdings.reduce((sum, h) => sum + (h.healthFactor || 2.0), 0) / holdings.length
+      : 2.0;
+
+    return {
+      overallRisk: avgHealthFactor > 1.5 ? 'low' : avgHealthFactor > 1.2 ? 'medium' : 'high',
+      atRiskPositions,
+      totalCollateralAtRisk,
+      averageHealthFactor: avgHealthFactor,
+      recommendations: avgHealthFactor < 1.5 ? ['increase_collateral', 'reduce_leverage'] : ['maintain_positions']
+    };
+  }
+
+  private async analyzeSecurityRisks(holdings: any[]): Promise<any> {
+    const protocolRisks = holdings.map(h => ({
+      protocol: h.protocol || 'unknown',
+      riskScore: Math.random() * 0.3 + 0.7, // Mock risk scoring
+      auditStatus: 'audited'
+    }));
+
+    const avgSecurityScore = protocolRisks.reduce((sum, r) => sum + r.riskScore, 0) / protocolRisks.length;
+
+    return {
+      overallScore: avgSecurityScore,
+      vulnerabilities: [],
+      smartContractRisks: [],
+      protocolRisks,
+      riskLevel: avgSecurityScore > 0.8 ? 'low' : avgSecurityScore > 0.6 ? 'medium' : 'high'
+    };
+  }
+
+  private async analyzeMEVRisks(holdings: any[]): Promise<any> {
+    const exposureScore = holdings.length * 0.1; // Simple exposure calculation
+    
+    return {
+      exposureLevel: exposureScore < 0.3 ? 'low' : exposureScore < 0.6 ? 'medium' : 'high',
+      protectionCoverage: 0.8,
+      estimatedLoss: exposureScore * 100, // Estimated MEV loss in USD
+      recommendations: exposureScore > 0.5 ? ['enable_mev_protection', 'use_private_mempool'] : ['monitor_mev_activity']
+    };
+  }
+
   private startPeriodicMonitoring(): void {
     this.monitoringInterval = setInterval(async () => {
       try {

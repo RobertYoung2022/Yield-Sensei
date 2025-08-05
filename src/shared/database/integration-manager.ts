@@ -10,13 +10,13 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from '../utils/logger';
 import { DatabaseManager } from './manager';
 import { ClickHouseManager } from './clickhouse-manager';
 import { VectorManager } from './vector-manager';
 import { KafkaManager } from '../streaming/kafka-manager';
 
-const logger = Logger.getLogger('database-integration');
+const logger = getLogger('database-integration');
 
 // =============================================================================
 // INTERFACES AND TYPES

@@ -4,7 +4,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 import { 
   AIServiceClient, 
   AIServiceConfig, 
@@ -18,7 +18,7 @@ import {
   AI_MODELS
 } from './types';
 
-const logger = Logger.getLogger('anthropic-client');
+const logger = getLogger('anthropic-client');
 
 export class AnthropicClient implements AIServiceClient {
   public readonly provider = 'anthropic' as const;

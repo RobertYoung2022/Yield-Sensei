@@ -7,6 +7,10 @@ import { EventEmitter } from 'events';
 import { AgentLifecycleManager } from '@/core/lifecycle/manager';
 import { MessageBus } from '@/core/messaging/bus';
 import { DatabaseManager } from '@/shared/database/manager';
+import { SatelliteFactoryManager, getSatelliteFactory } from './satellite-factory';
+import { SecureSatelliteProtocol } from '@/core/communication/secure-satellite-protocol';
+import { AuthenticationManager } from '@/core/security/authentication-manager';
+import { EncryptionManager } from '@/core/security/encryption-manager';
 import { 
   AgentId, 
   AgentType, 
@@ -15,9 +19,9 @@ import {
   AgentStatus,
   Message 
 } from '@/types';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 
-const logger = Logger.getLogger('orchestration-engine');
+const logger = getLogger('orchestration-engine');
 
 /**
  * Orchestration Engine Configuration
@@ -70,6 +74,10 @@ export class OrchestrationEngine extends EventEmitter {
   private lifecycleManager: AgentLifecycleManager;
   private messageBus: MessageBus;
   private databaseManager: DatabaseManager;
+  private satelliteFactory: SatelliteFactoryManager;
+  private secureProtocol: SecureSatelliteProtocol;
+  private authManager: AuthenticationManager;
+  private encryptionManager: EncryptionManager;
   
   // Runtime state
   private isInitialized: boolean = false;
@@ -88,6 +96,50 @@ export class OrchestrationEngine extends EventEmitter {
     this.lifecycleManager = new AgentLifecycleManager();
     this.messageBus = new MessageBus();
     this.databaseManager = DatabaseManager.getInstance();
+    this.satelliteFactory = getSatelliteFactory({
+      enableSecureCommunication: true,
+      enableHealthMonitoring: config.enableHealthMonitoring,
+      enablePerformanceTracking: true,
+      maxConcurrentTasks: config.maxConcurrentTasks,
+      defaultTimeout: 30000,
+    });
+    
+    // Initialize security components
+    this.authManager = new AuthenticationManager();
+    this.encryptionManager = new EncryptionManager();
+    this.secureProtocol = new SecureSatelliteProtocol(
+      {
+        nodeId: 'orchestration-engine',
+        securityLevel: 'CONFIDENTIAL',
+        encryption: {
+          algorithm: 'aes-256-gcm',
+          keyRotationInterval: 3600000,
+          keyDerivationFunction: 'scrypt',
+        },
+        authentication: {
+          method: 'hmac-sha256',
+          credentialRefreshInterval: 1800000,
+          challengeResponseEnabled: true,
+        },
+        integrity: {
+          checksumAlgorithm: 'sha256',
+          enableTimestampValidation: true,
+          maxClockSkew: 5000,
+        },
+        rateLimiting: {
+          enabled: true,
+          maxMessagesPerSecond: 100,
+          burstLimit: 200,
+          backoffStrategy: 'exponential',
+        },
+        emergency: {
+          allowUnauthenticatedEmergency: false,
+          emergencyBypassNodes: [],
+        },
+      },
+      this.authManager,
+      this.encryptionManager
+    );
     
     this.setupEventHandlers();
   }
@@ -115,16 +167,16 @@ export class OrchestrationEngine extends EventEmitter {
       logger.info('Initializing orchestration engine...');
 
       // Initialize core components in sequence
+      logger.info('Initializing security components...');
+      await this.authManager.start();
+      
       logger.info('Initializing database connections...');
       await this.databaseManager.initialize();
 
       logger.info('Initializing message bus...');
       await this.messageBus.initialize();
 
-      // Register satellite agent factories
-      await this.registerAgentFactories();
-
-      // Load agent configurations
+      // Load agent configurations (no longer need factory registration)
       await this.loadAgentConfigurations();
 
       // Set up health monitoring
@@ -188,6 +240,16 @@ export class OrchestrationEngine extends EventEmitter {
       if (this.isInitialized) {
         await satelliteAgent.initialize();
         logger.info(`Satellite agent ${agentId} initialized`);
+        
+        // Set up secure communication session
+        if (this.config.enableHealthMonitoring) {
+          try {
+            await this.secureProtocol.establishSecureSession(agentId, 'CONFIDENTIAL');
+            logger.info(`Secure session established with satellite ${agentId}`);
+          } catch (error) {
+            logger.warn(`Failed to establish secure session with ${agentId}:`, error);
+          }
+        }
         
         // Start the satellite if the engine is running
         if (this.isRunning) {
@@ -254,7 +316,8 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   /**
-   * Process portfolio analysis request across multiple satellites
+   * Process portfolio analysis request across all 8 registered satellites
+   * Supports: Sage, Echo, Bridge, Pulse, Oracle, Fuel, Aegis, and Forge
    */
   async processPortfolioAnalysis(request: any): Promise<any> {
     try {
@@ -293,14 +356,10 @@ export class OrchestrationEngine extends EventEmitter {
           const sageStatus = sageAgent.getStatus();
           
           if (sageStatus.status === 'running' && sageStatus.health === 'healthy') {
-            // Perform fundamental analysis (placeholder - would be actual analysis)
-            results.analysis.fundamentalAnalysis = {
-              overallScore: 0.75,
-              riskScore: 0.65,
-              yieldScore: 0.80,
-              recommendations: ['diversify', 'monitor_regulatory_changes']
-            };
-            logger.debug('Sage analysis completed');
+            // Use real Sage satellite analysis
+            const sageAnalysis = await sageAgent.processPortfolioAnalysis(request);
+            results.analysis.fundamentalAnalysis = sageAnalysis;
+            logger.debug('Sage analysis completed successfully');
           } else {
             results.warnings.push('sage_unavailable');
           }
@@ -319,12 +378,10 @@ export class OrchestrationEngine extends EventEmitter {
           const echoStatus = echoAgent.getStatus();
           
           if (echoStatus.status === 'running' && echoStatus.health === 'healthy') {
-            results.analysis.sentimentAnalysis = {
-              overallSentiment: 0.65,
-              marketMood: 'cautiously_optimistic',
-              socialSignals: 'moderate_bullish'
-            };
-            logger.debug('Echo sentiment analysis completed');
+            // Use real Echo satellite analysis
+            const echoAnalysis = await echoAgent.processPortfolioAnalysis(request);
+            results.analysis.sentimentAnalysis = echoAnalysis;
+            logger.debug('Echo sentiment analysis completed successfully');
           } else {
             results.warnings.push('echo_unavailable');
           }
@@ -345,12 +402,10 @@ export class OrchestrationEngine extends EventEmitter {
           const bridgeStatus = bridgeAgent.getStatus();
           
           if (bridgeStatus.status === 'running' && bridgeStatus.health === 'healthy') {
-            results.analysis.crossChainAnalysis = {
-              bridgeOpportunities: 3,
-              estimatedSavings: 0.05,
-              riskLevel: 'medium'
-            };
-            logger.debug('Bridge cross-chain analysis completed');
+            // Use real Bridge satellite analysis
+            const bridgeAnalysis = await bridgeAgent.processPortfolioAnalysis(request);
+            results.analysis.crossChainAnalysis = bridgeAnalysis;
+            logger.debug('Bridge cross-chain analysis completed successfully');
           } else {
             results.warnings.push('bridge_unavailable');
           }
@@ -369,16 +424,10 @@ export class OrchestrationEngine extends EventEmitter {
           const pulseStatus = pulseAgent.getStatus();
           
           if (pulseStatus.status === 'running' && pulseStatus.health === 'healthy') {
-            results.analysis.optimizationAnalysis = {
-              suggestedAllocations: [
-                { asset: 'USDC', percentage: 40 },
-                { asset: 'ETH', percentage: 35 },
-                { asset: 'BTC', percentage: 25 }
-              ],
-              expectedYield: 0.085,
-              riskLevel: 'moderate'
-            };
-            logger.debug('Pulse optimization analysis completed');
+            // Use real Pulse satellite analysis
+            const pulseAnalysis = await pulseAgent.processPortfolioAnalysis(request);
+            results.analysis.optimizationAnalysis = pulseAnalysis;
+            logger.debug('Pulse optimization analysis completed successfully');
           } else {
             results.warnings.push('pulse_unavailable');
           }
@@ -397,12 +446,10 @@ export class OrchestrationEngine extends EventEmitter {
           const oracleStatus = oracleAgent.getStatus();
           
           if (oracleStatus.status === 'running' && oracleStatus.health === 'healthy') {
-            results.analysis.dataIntegrity = {
-              dataQuality: 0.95,
-              lastUpdated: new Date(),
-              sources: ['chainlink', 'uniswap', 'compound']
-            };
-            logger.debug('Oracle data integrity analysis completed');
+            // Use real Oracle satellite analysis
+            const oracleAnalysis = await oracleAgent.processPortfolioAnalysis(request);
+            results.analysis.dataIntegrity = oracleAnalysis;
+            logger.debug('Oracle data integrity analysis completed successfully');
           } else {
             results.warnings.push('oracle_unavailable');
           }
@@ -421,12 +468,10 @@ export class OrchestrationEngine extends EventEmitter {
           const fuelStatus = fuelAgent.getStatus();
           
           if (fuelStatus.status === 'running' && fuelStatus.health === 'healthy') {
-            results.analysis.capitalEfficiency = {
-              utilizationRate: 0.85,
-              gasOptimization: 0.15,
-              liquidityScore: 0.90
-            };
-            logger.debug('Fuel capital efficiency analysis completed');
+            // Use real Fuel satellite analysis
+            const fuelAnalysis = await fuelAgent.processPortfolioAnalysis(request);
+            results.analysis.capitalEfficiency = fuelAnalysis;
+            logger.debug('Fuel capital efficiency analysis completed successfully');
           } else {
             results.warnings.push('fuel_unavailable');
           }
@@ -436,6 +481,50 @@ export class OrchestrationEngine extends EventEmitter {
         }
       } else {
         results.warnings.push('fuel_not_registered');
+      }
+
+      // Aegis Satellite: Risk management and monitoring
+      if (availableSatellites.includes('aegis')) {
+        try {
+          const aegisAgent = this.registeredSatellites.get('aegis')!;
+          const aegisStatus = aegisAgent.getStatus();
+          
+          if (aegisStatus.status === 'running' && aegisStatus.health === 'healthy') {
+            // Use real Aegis satellite analysis
+            const aegisAnalysis = await aegisAgent.processPortfolioAnalysis(request);
+            results.analysis.riskManagement = aegisAnalysis;
+            logger.debug('Aegis risk management analysis completed successfully');
+          } else {
+            results.warnings.push('aegis_unavailable');
+          }
+        } catch (error) {
+          logger.error('Aegis analysis failed:', error);
+          results.errors.push('aegis_analysis_failed');
+        }
+      } else {
+        results.warnings.push('aegis_not_registered');
+      }
+
+      // Forge Satellite: Advanced trading and MEV protection
+      if (availableSatellites.includes('forge')) {
+        try {
+          const forgeAgent = this.registeredSatellites.get('forge')!;
+          const forgeStatus = forgeAgent.getStatus();
+          
+          if (forgeStatus.status === 'running' && forgeStatus.health === 'healthy') {
+            // Use real Forge satellite analysis
+            const forgeAnalysis = await forgeAgent.processPortfolioAnalysis(request);
+            results.analysis.tradingOptimization = forgeAnalysis;
+            logger.debug('Forge trading optimization analysis completed successfully');
+          } else {
+            results.warnings.push('forge_unavailable');
+          }
+        } catch (error) {
+          logger.error('Forge analysis failed:', error);
+          results.errors.push('forge_analysis_failed');
+        }
+      } else {
+        results.warnings.push('forge_not_registered');
       }
 
       // Determine overall success
@@ -594,24 +683,61 @@ export class OrchestrationEngine extends EventEmitter {
         }
       });
 
-      // Start configured agents (from loadAgentConfigurations)
+      // Start configured agents using satellite factory
       const configuredPromises = Array.from(this.agentConfigs.values())
         .filter(config => !this.registeredSatellites.has(config.id))
         .map(async (config) => {
           try {
-            logger.info(`Creating agent ${config.id} (${config.type})`);
-            await this.lifecycleManager.createAgent(config);
+            logger.info(`Creating real satellite agent ${config.id} (${config.type})`);
             
-            logger.info(`Starting agent ${config.id}`);
-            await this.lifecycleManager.startAgent(config.id);
+            // Create satellite using factory
+            const satellite = await this.satelliteFactory.createSatellite(config);
+            
+            // Initialize and start satellite
+            await satellite.initialize();
+            logger.info(`Satellite agent ${config.id} initialized`);
+            
+            // Set up secure communication session
+            try {
+              await this.secureProtocol.establishSecureSession(config.id, 'CONFIDENTIAL');
+              logger.info(`Secure session established with satellite ${config.id}`);
+            } catch (error) {
+              logger.warn(`Failed to establish secure session with ${config.id}:`, error);
+            }
+            
+            await satellite.start();
+            logger.info(`Satellite agent ${config.id} started`);
             
             // Subscribe agent to message bus
             await this.messageBus.subscribeAgent(config.id);
             
-            logger.info(`Agent ${config.id} started successfully`);
+            // Store the created satellite in registeredSatellites directly to avoid double registration
+            this.registeredSatellites.set(config.id, satellite);
+            
+            // Set up event forwarding from satellite to orchestration engine
+            if (typeof satellite.on === 'function') {
+              satellite.on('message', (message: Message) => {
+                this.emit('agent_message', { agentId: config.id, message });
+              });
+            }
+            
+            // Emit registration event
+            this.emit('satellite_registered', { agentId: config.id, agent: satellite });
+            
+            logger.info(`Real satellite agent ${config.id} created and started successfully`);
           } catch (error) {
-            logger.error(`Failed to start agent ${config.id}:`, error);
-            throw error;
+            logger.error(`Failed to start real satellite agent ${config.id}:`, error);
+            // Fall back to lifecycle manager for compatibility
+            try {
+              logger.info(`Falling back to lifecycle manager for ${config.id}`);
+              await this.lifecycleManager.createAgent(config);
+              await this.lifecycleManager.startAgent(config.id);
+              await this.messageBus.subscribeAgent(config.id);
+              logger.info(`Agent ${config.id} started via lifecycle manager`);
+            } catch (fallbackError) {
+              logger.error(`Fallback also failed for ${config.id}:`, fallbackError);
+              throw error; // Throw original error
+            }
           }
         });
 
@@ -805,6 +931,9 @@ export class OrchestrationEngine extends EventEmitter {
       // Clear registries
       this.registeredSatellites.clear();
 
+      // Shutdown security components
+      await this.authManager.stop();
+
       // Shutdown lifecycle manager
       await this.lifecycleManager.shutdown();
 
@@ -826,22 +955,20 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   /**
-   * Register agent factories for each satellite type
+   * Register agent factories for each satellite type (using real satellites)
    */
   private async registerAgentFactories(): Promise<void> {
-    // For now, we'll register placeholder factories
-    // In the next phase, we'll implement actual satellite agents
-    
+    // Register real satellite factories with lifecycle manager as fallback
     const agentTypes: AgentType[] = ['sage', 'forge', 'pulse', 'aegis', 'echo', 'fuel', 'bridge', 'oracle'];
     
     for (const type of agentTypes) {
       this.lifecycleManager.registerAgentFactory(type, async (config: AgentConfig) => {
-        // Return a mock agent for now
-        return new MockSatelliteAgent(config);
+        // Use satellite factory to create real agents
+        return await this.satelliteFactory.createSatellite(config);
       });
     }
     
-    logger.info('Agent factories registered for all satellite types');
+    logger.info('Real satellite agent factories registered for all satellite types');
   }
 
   /**
@@ -930,77 +1057,3 @@ export class OrchestrationEngine extends EventEmitter {
   }
 }
 
-/**
- * Mock Satellite Agent (temporary implementation)
- * This will be replaced with actual satellite implementations
- */
-class MockSatelliteAgent implements SatelliteAgent {
-  readonly id: AgentId;
-  readonly type: AgentType;
-  readonly config: AgentConfig;
-  
-  private status: AgentStatus;
-  private startTime: Date = new Date();
-
-  constructor(config: AgentConfig) {
-    this.id = config.id;
-    this.type = config.type;
-    this.config = config;
-    
-    this.status = {
-      id: config.id,
-      status: 'stopped',
-      health: 'healthy',
-      lastHeartbeat: new Date(),
-      uptime: 0,
-      metrics: {
-        messagesSent: 0,
-        messagesReceived: 0,
-        tasksProcessed: 0,
-        errors: 0,
-        avgResponseTime: 0,
-        memoryUsage: 0,
-        cpuUsage: 0,
-      },
-    };
-  }
-
-  async initialize(): Promise<void> {
-    logger.debug(`Initializing mock agent ${this.id}`);
-    this.status.status = 'initializing';
-  }
-
-  async start(): Promise<void> {
-    logger.debug(`Starting mock agent ${this.id}`);
-    this.status.status = 'running';
-    this.startTime = new Date();
-  }
-
-  async stop(): Promise<void> {
-    logger.debug(`Stopping mock agent ${this.id}`);
-    this.status.status = 'stopped';
-  }
-
-  async restart(): Promise<void> {
-    await this.stop();
-    await this.start();
-  }
-
-  async handleMessage(message: Message): Promise<void> {
-    logger.debug(`Mock agent ${this.id} handling message ${message.id}`);
-    this.status.metrics.messagesReceived++;
-  }
-
-  getStatus(): AgentStatus {
-    if (this.status.status === 'running') {
-      this.status.uptime = Date.now() - this.startTime.getTime();
-      this.status.lastHeartbeat = new Date();
-    }
-    return { ...this.status };
-  }
-
-  async updateConfig(config: Partial<AgentConfig>): Promise<void> {
-    Object.assign(this.config, config);
-    logger.debug(`Mock agent ${this.id} config updated`);
-  }
-}

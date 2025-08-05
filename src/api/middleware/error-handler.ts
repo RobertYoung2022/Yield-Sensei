@@ -4,9 +4,9 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import Logger from '../../shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 
-const logger = Logger.getLogger('error-handler');
+const logger = getLogger('error-handler');
 
 export interface ApiError extends Error {
   statusCode?: number;

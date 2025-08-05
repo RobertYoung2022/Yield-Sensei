@@ -3,7 +3,7 @@
  * Factory for creating and managing service integrations with dependency injection
  */
 
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import { ServiceRegistry } from './service-registry';
 import { ConfigManager } from './config-manager';
 import {
@@ -22,10 +22,10 @@ import { MoralisClient } from '../data/moralis-client';
 import { DataNormalizer } from '../data/data-normalizer';
 
 // Import blockchain clients
-import { EthereumProvider } from '../blockchain/ethereum-provider';
-import { PolygonProvider } from '../blockchain/polygon-provider';
-import { BinanceSmartChainProvider } from '../blockchain/bsc-provider';
-import { AvalancheProvider } from '../blockchain/avalanche-provider';
+import { ProviderManager } from '../blockchain/provider-manager';
+import { AlchemyClient } from '../blockchain/providers/alchemy-client';
+import { InfuraClient } from '../blockchain/providers/infura-client';
+import { QuickNodeClient } from '../blockchain/providers/quicknode-client';
 
 // Import social media clients
 import { TwitterClient } from '../social/twitter-client';
@@ -36,7 +36,7 @@ import { TelegramClient } from '../social/telegram-client';
 import { PerplexityClient } from '../ai/perplexity-client';
 import { OpenAIClient } from '../ai/openai-client';
 
-const logger = Logger.getLogger('integration-factory');
+const logger = getLogger('integration-factory');
 
 export class IntegrationFactory {
   private serviceRegistry: ServiceRegistry;
@@ -172,18 +172,18 @@ export class IntegrationFactory {
    */
   async createBlockchainProvider(
     providerId: string,
-    chain: 'ethereum' | 'polygon' | 'bsc' | 'avalanche',
+    provider: 'alchemy' | 'infura' | 'quicknode' | 'provider-manager',
     context?: IntegrationContext
   ): Promise<any> {
     const metadata: ServiceMetadata = {
-      name: `${chain}-provider`,
+      name: `${provider}-client`,
       version: '1.0.0',
       type: 'blockchain',
-      provider: chain,
-      description: `${chain} blockchain provider`
+      provider,
+      description: `${provider} blockchain provider client`
     };
 
-    return this.createService(providerId, chain, metadata, context);
+    return this.createService(providerId, provider, metadata, context);
   }
 
   /**
@@ -287,10 +287,10 @@ export class IntegrationFactory {
     this.factories.set('data-normalizer', new DataNormalizerFactory());
 
     // Blockchain provider factories
-    this.factories.set('ethereum', new EthereumFactory());
-    this.factories.set('polygon', new PolygonFactory());
-    this.factories.set('bsc', new BSCFactory());
-    this.factories.set('avalanche', new AvalancheFactory());
+    this.factories.set('alchemy', new AlchemyFactory());
+    this.factories.set('infura', new InfuraFactory());
+    this.factories.set('quicknode', new QuickNodeFactory());
+    this.factories.set('provider-manager', new ProviderManagerFactory());
 
     // Social media factories
     this.factories.set('twitter', new TwitterFactory());
@@ -513,42 +513,57 @@ class DataNormalizerFactory implements ServiceFactory<DataNormalizer> {
   }
 }
 
-// Blockchain provider factories (simplified - would need actual implementations)
-class EthereumFactory implements ServiceFactory {
-  async create(config: ServiceConfig): Promise<any> {
-    return new EthereumProvider(config);
+// Blockchain provider factories
+class AlchemyFactory implements ServiceFactory {
+  async create(config: ServiceConfig): Promise<AlchemyClient> {
+    return new AlchemyClient({
+      apiKey: config.apiKey,
+      network: config.network || 'mainnet',
+      timeout: config.timeout,
+      retries: config.retries
+    });
   }
   validate(config: ServiceConfig): boolean { return Boolean(config.apiKey); }
+  getDefaultConfig(): Partial<ServiceConfig> {
+    return { enabled: true, timeout: 10000, retries: 3, network: 'mainnet' };
+  }
+}
+
+class InfuraFactory implements ServiceFactory {
+  async create(config: ServiceConfig): Promise<InfuraClient> {
+    return new InfuraClient({
+      projectId: config.projectId,
+      projectSecret: config.projectSecret,
+      network: config.network || 'mainnet',
+      timeout: config.timeout,
+      retries: config.retries
+    });
+  }
+  validate(config: ServiceConfig): boolean { return Boolean(config.projectId); }
+  getDefaultConfig(): Partial<ServiceConfig> {
+    return { enabled: true, timeout: 10000, retries: 3, network: 'mainnet' };
+  }
+}
+
+class QuickNodeFactory implements ServiceFactory {
+  async create(config: ServiceConfig): Promise<QuickNodeClient> {
+    return new QuickNodeClient({
+      endpointUrl: config.endpointUrl,
+      timeout: config.timeout,
+      retries: config.retries
+    });
+  }
+  validate(config: ServiceConfig): boolean { return Boolean(config.endpointUrl); }
   getDefaultConfig(): Partial<ServiceConfig> {
     return { enabled: true, timeout: 10000, retries: 3 };
   }
 }
 
-class PolygonFactory implements ServiceFactory {
-  async create(config: ServiceConfig): Promise<any> {
-    return new PolygonProvider(config);
+class ProviderManagerFactory implements ServiceFactory {
+  async create(config: ServiceConfig): Promise<ProviderManager> {
+    return new ProviderManager(config);
   }
-  validate(config: ServiceConfig): boolean { return Boolean(config.apiKey); }
-  getDefaultConfig(): Partial<ServiceConfig> {
-    return { enabled: true, timeout: 10000, retries: 3 };
-  }
-}
-
-class BSCFactory implements ServiceFactory {
-  async create(config: ServiceConfig): Promise<any> {
-    return new BinanceSmartChainProvider(config);
-  }
-  validate(config: ServiceConfig): boolean { return Boolean(config.apiKey); }
-  getDefaultConfig(): Partial<ServiceConfig> {
-    return { enabled: true, timeout: 10000, retries: 3 };
-  }
-}
-
-class AvalancheFactory implements ServiceFactory {
-  async create(config: ServiceConfig): Promise<any> {
-    return new AvalancheProvider(config);
-  }
-  validate(config: ServiceConfig): boolean { return Boolean(config.apiKey); }
+  validate(config: ServiceConfig): boolean { return Boolean(config); }
   getDefaultConfig(): Partial<ServiceConfig> {
     return { enabled: true, timeout: 10000, retries: 3 };
   }
