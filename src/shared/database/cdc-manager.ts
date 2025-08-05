@@ -7,12 +7,12 @@
 
 // TypeScript types only import { PoolClient } from 'pg';
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from '../utils/logger';
 import { DatabaseManager } from './manager';
 import { KafkaManager } from '../streaming/kafka-manager';
 import { CDCChange, CDCHandler } from './integration-manager';
 
-const logger = Logger.getLogger('database-cdc');
+const logger = getLogger('database-cdc');
 
 // =============================================================================
 // INTERFACES AND TYPES

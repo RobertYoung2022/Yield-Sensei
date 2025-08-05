@@ -8,9 +8,9 @@
 import { TestRunner, TestSuiteConfig } from './test-runner';
 import { PerformanceTestConfig } from './performance-tester';
 import { FailoverTestConfig } from './failover-tester';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 
-const logger = Logger.getLogger('testing-example');
+const logger = getLogger('testing-example');
 
 /**
  * Example: Run comprehensive database testing suite

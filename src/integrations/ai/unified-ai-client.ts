@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import { config } from '@/config/environment';
 import { OpenAIClient } from './openai-client';
 import { AnthropicClient } from './anthropic-client';
@@ -23,7 +23,7 @@ import {
   AIServiceError,
 } from './types';
 
-const logger = Logger.getLogger('unified-ai-client');
+const logger = getLogger('unified-ai-client');
 
 export class UnifiedAIClient extends EventEmitter {
   private config: UnifiedAIClientConfig;

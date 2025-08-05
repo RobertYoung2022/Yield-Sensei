@@ -5,7 +5,7 @@
 
 import { randomBytes, createCipher, createDecipher, pbkdf2Sync, timingSafeEqual } from 'crypto';
 import { EventEmitter } from 'events';
-import Logger from '../../shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import {
   SecureCredential,
   CredentialRotationJob,
@@ -14,7 +14,7 @@ import {
   SecurityEventHandler
 } from './types';
 
-const logger = Logger.getLogger('credential-manager');
+const logger = getLogger('credential-manager');
 
 export class CredentialManager extends EventEmitter {
   private credentials: Map<string, SecureCredential> = new Map();

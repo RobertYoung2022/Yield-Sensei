@@ -6,12 +6,12 @@
  */
 
 import { Message, MessageType, AgentId, ProtocolConfig, MessageError } from '@/types';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { MessageValidator } from './message-validator';
 
-const logger = Logger.getLogger('protocol');
+const logger = getLogger('protocol');
 
 /**
  * Protocol version and configuration

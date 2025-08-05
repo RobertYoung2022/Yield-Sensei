@@ -9,9 +9,9 @@ import { EventEmitter } from 'events';
 import { Kafka, Producer, Consumer, KafkaConfig, logLevel } from 'kafkajs';
 import { Message, MessageEnvelope, AgentId, MessageError } from '@/types';
 import { ProtocolManager } from '@/core/communication/protocol';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 
-const logger = Logger.getLogger('message-bus');
+const logger = getLogger('message-bus');
 
 /**
  * Message Bus configuration

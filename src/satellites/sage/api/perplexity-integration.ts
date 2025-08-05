@@ -9,9 +9,9 @@ import {
   ProtocolData, 
   RWAData
 } from '../types';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 
-const logger = Logger.getLogger('perplexity-integration');
+const logger = getLogger('perplexity-integration');
 
 /**
  * Perplexity API Configuration

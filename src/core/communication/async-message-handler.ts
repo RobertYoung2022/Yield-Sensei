@@ -11,9 +11,9 @@ import {
   SatelliteAgent 
 } from '@/types';
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../../shared/utils/logger";
 
-const logger = Logger.getLogger('async-message-handler');
+const logger = getLogger('async-message-handler');
 
 /**
  * Message handler function type
@@ -148,7 +148,7 @@ export class AsyncMessageProcessor extends EventEmitter {
         duration: Date.now() - startTime
       };
     } catch (error) {
-      logger.error('Message processing failed:', error);
+      logger.error('Message processing failed:', undefined, error as Error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -168,7 +168,7 @@ export class AsyncMessageProcessor extends EventEmitter {
     try {
       return await handler(message, agent);
     } catch (error) {
-      logger.error(`Handler error for message ${message.id}:`, error);
+      logger.error(`Handler error for message ${message.id}:`, undefined, error as Error);
       throw error;
     }
   }
@@ -242,23 +242,24 @@ export class AsyncMessageProcessor extends EventEmitter {
    * Handle incoming response
    */
   handleResponse(message: Message): void {
-    if (message.type !== 'response' || !message.payload.correlationId) {
+    if (message.type !== 'response' || !message.payload['correlationId']) {
       return;
     }
 
-    const pending = this.pendingResponses.get(message.payload.correlationId);
+    const correlationId = message.payload['correlationId'] as string;
+    const pending = this.pendingResponses.get(correlationId);
     if (!pending) {
       return;
     }
 
     clearTimeout(pending.timeout);
-    this.pendingResponses.delete(message.payload.correlationId);
+    this.pendingResponses.delete(correlationId);
 
-    if (message.payload.status === 'success') {
-      pending.resolve(message.payload.data);
+    if (message.payload['status'] === 'success') {
+      pending.resolve(message.payload['data']);
     } else {
       pending.reject(new MessageError(
-        message.payload.error || 'Response error',
+        (message.payload['error'] as string) || 'Response error',
         message.id,
         'RESPONSE_ERROR'
       ));

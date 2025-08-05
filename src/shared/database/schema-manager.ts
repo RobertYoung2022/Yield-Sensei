@@ -6,10 +6,10 @@
 import { PoolClient } from 'pg';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from '../utils/logger';
 import { DatabaseManager } from './manager';
 
-const logger = Logger.getLogger('schema-manager');
+const logger = getLogger('schema-manager');
 
 export interface MigrationRecord {
   id: number;

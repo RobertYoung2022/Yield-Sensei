@@ -3,7 +3,7 @@
  * Handles real-time research and web search capabilities
  */
 
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 import { 
   AIServiceClient, 
   AIServiceConfig, 
@@ -17,7 +17,7 @@ import {
   AI_MODELS
 } from './types';
 
-const logger = Logger.getLogger('perplexity-client');
+const logger = getLogger('perplexity-client');
 
 interface PerplexityAPIResponse {
   id: string;

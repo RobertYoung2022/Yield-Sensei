@@ -7,7 +7,7 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
-import { createGraphQLServer } from '../graphql/server';
+// GraphQL server removed for MVP simplification
 
 // Import middleware
 import { errorHandler } from './middleware/error-handler';
@@ -20,15 +20,12 @@ import { validateEnv } from './middleware/validate-env';
 import healthRoutes from './routes/health';
 import v1Routes from './routes/v1';
 
-// Import database manager
-import { DatabaseManager } from '../shared/database/manager';
-
-// Import Redis manager
-import { RedisManager } from '../shared/database/redis-manager';
+// Import simple database managers for MVP
+import { DatabaseManager, RedisManager } from '../shared/database/manager-simple';
 
 // Import logger
-import Logger from '../shared/logging/logger';
-const logger = Logger.getLogger('api-server');
+import { getLogger } from "../shared/utils/logger";
+const logger = getLogger('api-server');
 
 // Import environment configuration
 import { config } from '../config/environment';
@@ -81,8 +78,7 @@ app.use('/health', healthRoutes);
 // API version 1 routes
 app.use('/api/v1', v1Routes);
 
-// GraphQL server integration
-let graphQLServer: any = null;
+// GraphQL server removed for MVP simplification
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
@@ -96,7 +92,7 @@ async function startServer() {
       await dbManager.initialize();
       logger.info('✅ Database connections initialized successfully');
     } catch (error) {
-      logger.warn('⚠️  Database connections failed - API will run with limited functionality:', (error as Error).message);
+      logger.warn('⚠️  Database connections failed - API will run with limited functionality', { error: (error as Error).message });
     }
     
     // Initialize Redis
@@ -108,13 +104,7 @@ async function startServer() {
     const redisManager = RedisManager.getInstance(redisConfig);
     await redisManager.connect();
     
-    // Initialize GraphQL server
-    try {
-      graphQLServer = await createGraphQLServer(app);
-      logger.info('✅ GraphQL server initialized successfully');
-    } catch (error) {
-      logger.warn('⚠️  GraphQL server initialization failed - REST API will still work:', (error as Error).message);
-    }
+    // GraphQL server removed for MVP simplification
     
     // Start HTTP server
     const port = config.port || 4000;
@@ -122,16 +112,14 @@ async function startServer() {
       logger.info(`🚀 API server running on port ${port}`);
       logger.info(`📊 Health checks available at http://localhost:${port}/health`);
       logger.info(`🔗 REST API available at http://localhost:${port}/api/v1`);
-      logger.info(`🎯 GraphQL available at http://localhost:${port}/graphql`);
+      // GraphQL server removed for MVP simplification
     });
 
     // Graceful shutdown
     process.on('SIGTERM', async () => {
       logger.info('SIGTERM received, shutting down gracefully');
       
-      if (graphQLServer) {
-        await graphQLServer.stop();
-      }
+      // GraphQL server removed for MVP simplification
       
       server.close(async () => {
         await dbManager.close();
@@ -144,9 +132,7 @@ async function startServer() {
     process.on('SIGINT', async () => {
       logger.info('SIGINT received, shutting down gracefully');
       
-      if (graphQLServer) {
-        await graphQLServer.stop();
-      }
+      // GraphQL server removed for MVP simplification
       
       server.close(async () => {
         await dbManager.close();
@@ -157,7 +143,7 @@ async function startServer() {
     });
 
   } catch (error) {
-    logger.error('Failed to start server:', error);
+    logger.error('Failed to start server', undefined, error as Error);
     process.exit(1);
   }
 }

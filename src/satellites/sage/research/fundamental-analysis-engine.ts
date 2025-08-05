@@ -20,9 +20,9 @@ import {
   ModelPrediction,
   FeatureImportance
 } from '../types';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 
-const logger = Logger.getLogger('fundamental-analysis-engine');
+const logger = getLogger('fundamental-analysis-engine');
 
 /**
  * Fundamental Analysis Engine Configuration

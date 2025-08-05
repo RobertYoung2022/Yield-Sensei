@@ -8,10 +8,10 @@
  * - Vector DB (similarity search queries)
  */
 
-import Logger from '@/shared/logging/logger';
+import { getLogger } from '../utils/logger';
 import { DatabaseManager } from './manager';
 
-const logger = Logger.getLogger('unified-query');
+const logger = getLogger('unified-query');
 
 // =============================================================================
 // INTERFACES AND TYPES

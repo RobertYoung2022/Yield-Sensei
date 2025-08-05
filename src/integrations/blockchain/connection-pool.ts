@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from '../../shared/utils/logger';
 import { 
   BlockchainClient,
   ConnectionPoolConfig,
@@ -13,7 +13,7 @@ import {
   ProviderHealth
 } from './types';
 
-const logger = Logger.getLogger('blockchain-connection-pool');
+const logger = getLogger('blockchain-connection-pool');
 
 interface PooledConnection {
   client: BlockchainClient;

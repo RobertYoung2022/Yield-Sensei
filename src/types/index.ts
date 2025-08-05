@@ -8,6 +8,9 @@ export * from './common';
 // Re-export database schema types
 export * from './database-schemas';
 
+// Re-export unified satellite types
+export * from './satellites';
+
 // Agent Types
 export type AgentId = string;
 export type AgentType = 'sage' | 'forge' | 'pulse' | 'aegis' | 'echo' | 'fuel' | 'bridge' | 'oracle';

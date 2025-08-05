@@ -4,11 +4,11 @@
  */
 
 import { ClickHouseClient } from '@clickhouse/client';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from '../utils/logger';
 // Note: config import removed as it was unused
 import { EventEmitter } from 'events';
 
-const logger = Logger.getLogger('clickhouse-manager');
+const logger = getLogger('clickhouse-manager');
 
 export interface ClickHouseConfig {
   host: string;

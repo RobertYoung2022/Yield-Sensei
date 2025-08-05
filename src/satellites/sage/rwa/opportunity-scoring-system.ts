@@ -10,9 +10,9 @@ import {
   RWAType, 
   CollateralInfo
 } from '../types';
-import Logger from '@/shared/logging/logger';
+import { getLogger } from "../shared/utils/logger";
 
-const logger = Logger.getLogger('rwa-opportunity-scoring');
+const logger = getLogger('rwa-opportunity-scoring');
 
 /**
  * RWA Scoring Configuration
